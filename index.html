@@ -14,8 +14,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- HTML5 QR & Barcode Scanner Library -->
-  <script src="html5-qrcode.min.js"></script>
+  <!-- HTML5 QR & Barcode Scanner Library (CDN with local fallback) -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script>
+    if (typeof Html5Qrcode === 'undefined') {
+      document.write('<script src="html5-qrcode.min.js"><\/script>');
+    }
+  </script>
 
   <script>
     tailwind.config = {
@@ -404,7 +409,7 @@
             <div class="relative flex-1 flex items-center">
               <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-slate-400"></i>
               <input type="text" id="pos-search" oninput="renderPosProducts()" placeholder="ค้นหาสินค้าด้วย ชื่อ หรือ ยิงบาร์โค้ด..." class="w-full pl-10 pr-24 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
-              <button type="button" onclick="openBarcodeScanner('pos')" class="absolute right-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5" title="เปิดกล้องสแกนบาร์โค้ด">
+              <button type="button" onclick="openBarcodeScanner('pos')" class="absolute right-1.5 z-10 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5 cursor-pointer" title="เปิดกล้องสแกนบาร์โค้ด">
                 <i class="fa-solid fa-barcode text-sm"></i>
                 <span>สแกน</span>
               </button>
@@ -507,7 +512,7 @@
             <div class="relative min-w-[240px] flex-1 flex items-center">
               <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-slate-400"></i>
               <input type="text" id="inventory-search" oninput="renderInventoryTable()" placeholder="ค้นหารหัส SKU หรือ ชื่อสินค้า..." class="w-full pl-10 pr-24 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500">
-              <button type="button" onclick="openBarcodeScanner('inventory')" class="absolute right-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5" title="เปิดกล้องสแกนบาร์โค้ด">
+              <button type="button" onclick="openBarcodeScanner('inventory')" class="absolute right-1 z-10 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5 cursor-pointer" title="เปิดกล้องสแกนบาร์โค้ด">
                 <i class="fa-solid fa-barcode text-sm"></i>
                 <span>สแกน</span>
               </button>
@@ -1077,9 +1082,11 @@
         </button>
       </div>
     </div>
+  </div>
+
   <!-- MODAL 4: CAMERA BARCODE SCANNER -->
   <div id="modal-scanner" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-sm sm:max-w-md w-full border border-slate-100 overflow-hidden flex flex-col">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm sm:max-w-md w-full border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
       <!-- Header -->
       <div class="p-4 bg-slate-900 text-white flex items-center justify-between">
         <div class="flex items-center gap-2.5">
@@ -1097,13 +1104,13 @@
       </div>
 
       <!-- Scanner Viewport with Viewfinder Overlay -->
-      <div class="relative bg-black flex items-center justify-center min-h-[260px] sm:min-h-[300px] overflow-hidden">
+      <div class="relative bg-black flex items-center justify-center min-h-[230px] sm:min-h-[270px] overflow-hidden">
         <!-- Html5Qrcode video container -->
         <div id="scanner-reader" class="w-full"></div>
 
         <!-- Aim Guide Overlay -->
         <div id="scanner-guide" class="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div class="w-56 h-40 sm:w-64 sm:h-48 border-2 border-indigo-400/90 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+          <div class="w-56 h-36 sm:w-64 sm:h-44 border-2 border-indigo-400/90 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
             <!-- Laser scan animation bar -->
             <div class="scanner-laser absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_10px_#f43f5e]"></div>
             <!-- Corner brackets -->
@@ -1116,18 +1123,51 @@
       </div>
 
       <!-- Controls & Status -->
-      <div class="p-3.5 bg-slate-50 border-t border-slate-100 space-y-2.5">
+      <div class="p-3.5 bg-slate-50 border-t border-slate-100 space-y-2.5 overflow-y-auto">
         <div id="scanner-last-result" class="text-center text-xs text-slate-600 font-mono py-1.5 px-3 bg-white rounded-xl border border-slate-200 min-h-[32px] flex items-center justify-center">
           กำลังเปิดกล้อง...
         </div>
 
-        <div class="flex items-center justify-between text-xs pt-1">
-          <span class="text-[11px] text-slate-500">รองรับ Barcode และ QR</span>
+        <!-- Quick Manual Barcode / Scanner Gun Input -->
+        <div class="flex gap-1.5">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-keyboard absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            <input type="text" id="manual-scan-input" onkeydown="if(event.key==='Enter') submitManualScan();" placeholder="หรือพิมพ์/ยิงบาร์โค้ด เช่น 1234..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+          <button type="button" onclick="submitManualScan()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs">
+            ค้นหา
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between text-xs pt-0.5">
+          <!-- File scan button -->
+          <input type="file" id="scanner-file-input" accept="image/*" class="hidden" onchange="scanBarcodeFile(this)">
+          <button type="button" onclick="document.getElementById('scanner-file-input').click()" class="px-2.5 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition flex items-center gap-1.5 text-[11px] font-medium shadow-xs">
+            <i class="fa-regular fa-image text-indigo-600"></i> สแกนจากรูปภาพ
+          </button>
 
           <!-- Switch Camera (Front/Back) -->
-          <button type="button" onclick="switchScannerCamera()" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition flex items-center gap-1.5 font-medium shadow-sm">
+          <button type="button" onclick="switchScannerCamera()" class="px-2.5 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition flex items-center gap-1.5 text-[11px] font-medium shadow-xs">
             <i class="fa-solid fa-camera-rotate text-indigo-600"></i> สลับกล้อง
           </button>
+        </div>
+
+        <!-- Quick Test Buttons -->
+        <div class="pt-1 border-t border-slate-200/60">
+          <p class="text-[10px] text-slate-400 mb-1.5 flex items-center gap-1">
+            <i class="fa-solid fa-bolt text-amber-500"></i> ปุ่มลัดทดสอบการสแกนทันที:
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" onclick="testBarcodeScan('1234')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold transition">
+              ⚡ 1234 (กล่องถุงยาง)
+            </button>
+            <button type="button" onclick="testBarcodeScan('8850001')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-semibold transition">
+              ⚡ 8850001 (อเมริกาโน่)
+            </button>
+            <button type="button" onclick="testBarcodeScan('8850002')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-semibold transition">
+              ⚡ 8850002 (มัทฉะ)
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1358,33 +1398,61 @@
       startCameraScanner();
     }
 
-    function startCameraScanner() {
-      if (typeof Html5Qrcode === 'undefined') {
-        document.getElementById('scanner-last-result').innerText = 'ไม่สามารถโหลดระบบกล้องได้ กรุณาเชื่อมต่ออินเทอร์เน็ต';
+    function stopAndClearScanner() {
+      return new Promise((resolve) => {
+        if (html5QrCode) {
+          try {
+            if (html5QrCode.isScanning) {
+              html5QrCode.stop().then(() => {
+                try { html5QrCode.clear(); } catch(e){}
+                html5QrCode = null;
+                resolve();
+              }).catch(() => {
+                html5QrCode = null;
+                resolve();
+              });
+              return;
+            } else {
+              try { html5QrCode.clear(); } catch(e){}
+              html5QrCode = null;
+            }
+          } catch(e) {
+            html5QrCode = null;
+          }
+        }
+        resolve();
+      });
+    }
+
+    async function startCameraScanner() {
+      const QrLib = window.Html5Qrcode || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5Qrcode);
+      if (!QrLib) {
+        document.getElementById('scanner-last-result').innerHTML = '<span class="text-rose-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ไม่สามารถโหลดโมดูลกล้องได้ (สามารถพิมพ์รหัส หรือใช้ปุ่มทดสอบด้านล่างได้)</span>';
         return;
       }
 
-      if (html5QrCode) {
-        try { html5QrCode.stop().catch(()=>{}); } catch(e) {}
-      }
+      await stopAndClearScanner();
 
-      html5QrCode = new Html5Qrcode("scanner-reader");
+      const readerEl = document.getElementById("scanner-reader");
+      if (readerEl) readerEl.innerHTML = '';
+
+      html5QrCode = new QrLib("scanner-reader");
 
       const config = {
         fps: 15,
         qrbox: (viewfinderWidth, viewfinderHeight) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const edgeSize = Math.floor(minEdge * 0.7);
+          const edgeSize = Math.floor(minEdge * 0.75);
           return { width: Math.max(edgeSize, 220), height: Math.max(Math.floor(edgeSize * 0.65), 140) };
         },
         aspectRatio: 1.333333
       };
 
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
+      try {
+        const devices = await QrLib.getCameras();
+        if (devices && devices.length > 0) {
           scannerCameras = devices;
           let selectedCameraId = devices[0].id;
-          // Prefer back/environment camera on phones
           for (let i = 0; i < devices.length; i++) {
             const label = (devices[i].label || '').toLowerCase();
             if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
@@ -1393,26 +1461,23 @@
               break;
             }
           }
-
-          html5QrCode.start(
+          await html5QrCode.start(
             selectedCameraId,
             config,
             (decodedText) => onBarcodeScanned(decodedText),
             () => {}
-          ).then(() => {
-            document.getElementById('scanner-last-result').innerHTML = '<span class="text-indigo-600 font-semibold"><i class="fa-solid fa-expand mr-1 text-xs"></i> พร้อมสแกน... นำบาร์โค้ดมาจ่อหน้ากล้อง</span>';
-          }).catch(() => {
-            startScannerWithFacingMode(config);
-          });
+          );
+          document.getElementById('scanner-last-result').innerHTML = '<span class="text-indigo-600 font-semibold"><i class="fa-solid fa-expand mr-1 text-xs"></i> พร้อมสแกน... นำบาร์โค้ดมาจ่อหน้ากล้อง</span>';
         } else {
           startScannerWithFacingMode(config);
         }
-      }).catch(() => {
+      } catch (e) {
         startScannerWithFacingMode(config);
-      });
+      }
     }
 
     function startScannerWithFacingMode(config) {
+      if (!html5QrCode) return;
       html5QrCode.start(
         { facingMode: "environment" },
         config,
@@ -1420,9 +1485,56 @@
         () => {}
       ).then(() => {
         document.getElementById('scanner-last-result').innerHTML = '<span class="text-indigo-600 font-semibold"><i class="fa-solid fa-expand mr-1 text-xs"></i> พร้อมสแกน... นำบาร์โค้ดมาจ่อหน้ากล้อง</span>';
-      }).catch(err => {
-        document.getElementById('scanner-last-result').innerHTML = '<span class="text-rose-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i> กรุณาอนุญาตให้สิทธิ์การใช้งานกล้อง</span>';
+      }).catch(() => {
+        // Fallback to front webcam / user facing mode on PC / Laptop
+        html5QrCode.start(
+          { facingMode: "user" },
+          config,
+          (decodedText) => onBarcodeScanned(decodedText),
+          () => {}
+        ).then(() => {
+          document.getElementById('scanner-last-result').innerHTML = '<span class="text-indigo-600 font-semibold"><i class="fa-solid fa-expand mr-1 text-xs"></i> พร้อมสแกน (กล้องหน้า)... นำบาร์โค้ดมาจ่อ</span>';
+        }).catch(err => {
+          document.getElementById('scanner-last-result').innerHTML = '<span class="text-amber-700 font-medium text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ไม่สามารถเปิดกล้องได้ (ไม่มีกล้อง หรือยังไม่ได้กดอนุญาตสิทธิ์) สามารถพิมพ์รหัส หรือกดปุ่มทดสอบด้านล่างได้ทันที</span>';
+        });
       });
+    }
+
+    function testBarcodeScan(code) {
+      onBarcodeScanned(code);
+    }
+
+    function submitManualScan() {
+      const input = document.getElementById('manual-scan-input');
+      if (!input) return;
+      const val = (input.value || '').trim();
+      if (!val) {
+        showToast('กรุณากรอกรหัสบาร์โค้ด', 'warning');
+        return;
+      }
+      onBarcodeScanned(val);
+      input.value = '';
+    }
+
+    function scanBarcodeFile(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      const QrLib = window.Html5Qrcode || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5Qrcode);
+      if (!QrLib) {
+        showToast('ไม่พบไลบรารีสแกนเนอร์', 'error');
+        return;
+      }
+
+      const tempScanner = html5QrCode || new QrLib("scanner-reader");
+      document.getElementById('scanner-last-result').innerHTML = '<span class="text-indigo-600 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านบาร์โค้ดจากรูปภาพ...</span>';
+
+      tempScanner.scanFile(file, true)
+        .then(decodedText => {
+          onBarcodeScanned(decodedText);
+        })
+        .catch(err => {
+          document.getElementById('scanner-last-result').innerHTML = '<span class="text-rose-600 font-medium text-xs"><i class="fa-solid fa-circle-xmark mr-1"></i> ไม่พบบาร์โค้ดในภาพ กรุณาลองใหม่อีกครั้ง</span>';
+        });
     }
 
     function onBarcodeScanned(code) {
@@ -1485,14 +1597,9 @@
     }
 
     function closeBarcodeScanner() {
-      if (html5QrCode) {
-        try {
-          html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-          }).catch(() => {});
-        } catch(e) {}
-      }
-      document.getElementById('modal-scanner').classList.add('hidden');
+      stopAndClearScanner();
+      const modal = document.getElementById('modal-scanner');
+      if (modal) modal.classList.add('hidden');
     }
 
     function switchScannerCamera() {
@@ -1500,7 +1607,7 @@
         currentCameraIndex = (currentCameraIndex + 1) % scannerCameras.length;
         startCameraScanner();
       } else {
-        showToast('มีกล้องบนอุปกรณ์เพียงตัวเดียว', 'info');
+        showToast('มีกล้องที่ใช้งานได้เพียงตัวเดียว หรือกำลังใช้โหมดเริ่มต้น', 'info');
       }
     }
 
