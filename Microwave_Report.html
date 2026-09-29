@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายงานสรุปวิเคราะห์ข้อมูล Microwave Link (7.5 GHz) - Wat Bang Udom ➔ ที่ว่าการอำเภอหัวไทร</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sarabun:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="html2pdf.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --navy: #0f172a;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-main: 'Sarabun', 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      padding-bottom: 3rem;
+    }
+
+    /* Top Control Bar (Screen only) */
+    .top-bar {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      padding: 0.75rem 1.5rem;
+    }
+    .top-bar-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-pdf { background: #ef4444; color: white; border-color: #dc2626; }
+    .btn-pdf:hover { background: #dc2626; }
+    .btn-outline { background: white; color: var(--text); border-color: var(--border); }
+    .btn-outline:hover { background: var(--bg); border-color: #cbd5e1; }
+
+    /* Report Container */
+    .report-sheet {
+      max-width: 1050px;
+      margin: 1.5rem auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+      padding: 2.5rem;
+    }
+
+    /* Header */
+    .header-box {
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 0.85rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: nowrap;
+    }
+    .header-title {
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.35;
+      white-space: nowrap;
+      letter-spacing: -0.2px;
+    }
+    .header-subtitle {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .header-badge {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border: 1px solid #bae6fd;
+    }
+
+    /* KPI Highlights Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-bottom: 1.25rem;
+    }
+    .kpi-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 4px;
+      text-align: center;
+      min-width: 0;
+    }
+    .kpi-val {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--navy);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+    .kpi-lbl {
+      font-size: 0.67rem;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Section Titles */
+    .section-title {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 1.2rem 0 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 16px;
+      background: var(--primary);
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      padding: 6px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    tbody {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background-color: #fafbfc; }
+    .mono { font-family: var(--font-mono); }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .text-bold { font-weight: 700; }
+    .text-success { color: var(--success); font-weight: 700; }
+
+    /* Profile Diagram Box */
+    .profile-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      background: white;
+      text-align: center;
+      margin-bottom: 1rem;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .profile-box img {
+      max-width: 100%;
+      max-height: 175px;
+      height: auto;
+      border-radius: 4px;
+      display: block;
+      margin: 0 auto;
+    }
+    .profile-caption {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    /* Clean Page Break */
+    .pdf-page-break {
+      page-break-before: always;
+      break-before: page;
+      height: 1px;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* PDF Rendering Optimization */
+    .pdf-rendering {
+      max-width: 780px !important;
+      margin: 0 auto !important;
+      padding: 10px !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .pdf-rendering .header-box {
+      margin-bottom: 0.65rem !important;
+      padding-bottom: 0.45rem !important;
+      flex-wrap: nowrap !important;
+    }
+    .pdf-rendering .header-title {
+      font-size: 1.05rem !important;
+      white-space: nowrap !important;
+      letter-spacing: -0.2px !important;
+    }
+    .pdf-rendering .kpi-grid {
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 6px !important;
+      margin-bottom: 0.75rem !important;
+    }
+    .pdf-rendering .kpi-card {
+      padding: 4px 2px !important;
+    }
+    .pdf-rendering .kpi-val {
+      font-size: 0.92rem !important;
+    }
+    .pdf-rendering .kpi-lbl {
+      font-size: 0.58rem !important;
+      white-space: nowrap !important;
+      letter-spacing: -0.2px !important;
+    }
+    .pdf-rendering .section-title {
+      font-size: 0.88rem !important;
+      margin: 0.75rem 0 0.35rem !important;
+    }
+    .pdf-rendering td, .pdf-rendering th {
+      padding: 3px 6px !important;
+      font-size: 0.74rem !important;
+    }
+    .pdf-rendering .profile-box {
+      padding: 6px !important;
+      margin-bottom: 0.5rem !important;
+    }
+    .pdf-rendering .profile-box img {
+      max-height: 130px !important;
+    }
+    .pdf-rendering .table-container {
+      margin-bottom: 0.5rem !important;
+    }
+    .pdf-rendering .conclusion-box {
+      margin-top: 1rem !important;
+      padding: 10px 14px !important;
+    }
+    .pdf-rendering #rf-model-select {
+      border: none !important;
+      background: transparent !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      padding: 0 !important;
+      font-size: inherit !important;
+      font-weight: 700 !important;
+      color: inherit !important;
+      text-align: right !important;
+      box-shadow: none !important;
+    }
+
+    /* Print & Paper Setup */
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+    @media print {
+      body { background: white !important; padding: 0 !important; margin: 0 !important; }
+      .top-bar { display: none !important; }
+      .report-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+      .header-box { margin-bottom: 0.65rem !important; padding-bottom: 0.45rem !important; flex-wrap: nowrap !important; }
+      .header-title { font-size: 0.96rem !important; white-space: nowrap !important; letter-spacing: -0.2px !important; }
+      .kpi-grid { display: grid !important; grid-template-columns: repeat(6, 1fr) !important; gap: 6px !important; margin-bottom: 0.75rem !important; }
+      .kpi-card { border: 1px solid #cbd5e1 !important; padding: 4px 2px !important; }
+      .kpi-val { font-size: 0.92rem !important; }
+      .kpi-lbl { font-size: 0.58rem !important; white-space: nowrap !important; letter-spacing: -0.2px !important; }
+      .section-title { font-size: 0.88rem !important; margin: 0.75rem 0 0.35rem !important; page-break-after: avoid !important; break-after: avoid !important; }
+      .table-container { page-break-inside: avoid !important; break-inside: avoid !important; margin-bottom: 0.5rem !important; }
+      table { page-break-inside: avoid !important; break-inside: avoid !important; font-size: 0.74rem !important; }
+      tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+      tbody { page-break-inside: avoid !important; break-inside: avoid !important; }
+      td, th { padding: 3px 6px !important; }
+      #rf-model-select {
+        border: none !important;
+        background: transparent !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        padding: 0 !important;
+        font-size: inherit !important;
+        font-weight: 700 !important;
+        color: inherit !important;
+        text-align: right !important;
+        box-shadow: none !important;
+      }
+      .profile-box { page-break-inside: avoid !important; break-inside: avoid !important; margin-bottom: 0.5rem !important; padding: 6px !important; }
+      .profile-box img { max-height: 130px !important; }
+      .conclusion-box { page-break-inside: avoid !important; break-inside: avoid !important; margin-top: 1rem !important; padding: 10px 14px !important; }
+      .pdf-page-break { page-break-before: always !important; break-before: page !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Action Bar -->
+  <div class="top-bar">
+    <div class="top-bar-inner">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.3rem;">📄</span>
+        <div>
+          <b style="font-size: 0.92rem; color: var(--navy);">เอกสารสรุปวิเคราะห์ข้อมูล Microwave Link (Microwave Summary Report)</b>
+          <div style="font-size: 0.75rem; color: var(--muted);" id="top-bar-status">โหมดแสดงผล: คำนวณตามข้อมูลที่กรอกแบบเรียลไทม์ (Real-time Engineering Calculation)</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <!-- Microwave Frequency (GHz) in Report Bar -->
+        <div style="display: inline-flex; align-items: center; gap: 5px; margin-right: 4px;">
+          <label for="report-freq-input" style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap;">📡 ความถี่:</label>
+          <div style="position: relative; display: inline-flex; align-items: center; width: 85px;">
+            <input type="number" id="report-freq-input" step="0.1" min="0.1" max="100" value="7.5"
+                   oninput="onReportFreqChange(this.value)"
+                   style="width: 100%; font-size: 0.8rem; font-weight: 700; padding: 4px 28px 4px 6px; border: 1.5px solid #cbd5e1; border-radius: 6px; outline: none; background: #ffffff;" />
+            <span style="position: absolute; right: 6px; font-size: 0.72rem; font-weight: 700; color: #64748b; pointer-events: none;">GHz</span>
+          </div>
+        </div>
+        <!-- Microwave Dish Size Selector in Report Bar -->
+        <div style="display: inline-flex; align-items: center; gap: 5px; margin-right: 4px;">
+          <label for="report-dish-select" style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap;">🎯 ขนาดหน้าจาน:</label>
+          <select id="report-dish-select" onchange="onReportDishChange()" style="background: #ffffff; color: #0f172a; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; outline: none;">
+            <option value="auto">คำนวณอัตโนมัติ (Auto)</option>
+            <option value="0.3">0.3 m (1 ft) - 25.5 dBi</option>
+            <option value="0.6">0.6 m (2 ft) - 31.2 dBi</option>
+            <option value="0.9">0.9 m (3 ft) - 34.9 dBi</option>
+            <option value="1.2">1.2 m (4 ft) - 37.4 dBi</option>
+            <option value="1.8">1.8 m (6 ft) - 40.9 dBi</option>
+            <option value="2.4">2.4 m (8 ft) - 43.4 dBi</option>
+            <option value="3.0">3.0 m (10 ft) - 45.4 dBi</option>
+          </select>
+        </div>
+        <!-- Radio Model Selector in Report Bar -->
+        <div style="display: inline-flex; align-items: center; gap: 5px; margin-right: 4px;">
+          <label for="report-radio-model-select" style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap;">📻 รุ่นวิทยุ:</label>
+          <select id="report-radio-model-select" onchange="onReportRadioModelChange(this.value)" style="background: #ffffff; color: #0f172a; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; outline: none;">
+            <option value="7G_XMC3E_32Q_28M_112M" selected>7G_XMC3E (28 MHz)</option>
+            <option value="7G_XMC3E_64Q_40M_160M">7G_XMC3E (40 MHz)</option>
+            <option value="7G_XMC3E_128Q_56M_224M">7G_XMC3E (56 MHz)</option>
+            <option value="NEC_iPASO_VR4_28M">NEC VR4 (28 MHz)</option>
+            <option value="NEC_iPASO_VR4_56M">NEC VR4 (56 MHz)</option>
+            <option value="ML6600_RAU4_28M">MINI-LINK (28 MHz)</option>
+            <option value="ML6600_RAU4_56M">MINI-LINK (56 MHz)</option>
+          </select>
+        </div>
+        <button onclick="window.print()" class="btn btn-outline" title="พิมพ์รายงานหรือบันทึกเป็น PDF ผ่านเบราว์เซอร์">
+          🖨️ สั่งพิมพ์ (Print)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Content -->
+  <div class="report-sheet" id="report-sheet-content">
+    <!-- Header -->
+    <div class="header-box">
+      <div style="flex: 1; min-width: 0;">
+        <div class="header-title">รายงานการวิเคราะห์และออกแบบข่ายวิทยุไมโครเวฟ (Microwave Link Budget Report)</div>
+        <div class="header-subtitle" id="site-route-header">
+          เส้นทางเชื่อมโยง: <b id="hdr-site-a">Wat Bang Udom (New)</b> ➔ <b id="hdr-site-b">ที่ว่าการอำเภอหัวไทร (Hua Sai District Office)</b>
+        </div>
+      </div>
+      <div style="text-align: right; flex-shrink: 0;">
+        <span class="header-badge" id="hdr-freq-badge">7.5 GHz Microwave</span>
+        <div style="font-size: 0.75rem; color: var(--muted); margin-top: 6px;" id="hdr-date">
+          วันที่ออกรายงาน: 21 กันยายน 2569
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-lbl">ระยะทาง (Distance)</div>
+        <div class="kpi-val" style="color: #0284c7;" id="kpi-dist">18.416 <small style="font-size:0.8rem;">km</small></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">ความถี่ใช้งาน (Frequency)</div>
+        <div class="kpi-val" style="color: #4f46e5;" id="kpi-freq">7.5 <small style="font-size:0.8rem;">GHz</small></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Free Space Loss (FSL)</div>
+        <div class="kpi-val" style="color: #d97706;" id="kpi-fsl">135.33 <small style="font-size:0.8rem;">dB</small></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">ระดับสัญญาณรับ (RSL)</div>
+        <div class="kpi-val" style="color: #059669;" id="kpi-rsl">-36.21 <small style="font-size:0.8rem;">dBm</small></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Fade Margin (Thermal)</div>
+        <div class="kpi-val" style="color: #2563eb;" id="kpi-fade-margin">42.78 <small style="font-size:0.8rem;">dB</small></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">ความพร้อมใช้งาน (Availability)</div>
+        <div class="kpi-val" style="color: #16a34a;" id="kpi-availability">99.999%</div>
+      </div>
+    </div>
+
+    <!-- Profile Diagram -->
+    <div class="section-title">ภาพตัดขวางแนวคลื่นและพื้นที่ Fresnel Zone ลำดับที่ 1 (1st Fresnel Zone Path Profile)</div>
+    <div class="profile-box">
+      <img id="profile-img" alt="ภาพจำลองโพรไฟล์แนวสายตาและลำคลื่น Fresnel Zone" style="max-height: 180px; width: 100%; object-fit: contain; display: block; margin: 0 auto; min-height: 120px; background: #ffffff;" />
+      <div class="profile-caption" id="profile-caption">
+        รูปที่ 1: ภาพจำลองโพรไฟล์แนวสายตา (Line-of-Sight), รัศมี 1st Fresnel Zone ลำดับที่ 1, ความสูงสายอากาศ และความโค้งของโลก K=4/3
+      </div>
+    </div>
+
+    <!-- Site Information Table -->
+    <div class="section-title">1. ข้อมูลพิกัดสถานีและความสูงเสาสื่อสาร (Site & Antenna Parameters)</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 35%;">พารามิเตอร์ (Parameter)</th>
+            <th style="width: 32.5%;" id="th-site-a">สถานีต้นทาง A: Wat Bang Udom (New)</th>
+            <th style="width: 32.5%;" id="th-site-b">สถานีปลายทาง B: ที่ว่าการอำเภอหัวไทร</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>ชื่อสถานี (Site Name)</b></td>
+            <td class="text-bold" id="site-name-a">Wat Bang Udom (New)</td>
+            <td class="text-bold" id="site-name-b">ที่ว่าการอำเภอหัวไทร (Hua Sai)</td>
+          </tr>
+          <tr>
+            <td><b>ละติจูด (Latitude - φ)</b></td>
+            <td class="mono" id="site-lat-a">8.205790° N</td>
+            <td class="mono" id="site-lat-b">8.040590° N</td>
+          </tr>
+          <tr>
+            <td><b>ลองจิจูด (Longitude - λ)</b></td>
+            <td class="mono" id="site-lon-a">100.253740° E</td>
+            <td class="mono" id="site-lon-b">100.274670° E</td>
+          </tr>
+          <tr>
+            <td><b>ระดับความสูงพื้นดินจากน้ำทะเล (Ground Elevation)</b></td>
+            <td class="mono" id="site-elev-a">4.00 m</td>
+            <td class="mono" id="site-elev-b">2.19 m</td>
+          </tr>
+          <tr>
+            <td><b>ความสูงเสาสื่อสาร (Tower Height)</b></td>
+            <td class="mono text-bold" style="color:#d97706;" id="site-tower-a">50.00 m</td>
+            <td class="mono text-bold" style="color:#d97706;" id="site-tower-b">50.00 m</td>
+          </tr>
+          <tr>
+            <td><b>ความสูงสายอากาศ (Antenna Centerline Height)</b></td>
+            <td class="mono text-bold" style="color:#0284c7;" id="site-ant-a">50.00 m</td>
+            <td class="mono text-bold" style="color:#0284c7;" id="site-ant-b">50.00 m</td>
+          </tr>
+          <tr>
+            <td><b>รุ่นสายอากาศ (Antenna Model & Size)</b></td>
+            <td id="site-antmodel-a">A7WD09MAC-3NX (เส้นผ่านศูนย์กลาง 0.9 m)</td>
+            <td id="site-antmodel-b">A7WD09MAC-3NX (เส้นผ่านศูนย์กลาง 0.9 m)</td>
+          </tr>
+          <tr>
+            <td><b>อัตราขยายสายอากาศ (Antenna Gain)</b></td>
+            <td class="mono" id="site-antgain-a">34.90 dBi</td>
+            <td class="mono" id="site-antgain-b">34.90 dBi</td>
+          </tr>
+          <tr>
+            <td><b>มุมแอซิมัทหันทิศสายอากาศ (Antenna Azimuth)</b></td>
+            <td class="mono text-bold" style="color:#1d4ed8;" id="site-az-a">172.85° (ทิศใต้ SSE)</td>
+            <td class="mono text-bold" style="color:#1d4ed8;" id="site-az-b">352.85° (ทิศเหนือ NNW)</td>
+          </tr>
+          <tr>
+            <td><b>มุมก้มเงยสายอากาศ (Vertical Tilt Angle)</b></td>
+            <td class="mono" id="site-tilt-a">-0.01°</td>
+            <td class="mono" id="site-tilt-b">+0.01°</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Clean Page Break between Page 1 and Page 2 -->
+    <div class="pdf-page-break" style="page-break-before: always; break-before: page; height: 1px; margin: 0; padding: 0;"></div>
+
+    <!-- RF Link Parameters Table -->
+    <div class="section-title">2. ข้อมูลพารามิเตอร์คลื่นและการสูญเสียในเส้นทาง (RF Propagation & Path Loss)</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>พารามิเตอร์ทางวิศวกรรม (Engineering Parameter)</th>
+            <th class="text-right">ค่าที่คำนวณได้</th>
+            <th>หน่วย</th>
+            <th>คำอธิบายประกอบ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ระยะทางผิวโลก (Path Length / Distance)</td>
+            <td class="mono text-right text-bold" id="rf-dist">18.416</td>
+            <td>km</td>
+            <td>คำนวณตามเส้นทาง Geodesic Great-Circle</td>
+          </tr>
+          <tr>
+            <td>ความถี่พาหะคลื่นวิทยุ (Carrier Frequency)</td>
+            <td class="mono text-right text-bold" id="rf-freq">7.5 GHz (7,500 MHz)</td>
+            <td>GHz</td>
+            <td id="rf-freq-note">ย่าน Microwave 7.5 GHz Band</td>
+          </tr>
+          <tr>
+            <td>โพลาไรเซชัน (Polarization)</td>
+            <td class="mono text-right" id="rf-polarization">Dual-Polarized (H+V)</td>
+            <td>-</td>
+            <td>รองรับการส่งคลื่นทั้งแนวนอนและแนวตั้ง</td>
+          </tr>
+          <tr>
+            <td>Free Space Loss (L<sub>fs</sub>)</td>
+            <td class="mono text-right text-bold" id="rf-fsl">135.33</td>
+            <td>dB</td>
+            <td>L<sub>fs</sub> = 92.45 + 20 log<sub>10</sub>(f) + 20 log<sub>10</sub>(d)</td>
+          </tr>
+          <tr>
+            <td>การสูญเสียในชั้นบรรยากาศ (Atmospheric Absorption)</td>
+            <td class="mono text-right" id="rf-atm">0.19</td>
+            <td>dB</td>
+            <td>การดูดกลืนของไอน้ำและก๊าซออกซิเจน (0.0103 dB/km)</td>
+          </tr>
+          <tr>
+            <td>การลดทอนสัญญาณจากฝนตกหนัก (Rain Attenuation)</td>
+            <td class="mono text-right text-bold" style="color:#dc2626;" id="rf-rain">12.03</td>
+            <td>dB</td>
+            <td>อ้างอิง Rain Region N (อัตราฝน 95 mm/hr ณ 0.01%)</td>
+          </tr>
+          <tr>
+            <td>Diffraction Loss & Field Margin</td>
+            <td class="mono text-right" id="rf-diffraction">1.00</td>
+            <td>dB</td>
+            <td id="rf-diffraction-desc">แนวสายตาปลอดสิ่งกีดขวางสมบูรณ์</td>
+          </tr>
+          <tr>
+            <td>ระบบสำรองและเทคโนโลยี (Configuration)</td>
+            <td class="mono text-right" id="rf-config">Protection 2+0 / XPIC</td>
+            <td>-</td>
+            <td>Cross-Polarization Interference Cancellation</td>
+          </tr>
+          <tr>
+            <td>รุ่นอุปกรณ์วิทยุ (Radio Model)</td>
+            <td class="mono text-right" style="padding: 2px 6px;">
+              <select id="rf-model-select" onchange="onReportRadioModelChange(this.value)" style="font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: #0f172a; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; cursor: pointer; text-align: right; outline: none; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                <option value="7G_XMC3E_32Q_28M_112M" selected>7G_XMC3E_32Q_28M_112M</option>
+                <option value="7G_XMC3E_64Q_40M_160M">7G_XMC3E_64Q_40M_160M</option>
+                <option value="7G_XMC3E_128Q_56M_224M">7G_XMC3E_128Q_56M_224M</option>
+                <option value="NEC_iPASO_VR4_28M">NEC_iPASOLINK_VR4_28M</option>
+                <option value="NEC_iPASO_VR4_56M">NEC_iPASOLINK_VR4_56M</option>
+                <option value="ML6600_RAU4_28M">ML6600_RAU4_28M_112M</option>
+                <option value="ML6600_RAU4_56M">ML6600_RAU4_56M_224M</option>
+              </select>
+            </td>
+            <td>-</td>
+            <td id="rf-bw-desc">Channel Bandwidth 28 MHz</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modulation & Capacity Performance Table -->
+    <div class="section-title">3. สมรรถนะแยกตามโหมดการมอดูเลตและแบนด์วิดท์ (Adaptive Modulation Performance)</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Modulation Mode</th>
+            <th class="text-right">Throughput</th>
+            <th class="text-right">TX Power</th>
+            <th class="text-right">EIRP</th>
+            <th class="text-right">RX Signal (RSL)</th>
+            <th class="text-right">RX Threshold</th>
+            <th class="text-right">Fade Margin</th>
+            <th class="text-right">Annual Availability</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-bold">512QAM</td>
+            <td class="mono text-right" id="mod-tp-512">424.0 Mbps</td>
+            <td class="mono text-right" id="mod-tx-512">28.5 dBm</td>
+            <td class="mono text-right" id="mod-eirp-512">63.4 dBm</td>
+            <td class="mono text-right" id="mod-rsl-512">-38.21 dBm</td>
+            <td class="mono text-right" id="mod-th-512">-60.3 dBm</td>
+            <td class="mono text-right text-bold" id="mod-fm-512">22.08 dB</td>
+            <td class="mono text-right text-success" id="mod-avail-512">99.989502%</td>
+          </tr>
+          <tr>
+            <td class="text-bold">256QAM</td>
+            <td class="mono text-right" id="mod-tp-256">380.0 Mbps</td>
+            <td class="mono text-right" id="mod-tx-256">28.5 dBm</td>
+            <td class="mono text-right" id="mod-eirp-256">63.4 dBm</td>
+            <td class="mono text-right" id="mod-rsl-256">-38.21 dBm</td>
+            <td class="mono text-right" id="mod-th-256">-63.6 dBm</td>
+            <td class="mono text-right text-bold" id="mod-fm-256">25.38 dB</td>
+            <td class="mono text-right text-success" id="mod-avail-256">99.993921%</td>
+          </tr>
+          <tr>
+            <td class="text-bold">128QAM</td>
+            <td class="mono text-right" id="mod-tp-128">334.0 Mbps</td>
+            <td class="mono text-right" id="mod-tx-128">30.5 dBm</td>
+            <td class="mono text-right" id="mod-eirp-128">65.4 dBm</td>
+            <td class="mono text-right" id="mod-rsl-128">-36.21 dBm</td>
+            <td class="mono text-right" id="mod-th-128">-66.6 dBm</td>
+            <td class="mono text-right text-bold" id="mod-fm-128">30.38 dB</td>
+            <td class="mono text-right text-success" id="mod-avail-128">99.996807%</td>
+          </tr>
+          <tr>
+            <td class="text-bold">64QAM</td>
+            <td class="mono text-right" id="mod-tp-64">282.0 Mbps</td>
+            <td class="mono text-right" id="mod-tx-64">30.5 dBm</td>
+            <td class="mono text-right" id="mod-eirp-64">65.4 dBm</td>
+            <td class="mono text-right" id="mod-rsl-64">-36.21 dBm</td>
+            <td class="mono text-right" id="mod-th-64">-69.9 dBm</td>
+            <td class="mono text-right text-bold" id="mod-fm-64">33.68 dB</td>
+            <td class="mono text-right text-success" id="mod-avail-64">99.997934%</td>
+          </tr>
+          <tr style="background-color: #f0fdf4;">
+            <td class="text-bold" style="color: #166534;">32QAM (Base Mode)</td>
+            <td class="mono text-right text-bold" id="mod-tp-32">224.0 Mbps</td>
+            <td class="mono text-right" id="mod-tx-32">30.5 dBm</td>
+            <td class="mono text-right" id="mod-eirp-32">65.4 dBm</td>
+            <td class="mono text-right text-bold" id="mod-rsl-32">-36.21 dBm</td>
+            <td class="mono text-right" id="mod-th-32">-79.0 dBm</td>
+            <td class="mono text-right text-bold" style="color: #16a34a;" id="mod-fm-32">42.78 dB</td>
+            <td class="mono text-right text-bold text-success" id="mod-avail-32">99.999486%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Engineering Conclusion -->
+    <div class="conclusion-box" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-top: 1.25rem;">
+      <div style="font-weight: 700; color: var(--navy); font-size: 0.90rem; margin-bottom: 6px;">📌 ข้อสรุปการประเมินทางวิศวกรรมโทรคมนาคม (Engineering Evaluation Summary):</div>
+      <div style="font-size: 0.81rem; color: #334155; line-height: 1.65;" id="conclusion-text">
+        <p style="margin-bottom: 5px;">
+          เส้นทางวิทยุไมโครเวฟ ระหว่าง <b>Wat Bang Udom (New)</b> และ <b>ที่ว่าการอำเภอหัวไทร</b> มีระยะทางจริงตามเส้น Geodesic เท่ากับ <b>18.416 km</b> โดยเมื่อติดตั้งสายอากาศ ที่ระดับความสูง <b>50.0 เมตร</b> ทั้งสองสถานี
+        </p>
+        <p style="margin-bottom: 5px;">
+          แนวคลื่นวิทยุ มีระยะพ้นสิ่งกีดขวาง (Clearance) เหนือภูมิประเทศ และยอดไม้ ตลอดแนวเส้นทาง อย่างสมบูรณ์แบบ (100% 1st Fresnel Zone ปลอดโปร่ง)
+        </p>
+        <p style="margin: 0;">
+          ระดับสัญญาณรับ ที่คำนวณได้ -36.21 dBm ให้ค่า Thermal Fade Margin สูงถึง <b>42.78 dB</b> ส่งผลให้อัตรา ความพร้อมใช้งาน ของระบบสื่อสาร (Annual Availability) สูงถึง <b>99.999486% (Five-Nines)</b> ผ่านเกณฑ์มาตรฐาน โทรคมนาคม ระดับ Carrier-Grade Telecom Standard สมบูรณ์แบบ.
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Real-time Data Binding and Calculations
+    function getDataSource() {
+      // 1. URL Hash #data=...
+      if (location.hash && location.hash.startsWith('#data=')) {
+        try {
+          const raw = decodeURIComponent(location.hash.substring(6));
+          return JSON.parse(raw);
+        } catch (e) { console.warn('Hash parse error', e); }
+      }
+      // 2. Query param ?data=...
+      if (location.search && location.search.includes('data=')) {
+        try {
+          const params = new URLSearchParams(location.search);
+          const raw = params.get('data');
+          if (raw) return JSON.parse(decodeURIComponent(raw));
+        } catch (e) { console.warn('Search parse error', e); }
+      }
+      // 3. window.opener
+      if (window.opener && typeof window.opener.getRealtimeReportData === 'function') {
+        try {
+          const d = window.opener.getRealtimeReportData();
+          if (d) return d;
+        } catch (e) { console.warn('opener error', e); }
+      }
+      // 3. localStorage / sessionStorage
+      try {
+        const stored = localStorage.getItem('realtime_microwave_report_data') || sessionStorage.getItem('realtime_microwave_report_data');
+        if (stored) return JSON.parse(stored);
+      } catch (e) { console.warn('storage error', e); }
+      return null;
+    }
+
+    // Parabolic Dish Antenna Sizing & Analysis (based on Distance, Target Margin & Carrier-Grade Standards)
+    function calculateParabolicAntenna(distKm, freqGHz = 7.5, overrideSize = null) {
+      const d = Math.max(0.1, parseFloat(distKm) || 1.0);
+      const targetMargin = d <= 8 ? 32.0 : (d <= 20 ? 35.0 : 38.0);
+      const freqMHz = freqGHz * 1000.0;
+      const fsl = 32.44 + 20 * Math.log10(d) + 20 * Math.log10(freqMHz);
+      const atmLoss = 0.0103 * d;
+      const rainLoss = (1.192 * d) / (1 + 0.045 * d);
+      const diffLoss = 1.0;
+      const totalPathLoss = fsl + atmLoss + rainLoss + diffLoss;
+
+      const txPower = 30.5; // Base mode 32QAM Tx Power
+      const feederLoss = 2.0; // Total Tx+Rx feeder loss
+      const rxThreshold = -79.0; // Base mode threshold
+
+      // Link budget: FM = txPower - feederLoss + 2*Gain - totalPathLoss - rxThreshold >= targetMargin
+      const reqGainTotal = rxThreshold + targetMargin - txPower + feederLoss + totalPathLoss;
+      const reqGainPerAntenna = reqGainTotal / 2.0;
+
+      // Commercial Standard Parabolic Dishes Catalog (7.1 - 8.5 GHz band):
+      const catalog = [
+        { sizeM: 0.3, gainDbi: 25.50, model: 'A7WD03MAC-1NX', label: 'Ø 0.3 m (1 ft)' },
+        { sizeM: 0.6, gainDbi: 31.20, model: 'A7WD06MAC-2NX', label: 'Ø 0.6 m (2 ft)' },
+        { sizeM: 0.9, gainDbi: 34.90, model: 'A7WD09MAC-3NX', label: 'Ø 0.9 m (3 ft)' },
+        { sizeM: 1.2, gainDbi: 37.40, model: 'A7WD12MAC-4NX', label: 'Ø 1.2 m (4 ft)' },
+        { sizeM: 1.8, gainDbi: 40.90, model: 'A7WD18MAC-6NX', label: 'Ø 1.8 m (6 ft)' },
+        { sizeM: 2.4, gainDbi: 43.40, model: 'A7WD24MAC-8NX', label: 'Ø 2.4 m (8 ft)' },
+        { sizeM: 3.0, gainDbi: 45.40, model: 'A7WD30MAC-10NX', label: 'Ø 3.0 m (10 ft)' }
+      ];
+
+      // Check if user specified a manual dish size override
+      let selected = null;
+      let isManual = false;
+      if (overrideSize && overrideSize !== 'auto') {
+        const targetSize = parseFloat(overrideSize);
+        selected = catalog.find(c => Math.abs(c.sizeM - targetSize) < 0.05);
+        if (selected) isManual = true;
+      }
+
+      if (!selected) {
+        selected = catalog[catalog.length - 1];
+        for (let i = 0; i < catalog.length; i++) {
+          if (catalog[i].gainDbi >= reqGainPerAntenna) {
+            selected = catalog[i];
+            break;
+          }
+        }
+      }
+
+      const actualRsl = txPower - feederLoss + 2 * selected.gainDbi - totalPathLoss;
+      const actualMargin = actualRsl - rxThreshold;
+
+      return {
+        sizeM: selected.sizeM,
+        gainDbi: selected.gainDbi,
+        model: selected.model,
+        label: selected.label,
+        modelFull: `${selected.model} (${selected.label})`,
+        requiredGain: reqGainPerAntenna,
+        targetMargin: targetMargin,
+        actualMargin: actualMargin,
+        isManual: isManual,
+        fsl,
+        atmLoss,
+        rainLoss,
+        totalPathLoss
+      };
+    }
+
+    // Rigorous Microwave Obstacle & Diffraction Analysis (ITU-R P.526 & ITU-R P.530 Carrier-Grade Standards)
+    function analyzePathObstacles(profilePoints, totalDistKm, freqGHz, antA, antB, groundA, groundB) {
+      if (!profilePoints || !profilePoints.length) {
+        return {
+          isObstructed: false,
+          isSubFresnel: false,
+          worstClearanceM: 999,
+          maxObstaclePenetrationM: 0,
+          worstPoint: null,
+          diffractionLossDb: 1.0,
+          requiredExtraHeightM: 0,
+          status: 'clear',
+          statusBadge: '✅ ปกติ (Clear LOS)',
+          statusColor: '#16a34a',
+          statusText: 'แนวสายตาปลอดสิ่งกีดขวางสมบูรณ์'
+        };
+      }
+
+      const N = profilePoints.length;
+      const dTot = Math.max(0.1, parseFloat(totalDistKm) || 1.0);
+      const fG = Math.max(0.1, parseFloat(freqGHz) || 7.5);
+      const hA = parseFloat(groundA) || 0;
+      const hB = parseFloat(groundB) || 0;
+      const aA = parseFloat(antA) || 0;
+      const aB = parseFloat(antB) || 0;
+      const topA = hA + aA;
+      const topB = hB + aB;
+
+      let worstClearance = Infinity;
+      let worstPt = null;
+      let maxObstaclePenetration = 0; // meters above LOS line
+
+      for (let i = 0; i < N; i++) {
+        const p = profilePoints[i];
+        const d_i = typeof p.distKm === 'number' ? p.distKm : (dTot * i / (N - 1));
+        const frac = dTot > 0 ? (d_i / dTot) : 0;
+
+        // Skip near-station proximity (first 2% and last 2%)
+        if (frac <= 0.02 || frac >= 0.98) continue;
+
+        // Earth Bulge with standard atmospheric refraction K = 4/3
+        const earthBulge = (d_i * (dTot - d_i)) / 12.74;
+        
+        let gElev = 0;
+        if (typeof p.groundElev === 'number') gElev = p.groundElev;
+        else if (typeof p.elevation === 'number') gElev = p.elevation;
+        else if (typeof p.effectiveGround === 'number') gElev = p.effectiveGround - earthBulge;
+
+        const effGround = (typeof p.effectiveGround === 'number' && p.effectiveGround > gElev)
+          ? p.effectiveGround
+          : (gElev + earthBulge);
+
+        // LOS ray straight line height between antenna tips
+        const rayH = topA + frac * (topB - topA);
+
+        // Clearance = Ray Height - Effective Ground (positive = clear, negative = blocked)
+        const clearance = rayH - effGround;
+
+        // 1st Fresnel Zone Radius F1 in meters
+        const d2 = dTot - d_i;
+        const fR = (d_i > 0 && d2 > 0) ? 17.32 * Math.sqrt((d_i * d2) / (fG * dTot)) : 1.0;
+
+        if (clearance < worstClearance) {
+          worstClearance = clearance;
+          worstPt = {
+            index: i,
+            distKm: d_i,
+            groundElev: gElev,
+            effectiveGround: effGround,
+            rayHeight: rayH,
+            clearance: clearance,
+            fresnelR: fR,
+            frac: frac
+          };
+        }
+
+        if (clearance < 0) {
+          const pen = Math.abs(clearance);
+          if (pen > maxObstaclePenetration) {
+            maxObstaclePenetration = pen;
+          }
+        }
+      }
+
+      const fR_worst = (worstPt && worstPt.fresnelR > 0) ? worstPt.fresnelR : (17.32 * Math.sqrt((dTot / 4) / fG));
+      const d_worst = worstPt ? worstPt.distKm : (dTot / 2);
+
+      let isObstructed = false;
+      let isSubFresnel = false;
+      let diffractionLoss = 1.0;
+      let requiredExtraHeightM = 0;
+      let status = 'clear';
+      let statusBadge = '✅ ปกติ (Clear LOS)';
+      let statusColor = '#16a34a';
+      let statusText = 'แนวสายตาปลอดสิ่งกีดขวางสมบูรณ์';
+
+      if (worstClearance < 0) {
+        // Direct Non-Line-of-Sight Blockage
+        isObstructed = true;
+        status = 'blocked';
+        statusBadge = '🔴 สิ่งกีดขวางบดบัง (NLOS Blocked)';
+        statusColor = '#dc2626';
+
+        // Required antenna height increase to achieve 60% 1st Fresnel clearance
+        requiredExtraHeightM = Math.ceil(maxObstaclePenetration + 0.6 * fR_worst);
+
+        // Knife-edge diffraction parameter nu = sqrt(2) * (h_obs / F1)
+        const nu = Math.SQRT2 * (maxObstaclePenetration / fR_worst);
+        let jNu = 6.9 + 20 * Math.log10(Math.sqrt(Math.pow(nu - 0.1, 2) + 1) + Math.max(0, nu - 0.1));
+        
+        // For deep mountain obstructions, knife-edge + rounded obstacle loss ranges between 18 dB up to 120 dB
+        diffractionLoss = Math.max(18.0, Math.min(120.0, Math.round(jNu * 10) / 10));
+
+        statusText = `บดบังแนวสายตา LOS (สิ่งกีดขวางสูงเกินแนวคลื่น ${maxObstaclePenetration.toFixed(1)} m ณ กม. ${d_worst.toFixed(2)})`;
+      } else if (worstClearance < 0.6 * fR_worst) {
+        // Sub-Fresnel zone clearance (0 <= clearance < 0.6 F1)
+        isSubFresnel = true;
+        status = 'sub_fresnel';
+        statusBadge = '⚠️ รุกล้ำ Fresnel Zone';
+        statusColor = '#d97706';
+
+        const clearRatio = Math.max(0, worstClearance / (0.6 * fR_worst));
+        diffractionLoss = Math.round((1.0 + 5.0 * (1.0 - clearRatio)) * 10) / 10;
+        requiredExtraHeightM = Math.ceil(0.6 * fR_worst - worstClearance);
+
+        statusText = `รุกล้ำพื้นที่ Fresnel ลำดับที่ 1 (ระยะเคลียร์ ${worstClearance.toFixed(1)} m < 0.6 F1 = ${(0.6 * fR_worst).toFixed(1)} m ณ กม. ${d_worst.toFixed(2)})`;
+      } else {
+        // Clear Line-of-Sight
+        isObstructed = false;
+        isSubFresnel = false;
+        status = 'clear';
+        statusBadge = '✅ ปกติ (Clear LOS)';
+        statusColor = '#16a34a';
+        diffractionLoss = 1.0;
+        requiredExtraHeightM = 0;
+
+        statusText = `แนวสายตาปลอดสิ่งกีดขวางสมบูรณ์ (ระยะเคลียร์ต่ำสุด +${worstClearance.toFixed(1)} m เหนือผืนดิน ณ กม. ${d_worst.toFixed(2)})`;
+      }
+
+      return {
+        isObstructed,
+        isSubFresnel,
+        worstClearanceM: worstClearance,
+        maxObstaclePenetrationM: maxObstaclePenetration,
+        worstPoint: worstPt,
+        diffractionLossDb: diffractionLoss,
+        requiredExtraHeightM,
+        status,
+        statusBadge,
+        statusColor,
+        statusText
+      };
+    }
+
+    // Standard Commercial Microwave Radio Models Catalog & Adaptive Modulation Specifications
+    const RADIO_MODELS = {
+      '7G_XMC3E_32Q_28M_112M': {
+        id: '7G_XMC3E_32Q_28M_112M',
+        label: '7G_XMC3E_32Q_28M_112M',
+        vendor: 'Huawei OptiX RTN 900 / XMC-3E',
+        shortName: '7G_XMC3E (28 MHz)',
+        displayName: '7G_XMC3E_32Q_28M_112M (Huawei 28MHz)',
+        bw: '28 MHz',
+        bwDesc: 'Channel Bandwidth 28 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '424.0 Mbps', tx: 28.5, th: -60.3 },
+          { key: '256', name: '256QAM', tp: '380.0 Mbps', tx: 28.5, th: -63.6 },
+          { key: '128', name: '128QAM', tp: '334.0 Mbps', tx: 30.5, th: -66.6 },
+          { key: '64',  name: '64QAM',  tp: '282.0 Mbps', tx: 30.5, th: -69.9 },
+          { key: '32',  name: '32QAM',  tp: '224.0 Mbps', tx: 30.5, th: -79.0, isBase: true }
+        ]
+      },
+      '7G_XMC3E_64Q_40M_160M': {
+        id: '7G_XMC3E_64Q_40M_160M',
+        label: '7G_XMC3E_64Q_40M_160M',
+        vendor: 'Huawei OptiX RTN 900 / XMC-3E',
+        shortName: '7G_XMC3E (40 MHz)',
+        displayName: '7G_XMC3E_64Q_40M_160M (Huawei 40MHz)',
+        bw: '40 MHz',
+        bwDesc: 'Channel Bandwidth 40 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '606.0 Mbps', tx: 28.0, th: -58.7 },
+          { key: '256', name: '256QAM', tp: '542.0 Mbps', tx: 28.0, th: -62.0 },
+          { key: '128', name: '128QAM', tp: '476.0 Mbps', tx: 30.0, th: -65.0 },
+          { key: '64',  name: '64QAM',  tp: '402.0 Mbps', tx: 30.0, th: -68.3 },
+          { key: '32',  name: '32QAM',  tp: '320.0 Mbps', tx: 30.0, th: -77.4, isBase: true }
+        ]
+      },
+      '7G_XMC3E_128Q_56M_224M': {
+        id: '7G_XMC3E_128Q_56M_224M',
+        label: '7G_XMC3E_128Q_56M_224M',
+        vendor: 'Huawei OptiX RTN 900 / XMC-3E',
+        shortName: '7G_XMC3E (56 MHz)',
+        displayName: '7G_XMC3E_128Q_56M_224M (Huawei 56MHz)',
+        bw: '56 MHz',
+        bwDesc: 'Channel Bandwidth 56 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '848.0 Mbps', tx: 27.5, th: -57.2 },
+          { key: '256', name: '256QAM', tp: '760.0 Mbps', tx: 27.5, th: -60.5 },
+          { key: '128', name: '128QAM', tp: '668.0 Mbps', tx: 29.5, th: -63.5 },
+          { key: '64',  name: '64QAM',  tp: '564.0 Mbps', tx: 29.5, th: -66.8 },
+          { key: '32',  name: '32QAM',  tp: '448.0 Mbps', tx: 29.5, th: -75.9, isBase: true }
+        ]
+      },
+      'NEC_iPASO_VR4_28M': {
+        id: 'NEC_iPASO_VR4_28M',
+        label: 'NEC_iPASOLINK_VR4_28M',
+        vendor: 'NEC iPASOLINK VR4 / IAG',
+        shortName: 'NEC VR4 (28 MHz)',
+        displayName: 'NEC_iPASOLINK_VR4_28M (NEC 28MHz)',
+        bw: '28 MHz',
+        bwDesc: 'Channel Bandwidth 28 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '410.0 Mbps', tx: 28.0, th: -59.5 },
+          { key: '256', name: '256QAM', tp: '368.0 Mbps', tx: 28.0, th: -62.8 },
+          { key: '128', name: '128QAM', tp: '322.0 Mbps', tx: 30.0, th: -65.8 },
+          { key: '64',  name: '64QAM',  tp: '274.0 Mbps', tx: 30.0, th: -69.0 },
+          { key: '32',  name: '32QAM',  tp: '218.0 Mbps', tx: 30.0, th: -78.2, isBase: true }
+        ]
+      },
+      'NEC_iPASO_VR4_56M': {
+        id: 'NEC_iPASO_VR4_56M',
+        label: 'NEC_iPASOLINK_VR4_56M',
+        vendor: 'NEC iPASOLINK VR4 / IAG',
+        shortName: 'NEC VR4 (56 MHz)',
+        displayName: 'NEC_iPASOLINK_VR4_56M (NEC 56MHz)',
+        bw: '56 MHz',
+        bwDesc: 'Channel Bandwidth 56 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '820.0 Mbps', tx: 27.0, th: -56.5 },
+          { key: '256', name: '256QAM', tp: '736.0 Mbps', tx: 27.0, th: -59.8 },
+          { key: '128', name: '128QAM', tp: '644.0 Mbps', tx: 29.0, th: -62.8 },
+          { key: '64',  name: '64QAM',  tp: '548.0 Mbps', tx: 29.0, th: -66.0 },
+          { key: '32',  name: '32QAM',  tp: '436.0 Mbps', tx: 29.0, th: -75.2, isBase: true }
+        ]
+      },
+      'ML6600_RAU4_28M': {
+        id: 'ML6600_RAU4_28M',
+        label: 'ML6600_RAU4_28M_112M',
+        vendor: 'Ericsson MINI-LINK 6600 / RAU4',
+        shortName: 'MINI-LINK (28 MHz)',
+        displayName: 'ML6600_RAU4_28M_112M (Ericsson 28MHz)',
+        bw: '28 MHz',
+        bwDesc: 'Channel Bandwidth 28 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '418.0 Mbps', tx: 29.0, th: -60.0 },
+          { key: '256', name: '256QAM', tp: '375.0 Mbps', tx: 29.0, th: -63.2 },
+          { key: '128', name: '128QAM', tp: '330.0 Mbps', tx: 30.0, th: -66.4 },
+          { key: '64',  name: '64QAM',  tp: '278.0 Mbps', tx: 30.0, th: -69.6 },
+          { key: '32',  name: '32QAM',  tp: '220.0 Mbps', tx: 30.0, th: -78.8, isBase: true }
+        ]
+      },
+      'ML6600_RAU4_56M': {
+        id: 'ML6600_RAU4_56M',
+        label: 'ML6600_RAU4_56M_224M',
+        vendor: 'Ericsson MINI-LINK 6600 / RAU4',
+        shortName: 'MINI-LINK (56 MHz)',
+        displayName: 'ML6600_RAU4_56M_224M (Ericsson 56MHz)',
+        bw: '56 MHz',
+        bwDesc: 'Channel Bandwidth 56 MHz',
+        config: 'Protection 2+0 / XPIC',
+        configDesc: 'Cross-Polarization Interference Cancellation',
+        feederLoss: 2.0,
+        modes: [
+          { key: '512', name: '512QAM', tp: '836.0 Mbps', tx: 28.0, th: -57.0 },
+          { key: '256', name: '256QAM', tp: '750.0 Mbps', tx: 28.0, th: -60.2 },
+          { key: '128', name: '128QAM', tp: '660.0 Mbps', tx: 29.0, th: -63.4 },
+          { key: '64',  name: '64QAM',  tp: '556.0 Mbps', tx: 29.0, th: -66.6 },
+          { key: '32',  name: '32QAM',  tp: '440.0 Mbps', tx: 29.0, th: -75.8, isBase: true }
+        ]
+      }
+    };
+
+    // High-Resolution Report Elevation Profile Renderer (White Background, Clean Engineering Style)
+    function drawReportProfileCanvas(canvas, data) {
+      if (!canvas || !data || !data.points || !data.points.length) return null;
+      const ctx = canvas.getContext('2d');
+      const dpr = 2;
+      const cssW = 760;
+      const cssH = 200;
+      canvas.width = cssW * dpr;
+      canvas.height = cssH * dpr;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      const W = cssW;
+      const H = cssH;
+      const padLeft = 48;
+      const padRight = 48;
+      const padTop = 26;
+      const padBottom = 28;
+      const plotW = W - padLeft - padRight;
+      const plotH = H - padTop - padBottom;
+
+      // Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      const points = data.points;
+      const totalD = data.totalDistKm || 1;
+      const sub = data.subStation || { name: 'A', height: 50 };
+      const master = data.masterStation || { name: 'B', height: 50 };
+
+      let minE = Infinity;
+      let maxE = -Infinity;
+      points.forEach(p => {
+        const eg = (p.effectiveGround !== undefined) ? p.effectiveGround : (p.groundElev || 0);
+        const rh = (p.rayHeight !== undefined) ? p.rayHeight : 0;
+        const fr = (p.fresnelR !== undefined) ? p.fresnelR : 0;
+        if (eg < minE) minE = eg;
+        if (eg > maxE) maxE = eg;
+        if (rh + fr > maxE) maxE = rh + fr;
+        if (rh - fr < minE) minE = rh - fr;
+      });
+
+      const yMin = Math.floor(Math.max(0, minE - 15) / 10) * 10;
+      const yMax = Math.ceil((maxE + 20) / 10) * 10;
+      const yRange = (yMax - yMin) || 100;
+
+      const xCoord = (d) => padLeft + (d / totalD) * plotW;
+      const yCoord = (elev) => (H - padBottom) - ((elev - yMin) / yRange) * plotH;
+
+      // Horizontal Grid & Elevation Labels
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px "Inter", "Sarabun", sans-serif';
+
+      const numYSteps = 5;
+      const stepYVal = yRange / numYSteps;
+      for (let i = 0; i <= numYSteps; i++) {
+        const val = Math.round(yMin + i * stepYVal);
+        const y = yCoord(val);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(W - padRight, y);
+        ctx.stroke();
+
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${val}`, padLeft - 6, y);
+
+        ctx.textAlign = 'left';
+        ctx.fillText(`${val}`, W - padRight + 6, y);
+      }
+
+      // Vertical Grid & Distance Labels
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const numXSteps = Math.min(8, Math.max(4, Math.floor(totalD / 2.5)));
+      for (let i = 0; i <= numXSteps; i++) {
+        const d = (i / numXSteps) * totalD;
+        const x = xCoord(d);
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#f8fafc';
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, H - padBottom);
+        ctx.stroke();
+
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`${d.toFixed(1)} km`, x, H - padBottom + 6);
+      }
+
+      // Unit Labels & Legend
+      ctx.fillStyle = '#64748b';
+      ctx.font = '9px "Inter", "Sarabun", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('MSL (m)', 4, padTop - 14);
+      ctx.textAlign = 'right';
+      ctx.fillText('MSL (m)', W - 4, padTop - 14);
+
+      // Top Legend
+      ctx.font = '8.5px "Inter", "Sarabun", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0284c7';
+      ctx.fillText('― แนวสายตา LOS', W / 2 - 150, padTop - 14);
+      ctx.fillStyle = '#16a34a';
+      ctx.fillText('■ 1st Fresnel Zone (100% / 60%)', W / 2, padTop - 14);
+      ctx.fillStyle = '#0f766e';
+      ctx.fillText('■ ผิวภูมิประเทศและส่วนโค้งโลก (K=4/3)', W / 2 + 160, padTop - 14);
+
+      // 1st Fresnel Zone 100% Ellipse
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const yTop = yCoord(p.rayHeight + (p.fresnelR || 0));
+        const x = xCoord(p.distKm);
+        if (i === 0) ctx.moveTo(x, yTop);
+        else ctx.lineTo(x, yTop);
+      }
+      for (let i = points.length - 1; i >= 0; i--) {
+        const p = points[i];
+        const yBottom = yCoord(p.rayHeight - (p.fresnelR || 0));
+        const x = xCoord(p.distKm);
+        ctx.lineTo(x, yBottom);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.35)';
+      ctx.fill();
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // 60% F1 clearance dashed stroke
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(21, 128, 61, 0.65)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const yBot60 = yCoord(p.rayHeight - (p.fresnelR || 0) * 0.6);
+        const x = xCoord(p.distKm);
+        if (i === 0) ctx.moveTo(x, yBot60);
+        else ctx.lineTo(x, yBot60);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Terrain Area
+      ctx.beginPath();
+      ctx.moveTo(xCoord(0), H - padBottom);
+      for (let i = 0; i < points.length; i++) {
+        ctx.lineTo(xCoord(points[i].distKm), yCoord(points[i].effectiveGround));
+      }
+      ctx.lineTo(xCoord(totalD), H - padBottom);
+      ctx.closePath();
+
+      const terrGrad = ctx.createLinearGradient(0, padTop, 0, H - padBottom);
+      terrGrad.addColorStop(0, 'rgba(13, 148, 136, 0.35)');
+      terrGrad.addColorStop(0.7, 'rgba(13, 148, 136, 0.18)');
+      terrGrad.addColorStop(1, 'rgba(204, 251, 241, 0.4)');
+      ctx.fillStyle = terrGrad;
+      ctx.fill();
+
+      // Terrain Stroke
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        const x = xCoord(points[i].distKm);
+        const y = yCoord(points[i].effectiveGround);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#0f766e';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // LOS Ray
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(xCoord(0), yCoord(points[0].rayHeight));
+      ctx.lineTo(xCoord(totalD), yCoord(points[points.length - 1].rayHeight));
+      ctx.stroke();
+      ctx.restore();
+
+      // Station Towers
+      const ptStart = points[0];
+      const ptEnd = points[points.length - 1];
+
+      // Station A Tower
+      const xA = xCoord(0);
+      const yA_base = yCoord(ptStart.effectiveGround);
+      const yA_top = yCoord(ptStart.rayHeight);
+      ctx.beginPath();
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 2.5;
+      ctx.moveTo(xA, yA_base);
+      ctx.lineTo(xA, yA_top);
+      ctx.stroke();
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.arc(xA, yA_top, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#92400e';
+      ctx.font = 'bold 9.5px "Inter", "Sarabun", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      const aTextY = yA_top < padTop + 14 ? yA_top + 14 : yA_top - 2;
+      ctx.fillText(`[A] ${sub.name || 'A'} (${sub.height || 50}m)`, xA + 5, aTextY);
+
+      // Station B Tower
+      const xB = xCoord(totalD);
+      const yB_base = yCoord(ptEnd.effectiveGround);
+      const yB_top = yCoord(ptEnd.rayHeight);
+      ctx.beginPath();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2.5;
+      ctx.moveTo(xB, yB_base);
+      ctx.lineTo(xB, yB_top);
+      ctx.stroke();
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(xB, yB_top, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#991b1b';
+      ctx.font = 'bold 9.5px "Inter", "Sarabun", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      const bTextY = yB_top < padTop + 14 ? yB_top + 14 : yB_top - 2;
+      ctx.fillText(`[B] ${master.name || 'B'} (${master.height || 50}m)`, xB - 5, bTextY);
+
+      // Obstacle Warning Indicator on Canvas
+      let worstCanvasPt = null;
+      let maxPen = 0;
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (p.clearance < 0 && Math.abs(p.clearance) > maxPen) {
+          maxPen = Math.abs(p.clearance);
+          worstCanvasPt = p;
+        }
+      }
+      if (worstCanvasPt && maxPen > 0) {
+        const xObs = xCoord(worstCanvasPt.distKm);
+        const yObs = yCoord(worstCanvasPt.effectiveGround);
+        ctx.save();
+        ctx.fillStyle = '#dc2626';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(xObs, yObs, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#b91c1c';
+        ctx.font = 'bold 9.5px "Inter", "Sarabun", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const labelY = Math.max(padTop + 14, yObs - 6);
+        ctx.fillText(`⚠️ สันเขาบังคลื่น +${maxPen.toFixed(1)}m`, xObs, labelY);
+        ctx.restore();
+      }
+
+      // Border outline
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(padLeft, padTop, plotW, plotH);
+
+      ctx.restore();
+      return canvas.toDataURL('image/png');
+    }
+
+    // Synchronous Mathematical Profile Generator (accurate Earth Bulge K=4/3, 1st Fresnel zone ellipse, Station heights)
+    function generateSyntheticProfilePoints(data) {
+      const distKm = Math.max(0.1, parseFloat(data.distKm) || 10.0);
+      const groundA = parseFloat(data.groundA) || 50.0;
+      const groundB = parseFloat(data.groundB) || 70.0;
+      const antA = parseFloat(data.antA) || 50.0;
+      const antB = parseFloat(data.antB) || 50.0;
+      const freqGHz = parseFloat(data.freqGHz) || 7.5;
+      const nameA = data.nameA || 'สถานีต้นทาง A';
+      const nameB = data.nameB || 'สถานีปลายทาง B';
+      const N = 65;
+
+      const antennaTopStart = groundA + antA;
+      const antennaTopEnd = groundB + antB;
+      const points = [];
+
+      for (let i = 0; i < N; i++) {
+        const frac = i / (N - 1);
+        const d_i = distKm * frac;
+        const baseGround = groundA + (groundB - groundA) * frac;
+        const groundElev = Math.round((baseGround + Math.sin(frac * Math.PI) * 4) * 10) / 10;
+        const earthBulge = distKm > 0 ? (d_i * (distKm - d_i)) / 12.74 : 0;
+        const effectiveGround = groundElev + earthBulge;
+        const rayHeight = antennaTopStart + frac * (antennaTopEnd - antennaTopStart);
+        const clearance = rayHeight - effectiveGround;
+        const fresnelR = (distKm > 0 && d_i > 0 && d_i < distKm)
+          ? 17.32 * Math.sqrt((d_i * (distKm - d_i)) / (freqGHz * distKm))
+          : 0;
+
+        points.push({
+          lat: data.lat1 && data.lat2 ? (data.lat1 + (data.lat2 - data.lat1) * frac) : 0,
+          lon: data.lon1 && data.lon2 ? (data.lon1 + (data.lon2 - data.lon1) * frac) : 0,
+          distKm: d_i,
+          groundElev,
+          effectiveGround,
+          rayHeight,
+          clearance,
+          fresnelR
+        });
+      }
+
+      return {
+        totalDistKm: distKm,
+        points: points,
+        subStation: { name: nameA, height: antA },
+        masterStation: { name: nameB, height: antB }
+      };
+    }
+
+    // Standalone fallback: fetch real DEM elevations and render profile for given coordinates
+    async function fetchAndRenderRealElevation(data) {
+      if (!data || !data.lat1 || !data.lon1 || !data.lat2 || !data.lon2) return;
+      const lat1 = parseFloat(data.lat1);
+      const lon1 = parseFloat(data.lon1);
+      const lat2 = parseFloat(data.lat2);
+      const lon2 = parseFloat(data.lon2);
+      const distKm = parseFloat(data.distKm) || 10;
+      const antA = parseFloat(data.antA) || 50;
+      const antB = parseFloat(data.antB) || 50;
+      const nameA = data.nameA || 'สถานีต้นทาง A';
+      const nameB = data.nameB || 'สถานีปลายทาง B';
+
+      const N = 65;
+      const points = [];
+      for (let i = 0; i < N; i++) {
+        const frac = i / (N - 1);
+        const pLat = lat1 + (lat2 - lat1) * frac;
+        const pLon = lon1 + (lon2 - lon1) * frac;
+        const d_i = distKm * frac;
+        points.push({ lat: pLat, lon: pLon, distKm: d_i });
+      }
+
+      let rawElevations = null;
+      try {
+        const lats = points.map(p => p.lat.toFixed(5)).join(',');
+        const lons = points.map(p => p.lon.toFixed(5)).join(',');
+        const apiUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 6000);
+        const resp = await fetch(apiUrl, { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.elevation && json.elevation.length === N) {
+            rawElevations = json.elevation;
+          }
+        }
+      } catch (e) {
+        console.warn('Open-Meteo report fetch error:', e);
+      }
+
+      if (!rawElevations) {
+        const gA = parseFloat(data.groundA) || 50;
+        const gB = parseFloat(data.groundB) || 70;
+        rawElevations = points.map((p, i) => {
+          const f = i / (N - 1);
+          return Math.round(gA + (gB - gA) * f + Math.sin(f * Math.PI) * 15);
+        });
+      }
+
+      const elev0 = rawElevations[0];
+      const elevEnd = rawElevations[N - 1];
+      const antennaTopStart = elev0 + antA;
+      const antennaTopEnd = elevEnd + antB;
+
+      const processedPoints = [];
+      for (let i = 0; i < N; i++) {
+        const pt = points[i];
+        const groundElev = rawElevations[i];
+        const d_i = pt.distKm;
+        const f = distKm > 0 ? d_i / distKm : 0;
+        const earthBulge = distKm > 0 ? (d_i * (distKm - d_i)) / 12.74 : 0;
+        const effectiveGround = groundElev + earthBulge;
+        const rayHeight = antennaTopStart + f * (antennaTopEnd - antennaTopStart);
+        const clearance = rayHeight - effectiveGround;
+        const fGHz = 7.5;
+        const fresnelR = (distKm > 0 && d_i > 0 && d_i < distKm)
+          ? 17.32 * Math.sqrt((d_i * (distKm - d_i)) / (fGHz * distKm))
+          : 0;
+        processedPoints.push({
+          lat: pt.lat,
+          lon: pt.lon,
+          distKm: d_i,
+          groundElev,
+          effectiveGround,
+          rayHeight,
+          clearance,
+          fresnelR
+        });
+      }
+
+      const profileData = {
+        totalDistKm: distKm,
+        points: processedPoints,
+        subStation: { name: nameA, height: antA },
+        masterStation: { name: nameB, height: antB }
+      };
+
+      const cvs = document.createElement('canvas');
+      const url = drawReportProfileCanvas(cvs, profileData);
+      if (url) {
+        const img = document.getElementById('profile-img');
+        if (img) img.src = url;
+      }
+
+      if (activeReportData) {
+        activeReportData.elevProfileData = profileData;
+        if (rawElevations && rawElevations.length > 0) {
+          const elev0 = rawElevations[0];
+          const elevEnd = rawElevations[rawElevations.length - 1];
+          const elA = document.getElementById('site-elev-a');
+          const elB = document.getElementById('site-elev-b');
+          if (elA && (!data.groundA || data.groundA === 55.0 || data.groundA === 50.0 || data.groundA === 0)) {
+            elA.innerText = `${elev0.toFixed(2)} m`;
+            activeReportData.groundA = elev0;
+          }
+          if (elB && (!data.groundB || data.groundB === 70.0 || data.groundB === 0)) {
+            elB.innerText = `${elevEnd.toFixed(2)} m`;
+            activeReportData.groundB = elevEnd;
+          }
+        }
+        renderRealtimeReport(activeReportData);
+      }
+    }
+
+    const defaultReportData = {
+      nameA: 'Wat Bang Udom (New)',
+      nameB: 'ที่ว่าการอำเภอหัวไทร (Hua Sai District Office)',
+      lat1: 8.205790, lon1: 100.253740, groundA: 4.00, towerA: 50.00, antA: 50.00,
+      lat2: 8.040590, lon2: 100.274670, groundB: 2.19, towerB: 50.00, antB: 50.00,
+      distKm: 18.416, azAB: '172.85', azBA: '352.85', tiltA: '-0.01°', tiltB: '+0.01°',
+      freqMHz: 7500.0, freqGHz: 7.5
+    };
+
+    let activeReportData = null;
+
+    function renderRealtimeReport(overrideData = null) {
+      if (overrideData) {
+        activeReportData = overrideData;
+      } else if (!activeReportData) {
+        activeReportData = getDataSource() || defaultReportData;
+      }
+      const data = activeReportData;
+
+      const nameA = data.nameA || 'สถานีต้นทาง A';
+      const nameB = data.nameB || 'สถานีปลายทาง B';
+      const lat1 = parseFloat(data.lat1) || 0;
+      const lon1 = parseFloat(data.lon1) || 0;
+      const lat2 = parseFloat(data.lat2) || 0;
+      const lon2 = parseFloat(data.lon2) || 0;
+      let groundA = parseFloat(data.groundA) || 0;
+      let groundB = parseFloat(data.groundB) || 0;
+      if (data.elevProfileData && data.elevProfileData.points && data.elevProfileData.points.length > 0) {
+        const pts = data.elevProfileData.points;
+        const p0 = pts[0];
+        const pEnd = pts[pts.length - 1];
+        const ptElevA = (p0 && typeof p0.groundElev === 'number') ? p0.groundElev : ((p0 && typeof p0.elevation === 'number') ? p0.elevation : null);
+        const ptElevB = (pEnd && typeof pEnd.groundElev === 'number') ? pEnd.groundElev : ((pEnd && typeof pEnd.elevation === 'number') ? pEnd.elevation : null);
+        if (ptElevA !== null && (groundA === 0 || groundA === 55.0)) groundA = ptElevA;
+        if (ptElevB !== null && (groundB === 0 || groundB === 70.0)) groundB = ptElevB;
+      }
+      const towerA = parseFloat(data.towerA) || 0;
+      const towerB = parseFloat(data.towerB) || 0;
+      const antA = parseFloat(data.antA) || 0;
+      const antB = parseFloat(data.antB) || 0;
+      const distKm = parseFloat(data.distKm) || 18.416;
+      const azAB = data.azAB || '172.85';
+      const azBA = data.azBA || '352.85';
+      const tiltA = data.tiltA || '-0.01°';
+      const tiltB = data.tiltB || '+0.01°';
+      const freqMHz = parseFloat(data.freqMHz) || 7500.00;
+      const freqGHz = data.freqGHz ? parseFloat(data.freqGHz) : 7.5;
+
+
+      // Title and Headers
+      document.title = `รายงานสรุปวิเคราะห์ข้อมูล Microwave Link - ${nameA} ➔ ${nameB} (${distKm.toFixed(3)} km)`;
+      const hdrA = document.getElementById('hdr-site-a');
+      const hdrB = document.getElementById('hdr-site-b');
+      if (hdrA) hdrA.innerText = nameA;
+      if (hdrB) hdrB.innerText = nameB;
+      const hdrBadge = document.getElementById('hdr-freq-badge');
+      if (hdrBadge) hdrBadge.innerText = `${freqGHz.toFixed(1)} GHz Microwave`;
+      const hdrDate = document.getElementById('hdr-date');
+      if (hdrDate && data.timestamp) hdrDate.innerText = `วันที่ออกรายงาน: ${data.timestamp}`;
+
+      // Calculations
+      const fsl = 32.44 + 20 * Math.log10(Math.max(0.01, distKm)) + 20 * Math.log10(freqMHz);
+      const atmLoss = 0.0103 * distKm;
+      // Rain Attenuation (Region N, 95mm/hr at 0.01%)
+      const rainLoss = (1.192 * distKm) / (1 + 0.045 * distKm);
+
+      // Parabolic Dish Antenna Sizing based on Margin & Distance
+      const dishSel = document.getElementById('report-dish-select');
+      let chosenDish = (activeReportData && activeReportData.dishSize)
+        ? activeReportData.dishSize
+        : ((dishSel && dishSel.value !== 'auto') ? dishSel.value : (data.dishSize || 'auto'));
+      activeReportData.dishSize = chosenDish;
+      if (dishSel) {
+        dishSel.value = chosenDish;
+      }
+      const antCalc = calculateParabolicAntenna(distKm, freqGHz, chosenDish);
+      const antGainA = antCalc.gainDbi;
+      const antGainB = antGainA;
+      const antModelFull = antCalc.modelFull;
+
+      // Radio Model Selection & Synchronization
+      const topRadioSel = document.getElementById('report-radio-model-select');
+      const tableRadioSel = document.getElementById('rf-model-select');
+      let chosenRadioKey = (activeReportData && activeReportData.radioModel)
+        ? activeReportData.radioModel
+        : ((tableRadioSel && tableRadioSel.value) ? tableRadioSel.value : ((topRadioSel && topRadioSel.value) ? topRadioSel.value : (data.radioModel || '7G_XMC3E_32Q_28M_112M')));
+      if (!RADIO_MODELS[chosenRadioKey]) {
+        chosenRadioKey = '7G_XMC3E_32Q_28M_112M';
+      }
+      activeReportData.radioModel = chosenRadioKey;
+
+      if (topRadioSel) {
+        topRadioSel.value = chosenRadioKey;
+      }
+      if (tableRadioSel) {
+        tableRadioSel.value = chosenRadioKey;
+      }
+
+      const curRadio = RADIO_MODELS[chosenRadioKey];
+      const feederLoss = curRadio.feederLoss || 2.0;
+
+      // Update Channel Bandwidth description in Table 2
+      const bwDescEl = document.getElementById('rf-bw-desc');
+      if (bwDescEl) bwDescEl.innerText = curRadio.bwDesc;
+
+      // Extract Profile Points and Perform In-Depth Obstacle Analysis
+      let profilePoints = null;
+      if (data.elevProfileData && data.elevProfileData.points && data.elevProfileData.points.length > 0) {
+        profilePoints = data.elevProfileData.points;
+      } else {
+        const synthProfile = generateSyntheticProfilePoints(data);
+        profilePoints = synthProfile.points;
+      }
+
+      const obsResult = analyzePathObstacles(profilePoints, distKm, freqGHz, antA, antB, groundA, groundB);
+      const diffLoss = obsResult.diffractionLossDb;
+
+      // Adaptive Modulation Modes
+      const modesConfig = curRadio.modes;
+
+      const modesResults = modesConfig.map(m => {
+        const eirp = m.tx + antGainA;
+        // Total path loss includes FSL + Atmospheric Loss + Diffraction / Obstacle Loss
+        const rsl = m.tx + antGainA + antGainB - feederLoss - fsl - atmLoss - diffLoss;
+        const fm = rsl - m.th;
+
+        let avail = '0.0000%';
+        if (obsResult.isObstructed) {
+          avail = '0.0000% (Link Down)';
+        } else if (fm <= 0) {
+          avail = '0.0000% (No Margin)';
+        } else {
+          const fadeFactor = Math.pow(10, -fm / 10);
+          const distFactor = Math.pow(distKm / 18.416, 3);
+          const baseOutage = 0.000514;
+          const outageProb = Math.min(1.0, Math.max(0.000001, baseOutage * distFactor * (fadeFactor / Math.pow(10, -42.78 / 10))));
+          avail = (100 - outageProb).toFixed(6) + '%';
+        }
+        return { ...m, eirp: eirp.toFixed(1), rsl: rsl.toFixed(2), fm: fm.toFixed(2), avail };
+      });
+
+      const baseMode = modesResults[modesResults.length - 1];
+
+      // Frequency Input Sync
+      const topFreqInput = document.getElementById('report-freq-input');
+      if (topFreqInput && document.activeElement !== topFreqInput) {
+        topFreqInput.value = freqGHz.toString();
+      }
+
+      // Top Status Bar Indicator
+      const topStatus = document.getElementById('top-bar-status');
+      if (topStatus) {
+        if (obsResult.isObstructed) {
+          topStatus.innerHTML = `🔴 <b>ตรวจพบสิ่งกีดขวางบดบังแนวคลื่น:</b> ${nameA} ➔ ${nameB} (${distKm.toFixed(3)} km | สันเขาสูงเกินแนวคลื่น ${obsResult.maxObstaclePenetrationM.toFixed(1)} m)`;
+          topStatus.style.color = '#dc2626';
+        } else if (obsResult.isSubFresnel) {
+          topStatus.innerHTML = `🟡 <b>เฝ้าระวังรุกล้ำพื้นที่ Fresnel:</b> ${nameA} ➔ ${nameB} (${distKm.toFixed(3)} km | ระยะเคลียร์ ${obsResult.worstClearanceM.toFixed(1)} m)`;
+          topStatus.style.color = '#d97706';
+        } else {
+          topStatus.innerHTML = `🟢 คำนวณเรียลไทม์: <b>${nameA}</b> ➔ <b>${nameB}</b> (${distKm.toFixed(3)} km)`;
+          topStatus.style.color = '#0284c7';
+        }
+      }
+
+      // Update KPI Cards
+      const setT = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+      setT('kpi-dist', `${distKm.toFixed(3)} <small style="font-size:0.8rem;">km</small>`);
+      setT('kpi-freq', `${freqGHz.toFixed(1)} <small style="font-size:0.8rem;">GHz</small>`);
+      setT('kpi-fsl', `${fsl.toFixed(2)} <small style="font-size:0.8rem;">dB</small>`);
+
+      if (obsResult.isObstructed) {
+        setT('kpi-rsl', `<span style="color:#dc2626;font-weight:800;">${baseMode.rsl}</span> <small style="font-size:0.8rem;color:#dc2626;">dBm</small><div style="font-size:0.65rem;color:#dc2626;font-weight:700;margin-top:2px;">⚠️ ต่ำกว่าเกณฑ์ (${baseMode.th.toFixed(1)} dBm)</div>`);
+        setT('kpi-fade-margin', `<span style="color:#dc2626;font-weight:800;">${baseMode.fm}</span> <small style="font-size:0.8rem;color:#dc2626;">dB</small><div style="font-size:0.65rem;color:#dc2626;font-weight:700;margin-top:2px;">⚠️ ติดลบ (ไม่มี Margin)</div>`);
+        setT('kpi-availability', `<span style="color:#dc2626;font-weight:800;">0.0000%</span><div style="font-size:0.65rem;color:#dc2626;font-weight:700;margin-top:2px;">⚠️ ลิงก์ไม่ทำงาน (NLOS)</div>`);
+      } else if (obsResult.isSubFresnel) {
+        setT('kpi-rsl', `<span style="color:#d97706;font-weight:800;">${baseMode.rsl}</span> <small style="font-size:0.8rem;color:#d97706;">dBm</small><div style="font-size:0.65rem;color:#d97706;font-weight:700;margin-top:2px;">⚠️ รุกล้ำ Fresnel Zone</div>`);
+        setT('kpi-fade-margin', `<span style="color:#d97706;font-weight:800;">${baseMode.fm}</span> <small style="font-size:0.8rem;color:#d97706;">dB</small><div style="font-size:0.65rem;color:#d97706;font-weight:700;margin-top:2px;">⚠️ Margin ลดลง</div>`);
+        setT('kpi-availability', `<span style="color:#d97706;font-weight:800;">${baseMode.avail.substring(0, 7)}%</span>`);
+      } else {
+        setT('kpi-rsl', `${baseMode.rsl} <small style="font-size:0.8rem;">dBm</small>`);
+        setT('kpi-fade-margin', `${baseMode.fm} <small style="font-size:0.8rem;">dB</small>`);
+        setT('kpi-availability', `${baseMode.avail.substring(0, 7)}%`);
+      }
+
+      // Update Table 1: Site & Antenna Parameters
+      const thSiteA = (!nameA || nameA === 'สถานีต้นทาง A') ? 'สถานีต้นทาง A' : (nameA.startsWith('สถานีต้นทาง A') ? nameA : `สถานีต้นทาง A: ${nameA}`);
+      const thSiteB = (!nameB || nameB === 'สถานีปลายทาง B') ? 'สถานีปลายทาง B' : (nameB.startsWith('สถานีปลายทาง B') ? nameB : `สถานีปลายทาง B: ${nameB}`);
+      setT('th-site-a', thSiteA);
+      setT('th-site-b', thSiteB);
+      setT('site-name-a', nameA || 'สถานีต้นทาง A');
+      setT('site-name-b', nameB || 'สถานีปลายทาง B');
+      setT('site-lat-a', `${lat1.toFixed(6)}° N`);
+      setT('site-lat-b', `${lat2.toFixed(6)}° N`);
+      setT('site-lon-a', `${lon1.toFixed(6)}° E`);
+      setT('site-lon-b', `${lon2.toFixed(6)}° E`);
+      setT('site-elev-a', `${groundA.toFixed(2)} m`);
+      setT('site-elev-b', `${groundB.toFixed(2)} m`);
+      setT('site-tower-a', `${towerA.toFixed(2)} m`);
+      setT('site-tower-b', `${towerB.toFixed(2)} m`);
+      setT('site-ant-a', `${antA.toFixed(2)} m`);
+      setT('site-ant-b', `${antB.toFixed(2)} m`);
+      setT('site-antmodel-a', antModelFull);
+      setT('site-antmodel-b', antModelFull);
+      setT('site-antgain-a', `${antGainA.toFixed(2)} dBi`);
+      setT('site-antgain-b', `${antGainB.toFixed(2)} dBi`);
+      setT('site-az-a', `${azAB}°`);
+      setT('site-az-b', `${azBA}°`);
+      setT('site-tilt-a', tiltA);
+      setT('site-tilt-b', tiltB);
+
+      // Update Table 2: RF Propagation
+      setT('rf-dist', distKm.toFixed(3));
+      setT('rf-freq', `${freqGHz.toFixed(1)} GHz (${Math.round(freqMHz).toLocaleString()} MHz)`);
+      setT('rf-fsl', fsl.toFixed(2));
+      setT('rf-atm', atmLoss.toFixed(2));
+      setT('rf-rain', rainLoss.toFixed(2));
+      setT('rf-diffraction', `<span style="color:${obsResult.statusColor};font-weight:bold;">${obsResult.diffractionLossDb.toFixed(2)}</span>`);
+      setT('rf-diffraction-desc', `<span style="color:${obsResult.statusColor};font-weight:600;">${obsResult.statusText}</span>`);
+
+      // Update Table 3: Adaptive Modulation
+      modesResults.forEach(m => {
+        setT(`mod-tp-${m.key}`, m.tp);
+        setT(`mod-tx-${m.key}`, `${m.tx.toFixed(1)} dBm`);
+        setT(`mod-eirp-${m.key}`, `${m.eirp} dBm`);
+        const rslColor = (parseFloat(m.rsl) < m.th || obsResult.isObstructed) ? '#dc2626' : (obsResult.isSubFresnel ? '#d97706' : '#059669');
+        const fmColor = (parseFloat(m.fm) <= 0 || obsResult.isObstructed) ? '#dc2626' : (obsResult.isSubFresnel ? '#d97706' : '#2563eb');
+        const availColor = (obsResult.isObstructed || parseFloat(m.fm) <= 0) ? '#dc2626' : (obsResult.isSubFresnel ? '#d97706' : '#16a34a');
+        setT(`mod-rsl-${m.key}`, `<span style="color:${rslColor};font-weight:700;">${m.rsl} dBm</span>`);
+        setT(`mod-th-${m.key}`, `${m.th.toFixed(1)} dBm`);
+        setT(`mod-fm-${m.key}`, `<span style="color:${fmColor};font-weight:700;">${m.fm} dB</span>`);
+        setT(`mod-avail-${m.key}`, `<span style="color:${availColor};font-weight:700;">${m.avail}</span>`);
+      });
+
+      // Update Real Simulation Profile Image SYNCHRONOUSLY
+      const profileImg = document.getElementById('profile-img');
+      if (profileImg) {
+        let initialUrl = null;
+        if (data.profileImage) {
+          initialUrl = data.profileImage;
+        } else if (data.elevProfileData && data.elevProfileData.points && data.elevProfileData.points.length > 0) {
+          const cvs = document.createElement('canvas');
+          initialUrl = drawReportProfileCanvas(cvs, data.elevProfileData);
+        } else {
+          // Generate realistic simulation profile synchronously
+          const synthProfile = generateSyntheticProfilePoints(data);
+          const cvs = document.createElement('canvas');
+          initialUrl = drawReportProfileCanvas(cvs, synthProfile);
+        }
+        if (initialUrl) {
+          profileImg.src = initialUrl;
+        }
+
+        // Asynchronously refine with real DEM if coordinates exist and no elevProfileData was passed
+        if (!data.elevProfileData && data.lat1 && data.lon1 && data.lat2 && data.lon2) {
+          fetchAndRenderRealElevation(data);
+        }
+      }
+
+      // Update Fresnel Caption
+      const f1Max = 8.66 * Math.sqrt(Math.max(0.01, distKm) / freqGHz);
+      setT('profile-caption', `รูปที่ 1: ภาพจำลองโพรไฟล์แนวสายตา (Line-of-Sight) เส้นทาง ${nameA} ➔ ${nameB} (ระยะทาง ${distKm.toFixed(3)} km), รัศมี 1st Fresnel Zone ลำดับที่ 1 (F1 สูงสุด = ${f1Max.toFixed(2)} m ณ กึ่งกลาง), ความสูงสายอากาศ ${antA.toFixed(1)}m และ ${antB.toFixed(1)}m, ความโค้งของโลก K=4/3`);
+
+      // Update Engineering Conclusion
+      const conclusionEl = document.getElementById('conclusion-text');
+      if (conclusionEl) {
+        if (obsResult.isObstructed) {
+          conclusionEl.innerHTML = `
+            <div style="background: #fef2f2; border: 1.5px solid #f87171; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;">
+              <div style="font-weight: 800; color: #b91c1c; font-size: 0.95rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️ ผลการวิเคราะห์: เส้นทางมีสิ่งกีดขวางบดบังแนวคลื่นวิทยุ (Path Obstructed / NLOS) ไม่ผ่านเกณฑ์มาตรฐาน</span>
+              </div>
+              <p style="margin: 0 0 6px 0; color: #991b1b; font-size: 0.85rem; line-height: 1.5;">
+                เส้นทางวิทยุไมโครเวฟระหว่าง <b>${nameA}</b> และ <b>${nameB}</b> (ระยะทาง <b>${distKm.toFixed(3)} km</b>) 
+                <b>ถูกสิ่งกีดขวาง/แนวสันเขาบดบังแนวสายตา (Line-of-Sight) อย่างสิ้นเชิง</b> 
+                โดยมียอดสิ่งกีดขวางตัดผ่านแนวคลื่นสูงถึง <b>${obsResult.maxObstaclePenetrationM.toFixed(1)} เมตร</b> 
+                ณ ตำแหน่งประมาณ กม. <b>${obsResult.worstPoint ? obsResult.worstPoint.distKm.toFixed(2) : ''}</b> จากสถานี A.
+              </p>
+              <p style="margin: 0 0 8px 0; color: #7f1d1d; font-size: 0.84rem; line-height: 1.5;">
+                การบดบังดังกล่าวทำให้เกิดการลดทอนสัญญาณจากการเลี้ยวเบน (Diffraction Loss) สูงถึง <b>${obsResult.diffractionLossDb.toFixed(1)} dB</b> 
+                ส่งผลให้ระดับสัญญาณรับ (RSL) ตกต่ำลงเหลือ <b>${baseMode.rsl} dBm</b> ซึ่งต่ำกว่าเกณฑ์ความไวภาครับ (${baseMode.th.toFixed(1)} dBm) 
+                ค่า Fade Margin ติดลบ (<b>${baseMode.fm} dB</b>) ทำให้ระบบ<b>ไม่สามารถเชื่อมโยงสัญญาณสื่อสารได้ (ความพร้อมใช้งาน 0.0000%)</b>.
+              </p>
+              <div style="border-top: 1px dashed #fca5a5; padding-top: 8px; margin-top: 6px; color: #991b1b; font-size: 0.83rem; line-height: 1.5;">
+                <b>💡 ข้อเสนอแนะทางวิศวกรรมในการแก้ไข (Recommendations):</b><br/>
+                1. <b>ปรับเพิ่มความสูงเสาสื่อสาร:</b> ต้องเพิ่มความสูงสายอากาศทั้งสองฝั่งรวมกันไม่น้อยกว่า <b>${obsResult.requiredExtraHeightM} เมตร</b> เพื่อยกแนวคลื่นให้พ้นยอดเขาและได้ระยะเคลียร์ 60% 1st Fresnel Zone<br/>
+                2. <b>ติดตั้งสถานีทวนสัญญาณ (Repeater):</b> หากข้อจำกัดโครงสร้างเสาไม่สามารถเพิ่มความสูงได้ ควรพิจารณาติดตั้งสถานีทวนสัญญาณ (Active Repeater หรือ Passive Back-to-Back Dish) บนยอดเขาสันกั้น เพื่อส่งต่อสัญญาณข้ามแนวเขา
+              </div>
+            </div>
+          `;
+        } else if (obsResult.isSubFresnel) {
+          conclusionEl.innerHTML = `
+            <div style="background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;">
+              <div style="font-weight: 800; color: #92400e; font-size: 0.95rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️ ผลการวิเคราะห์: รุกล้ำพื้นที่ Fresnel Zone ลำดับที่ 1 (Sub-Fresnel Clearance)</span>
+              </div>
+              <p style="margin: 0 0 6px 0; color: #78350f; font-size: 0.85rem; line-height: 1.5;">
+                เส้นทางวิทยุไมโครเวฟระหว่าง <b>${nameA}</b> และ <b>${nameB}</b> (ระยะทาง <b>${distKm.toFixed(3)} km</b>) 
+                มีระยะเคลียร์เหนือผืนดินต่ำสุด <b>${obsResult.worstClearanceM.toFixed(1)} เมตร</b> ณ กม. ${obsResult.worstPoint ? obsResult.worstPoint.distKm.toFixed(2) : ''} 
+                ซึ่งต่ำกว่าเกณฑ์ความปลอดโปร่ง 60% 1st Fresnel Zone ทำให้เกิด Diffraction Loss เพิ่มขึ้น <b>${obsResult.diffractionLossDb.toFixed(1)} dB</b>.
+              </p>
+              <p style="margin: 0 0 6px 0; color: #78350f; font-size: 0.84rem; line-height: 1.5;">
+                ระดับสัญญาณรับในโหมด ${baseMode.name || '32QAM'} (Base Mode) อยู่ที่ <b>${baseMode.rsl} dBm</b> 
+                และมี Fade Margin อยู่ที่ <b>${baseMode.fm} dB</b> (ความพร้อมใช้งาน <b>${baseMode.avail}</b>)
+              </p>
+              <div style="border-top: 1px dashed #fde68a; padding-top: 6px; margin-top: 6px; color: #92400e; font-size: 0.83rem;">
+                💡 <b>ข้อเสนอแนะ:</b> ควรพิจารณาปรับเพิ่มความสูงเสาอีกประมาณ <b>${obsResult.requiredExtraHeightM} เมตร</b> เพื่อให้พ้นเขต 60% Fresnel Zone อย่างสมบูรณ์และได้ Fade Margin สูงสุด.
+              </div>
+            </div>
+          `;
+        } else {
+          const sizingAction = antCalc.isManual ? 'กำหนดเลือกใช้' : 'วิเคราะห์และคำนวณเลือกใช้';
+          conclusionEl.innerHTML = `
+            <p style="margin-bottom: 5px;">
+              เส้นทางวิทยุไมโครเวฟ ระหว่าง <b>${nameA}</b> และ <b>${nameB}</b> มีระยะทางจริงตามเส้น Geodesic เท่ากับ <b>${distKm.toFixed(3)} km</b> เมื่อติดตั้งสายอากาศ ที่ระดับความสูง <b>${antA.toFixed(1)} เมตร</b> (สถานี A) และ <b>${antB.toFixed(1)} เมตร</b> (สถานี B)
+            </p>
+            <p style="margin-bottom: 5px;">
+              แนวคลื่นวิทยุ ย่านความถี่ <b>${freqGHz.toFixed(1)} GHz</b> มีระยะเคลียร์ เหนือผืนดิน และสิ่งกีดขวาง ตลอดแนวเส้นทาง (100% 1st Fresnel Zone ปลอดโปร่ง)
+            </p>
+            <p style="margin-bottom: 5px;">
+              ${sizingAction}จานสายอากาศพาราโบลิกขนาดเส้นผ่านศูนย์กลาง <b>${antCalc.sizeM} เมตร (${antCalc.label})</b> อัตราขยาย <b>${antGainA.toFixed(2)} dBi</b> เพื่อรองรับระยะทาง <b>${distKm.toFixed(3)} km</b> ให้ระดับสัญญาณรับในโหมด ${baseMode.name || '32QAM'} (Base Mode) อยู่ที่ <b>${baseMode.rsl} dBm</b> ซึ่งสูงกว่าเกณฑ์ความไวภาครับ (${baseMode.th.toFixed(1)} dBm) ให้ค่า Thermal Fade Margin สูงถึง <b>${baseMode.fm} dB</b> (เกณฑ์มาตรฐาน ≥ ${antCalc.targetMargin} dB)
+            </p>
+            <p style="margin: 0;">
+              อัตรา ความพร้อมใช้งาน ของระบบสื่อสาร (Annual Availability) คำนวณได้ <b>${baseMode.avail}</b> ผ่านเกณฑ์มาตรฐาน โทรคมนาคม ระดับ Carrier-Grade Telecom Standard สมบูรณ์แบบ.
+            </p>
+          `;
+        }
+      }
+    }
+
+    function onReportFreqChange(val) {
+      const fGHz = parseFloat(val) || 7.5;
+      if (!activeReportData) {
+        activeReportData = getDataSource() || defaultReportData;
+      }
+      activeReportData.freqGHz = fGHz;
+      activeReportData.freqMHz = fGHz * 1000.0;
+      try {
+        localStorage.setItem('realtime_microwave_report_data', JSON.stringify(activeReportData));
+      } catch (e) {}
+      renderRealtimeReport(activeReportData);
+    }
+
+    function onReportDishChange() {
+      const sel = document.getElementById('report-dish-select');
+      if (sel) {
+        if (!activeReportData) {
+          activeReportData = getDataSource() || defaultReportData;
+        }
+        activeReportData.dishSize = sel.value;
+        try {
+          localStorage.setItem('realtime_microwave_report_data', JSON.stringify(activeReportData));
+        } catch (e) {}
+        renderRealtimeReport(activeReportData);
+      }
+    }
+
+    function onReportRadioModelChange(val) {
+      if (!activeReportData) {
+        activeReportData = getDataSource() || defaultReportData;
+      }
+      activeReportData.radioModel = val;
+      const topRadioSel = document.getElementById('report-radio-model-select');
+      const tableRadioSel = document.getElementById('rf-model-select');
+      if (topRadioSel) topRadioSel.value = val;
+      if (tableRadioSel) tableRadioSel.value = val;
+      try {
+        localStorage.setItem('realtime_microwave_report_data', JSON.stringify(activeReportData));
+      } catch (e) {}
+      renderRealtimeReport(activeReportData);
+    }
+
+    function downloadRealtimeReportPDF() {
+      const btn = document.getElementById('btn-download-pdf');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.innerHTML = '⏳ กำลังบันทึก PDF...';
+        btn.disabled = true;
+      }
+
+      const element = document.getElementById('report-sheet-content');
+      const dist = (activeReportData && activeReportData.distKm) ? activeReportData.distKm : '18.416';
+      
+      // Optimize element for crisp A4 PDF render without overflowing
+      element.classList.add('pdf-rendering');
+
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: `Microwave_Summary_Report_${dist}km.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+
+      const cleanup = () => {
+        element.classList.remove('pdf-rendering');
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }
+      };
+
+      if (typeof html2pdf !== 'undefined' && element) {
+        html2pdf().set(opt).from(element).save().then(() => {
+          cleanup();
+        }).catch(err => {
+          cleanup();
+          console.error('PDF error', err);
+          window.print();
+        });
+      } else {
+        cleanup();
+        window.print();
+      }
+    }
+
+    // Execute immediately on parse
+    try { renderRealtimeReport(); } catch(e) {}
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderRealtimeReport();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('autoPrint') === 'true') {
+        setTimeout(() => { window.print(); }, 600);
+      }
+    });
+
+    window.addEventListener('hashchange', () => {
+      activeReportData = getDataSource() || defaultReportData;
+      renderRealtimeReport(activeReportData);
+    });
+  </script>
+</body>
+</html>
