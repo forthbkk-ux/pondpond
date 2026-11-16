@@ -1,4 +1,4 @@
-// WebRTC Online Multiplayer Manager (PeerJS)
+// WebRTC Online Multiplayer Manager (PeerJS) - Host Authoritative Combat & Score Sync
 class NetworkManager {
     constructor(game) {
         this.game = game;
@@ -129,7 +129,6 @@ class NetworkManager {
                     sender: 'SYSTEM',
                     text: `🟢 ${data.name} เข้าร่วมทีม ${data.team}!`
                 });
-                // Send current match scores & mode
                 conn.send({
                     type: 'welcome',
                     mode: this.game.gameMode,
@@ -172,11 +171,15 @@ class NetworkManager {
         } else if (data.type === 'shoot') {
             this.game.onRemoteShoot(data.id, data);
         } else if (data.type === 'damage_you') {
-            this.game.damageLocalPlayer(data.dmg, data.attacker, data.weapon, data.isHeadshot);
-        } else if (data.type === 'killfeed') {
-            this.game.addKillfeed(data.killer, data.victim, data.weapon, data.isHeadshot);
+            this.game.onClientDamagedByHost(data);
+        } else if (data.type === 'respawn_you') {
+            this.game.respawnLocalPlayer();
+        } else if (data.type === 'kill_event') {
+            this.game.onClientKillEvent(data);
         } else if (data.type === 'round_reset') {
             this.game.onClientRoundReset(data);
+        } else if (data.type === 'round_end') {
+            this.game.onClientRoundEnd(data);
         } else if (data.type === 'chat') {
             this.game.addChatMessage(`${data.sender}: ${data.text}`);
         }
@@ -200,13 +203,10 @@ class NetworkManager {
                 y: p.y,
                 z: p.z,
                 yaw: p.yaw,
-                hp: p.hp,
-                weapon: p.weaponId,
-                kills: p.kills,
-                deaths: p.deaths
+                pitch: p.pitch,
+                weapon: p.weaponId
             });
         } else if (this.isHost && this.connections.size > 0) {
-            // Host broadcasts world snapshot (Host player + Bots + other Clients)
             const actors = [
                 {
                     id: 'HOST',
@@ -216,6 +216,7 @@ class NetworkManager {
                     y: p.y,
                     z: p.z,
                     yaw: p.yaw,
+                    pitch: p.pitch,
                     hp: p.hp,
                     weapon: p.weaponId,
                     kills: p.kills,
@@ -233,6 +234,7 @@ class NetworkManager {
                     y: ent.y,
                     z: ent.z,
                     yaw: ent.yaw,
+                    pitch: ent.pitch || 0,
                     hp: ent.hp,
                     weapon: ent.weapon,
                     kills: ent.kills || 0,
@@ -245,7 +247,13 @@ class NetworkManager {
                 type: 'world_snapshot',
                 scores: this.game.scores,
                 roundTime: this.game.roundTime,
-                bombState: this.game.bombState,
+                bombState: this.game.bombState ? {
+                    planted: this.game.bombState.planted,
+                    site: this.game.bombState.site,
+                    x: this.game.bombState.x,
+                    z: this.game.bombState.z,
+                    timer: this.game.bombState.timer
+                } : null,
                 actors
             });
         }

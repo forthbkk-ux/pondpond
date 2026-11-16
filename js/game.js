@@ -1,4 +1,4 @@
-// Core 3D Counter-Strike Engine (Three.js + Mobile & Desktop + Online + Bots)
+// Core 3D Counter-Strike Engine (Realistic PBR Lighting + Host-Authoritative Score & Multiplayer Sync)
 
 class CSGame {
     constructor() {
@@ -7,10 +7,10 @@ class CSGame {
         this.radarCtx = this.radarCanvas.getContext('2d');
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87b5d6);
-        this.scene.fog = new THREE.FogExp2(0xd6c29f, 0.0085);
+        this.scene.background = new THREE.Color(0x8a9ba8);
+        this.scene.fog = new THREE.FogExp2(0xb5aa96, 0.0082);
 
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 260);
         this.scene.add(this.camera);
 
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
@@ -18,6 +18,13 @@ class CSGame {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        if (THREE.ACESFilmicToneMapping !== undefined) {
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.04;
+        }
+        if (THREE.sRGBEncoding !== undefined) {
+            this.renderer.outputEncoding = THREE.sRGBEncoding;
+        }
 
         this.setupLights();
         this.map = new GameMap(this.scene);
@@ -25,8 +32,8 @@ class CSGame {
         this.net = new NetworkManager(this);
 
         this.running = false;
-        this.gameMode = 'classic'; // 'classic' (Bomb/Rounds) or 'tdm' (Team Deathmatch)
-        this.botCount = 8; // Total bots (e.g. 4v5)
+        this.gameMode = 'classic'; // 'classic' or 'tdm'
+        this.botCount = 8;
         this.mobileMode = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
         this.autoFireMobile = false;
         this.lookSensitivity = 1.0;
@@ -82,21 +89,31 @@ class CSGame {
             bombActionProgress: 0
         };
 
-        this.entities = []; // Bots & Remote Players
+        this.entities = [];
         this.tracers = [];
         this.grenades = [];
         this.particles = [];
+        this.bulletDecals = [];
 
         this.keys = {};
         this.mouseDown = false;
         this.touchMove = { x: 0, y: 0 };
         this.touchFiring = false;
         this.holdingBombBtn = false;
+        this.hudEditMode = false;
+        this.selectedHudEl = null;
+        this.hudLayout = {};
+        this.spectateIndex = 0;
+        this.spectateTarget = null;
+        this.spectateThirdPerson = false;
+        this.spectateOrbitAngle = 0;
 
         this.initAmmoForAll();
         this.equipSlot(1);
         this.setupInputs();
         this.setupUIEvents();
+        this.setupHudLayoutEditor();
+        this.loadHudLayout();
         this.applyMobileModeUI();
 
         this.lastTime = performance.now();
@@ -104,17 +121,23 @@ class CSGame {
     }
 
     setupLights() {
-        const ambient = new THREE.AmbientLight(0xfffbeb, 0.68);
+        // Realistic atmospheric sky & ground bounce light + high-contrast directional sunlight
+        const hemi = new THREE.HemisphereLight(0x8fa3b5, 0x6e604c, 0.48);
+        hemi.position.set(0, 50, 0);
+        this.scene.add(hemi);
+
+        const ambient = new THREE.AmbientLight(0xe5dec9, 0.18);
         this.scene.add(ambient);
 
-        const sun = new THREE.DirectionalLight(0xfff3d1, 0.95);
-        sun.position.set(35, 65, 25);
+        const sun = new THREE.DirectionalLight(0xfff3db, 1.38);
+        sun.position.set(38, 68, 28);
         sun.castShadow = true;
-        sun.shadow.mapSize.width = 1024;
-        sun.shadow.mapSize.height = 1024;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
         sun.shadow.camera.near = 10;
-        sun.shadow.camera.far = 160;
-        const d = 50;
+        sun.shadow.camera.far = 170;
+        sun.shadow.bias = -0.0005;
+        const d = 52;
         sun.shadow.camera.left = -d;
         sun.shadow.camera.right = d;
         sun.shadow.camera.top = d;
@@ -163,12 +186,17 @@ class CSGame {
         if (this.weaponMesh) this.weaponMesh.visible = !scoped;
     }
 
-    startMatch(options = {}) {
+    startMatch() {
         const nameInput = document.getElementById('player-name-input').value.trim();
         if (nameInput) this.player.name = nameInput;
 
         this.gameMode = document.getElementById('game-mode-select').value;
         this.botCount = parseInt(document.getElementById('bot-count-select').value, 10) || 0;
+        const diffSel = document.getElementById('bot-diff-select');
+        if (diffSel) {
+            this.botAI.setDifficulty(diffSel.value);
+            this.updateBotDiffHUD();
+        }
 
         document.getElementById('lobby-overlay').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
@@ -176,6 +204,8 @@ class CSGame {
 
         this.running = true;
         this.scores = { T: 0, CT: 0 };
+        this.player.kills = 0;
+        this.player.deaths = 0;
         this.player.money = this.gameMode === 'tdm' ? 16000 : 1000;
         this.player.slots[1] = this.player.team === 'T' ? 'ak47' : 'm4a1';
         this.initAmmoForAll();
@@ -196,7 +226,6 @@ class CSGame {
     }
 
     setupBots() {
-        // Remove existing bots
         this.entities = this.entities.filter(e => {
             if (e.isBot) {
                 if (e.mesh) this.scene.remove(e.mesh);
@@ -209,7 +238,6 @@ class CSGame {
         const ctNames = ['Bot_Maverick', 'Bot_SAS', 'Bot_Ghost', 'Bot_Falcon', 'Bot_Wolf'];
 
         for (let i = 0; i < this.botCount; i++) {
-            // Balance teams
             const team = (i % 2 === 0) ? (this.player.team === 'T' ? 'CT' : 'T') : this.player.team;
             const spawnList = this.map.spawns[team];
             const sp = spawnList[(i + 1) % spawnList.length];
@@ -247,7 +275,6 @@ class CSGame {
 
         this.respawnLocalPlayer();
 
-        // Respawn all entities
         this.entities.forEach((ent, idx) => {
             const spList = this.map.spawns[ent.team];
             const sp = spList[(idx + 1) % spList.length];
@@ -265,6 +292,7 @@ class CSGame {
 
         this.showAnnouncement('🔥 เริ่มรอบใหม่! เตรียมอาวุธให้พร้อม', 2.5);
         this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
 
         if (this.net.isHost) {
             this.net.broadcast({
@@ -276,20 +304,41 @@ class CSGame {
     }
 
     onClientRoundReset(data) {
+        this.roundOver = false;
         this.scores = data.scores;
         this.roundTime = data.roundTime;
         this.clearPlantedBomb();
         this.respawnLocalPlayer();
         this.showAnnouncement('🔥 เริ่มรอบใหม่!', 2.2);
         this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
+    }
+
+    onClientRoundEnd(data) {
+        this.roundOver = true;
+        this.scores = data.scores;
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
+        const won = this.player.team === data.winnerTeam;
+        this.player.money = Math.min(16000, this.player.money + (won ? 3250 : 1900));
+        this.updateVitalsHUD();
+        window.soundFX.playRoundEnd(won);
+        this.showAnnouncement(data.reasonText, 4.0);
     }
 
     respawnLocalPlayer() {
+        this.spectateTarget = null;
+        const specBar = document.getElementById('spectator-bar');
+        if (specBar) specBar.classList.add('hidden');
+        for (const e of this.entities) {
+            if (e.mesh) e.mesh.visible = (e.hp > 0);
+        }
+
         const spList = this.map.spawns[this.player.team];
-        const sp = spList[0];
-        this.player.x = sp.x + (Math.random() - 0.5) * 1.5;
+        const sp = spList[Math.floor(Math.random() * spList.length)];
+        this.player.x = sp.x + (Math.random() - 0.5) * 1.2;
         this.player.y = 0;
-        this.player.z = sp.z + (Math.random() - 0.5) * 1.5;
+        this.player.z = sp.z + (Math.random() - 0.5) * 1.2;
         this.player.vx = 0;
         this.player.vy = 0;
         this.player.vz = 0;
@@ -299,13 +348,14 @@ class CSGame {
         this.player.armor = 100;
         this.player.reloading = false;
 
-        // Refill clip on spawn
         for (const k of Object.keys(this.player.ammo)) {
             this.player.ammo[k].clip = WEAPONS[k].clipSize;
             this.player.ammo[k].reserve = WEAPONS[k].reserveMax;
         }
         this.equipSlot(this.player.slots[1] ? 1 : 2);
         this.updateVitalsHUD();
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
     }
 
     shoot() {
@@ -339,16 +389,20 @@ class CSGame {
         window.soundFX.playShoot(wep.id, 1.0);
         this.updateWeaponHUD();
 
-        // Muzzle flash & Viewmodel kick
+        // Viewmodel recoil kick, Muzzle Flash + Dynamic Light + Ejecting Brass Shell
         if (this.weaponMesh) {
-            this.weaponMesh.position.z += 0.06;
-            this.weaponMesh.rotation.x += 0.08;
+            this.weaponMesh.position.z += 0.065;
+            this.weaponMesh.rotation.x += 0.085;
             const flash = this.weaponMesh.getObjectByName('muzzleFlash');
             if (flash) {
                 flash.visible = true;
                 flash.rotation.z = Math.random() * Math.PI * 2;
-                setTimeout(() => { flash.visible = false; }, 45);
+                clearTimeout(this.flashTimeout);
+                this.flashTimeout = setTimeout(() => { flash.visible = false; }, 50);
             }
+        }
+        if (wep.id !== 'knife') {
+            this.spawnShellCasing();
         }
 
         const pellets = wep.pellets || 1;
@@ -371,7 +425,6 @@ class CSGame {
 
             const ray = new THREE.Raycaster(origin, dir, 0.1, wep.range);
 
-            // Check wall hit distance
             const wallHits = ray.intersectObjects(this.map.shootableMeshes, false);
             let maxDist = wep.range;
             let endPoint = origin.clone().add(dir.clone().multiplyScalar(wep.range));
@@ -381,7 +434,6 @@ class CSGame {
                 endPoint = wallHits[0].point;
             }
 
-            // Check enemy hits
             const enemyMeshes = [];
             for (const ent of this.entities) {
                 if (ent.hp > 0 && ent.mesh && ent.team !== this.player.team) {
@@ -407,7 +459,7 @@ class CSGame {
                 else if (part === 'leg') dmg = Math.round(dmg * 0.75);
 
                 this.triggerHitmarker(isHeadshot);
-                this.spawnImpactSparks(hit.point, 0xef4444);
+                this.spawnImpactSparks(hit.point, 0xdc2626, 3.4);
 
                 if (this.net.isClient) {
                     this.net.sendHitClaim(targetEnt.id, dmg, wep.id, isHeadshot);
@@ -415,20 +467,21 @@ class CSGame {
                     this.damageEntity(targetEnt, dmg, this.player.name, wep.id, isHeadshot, this.player);
                 }
             } else if (wallHits.length > 0 && wep.id !== 'knife') {
-                this.spawnImpactSparks(endPoint, 0xfbbf24);
+                this.spawnImpactSparks(endPoint, 0xfbbf24, 2.6);
+                if (wallHits[0].face) {
+                    this.spawnBulletDecal(endPoint, wallHits[0].face.normal);
+                }
             }
 
             if (wep.id !== 'knife') {
-                const gunMuzzle = origin.clone().add(new THREE.Vector3(0, -0.1, 0));
+                const gunMuzzle = origin.clone().add(new THREE.Vector3(0, -0.08, 0));
                 this.spawnBulletTracer(gunMuzzle, endPoint);
                 this.net.sendShoot(gunMuzzle, endPoint, wep.id);
             }
         }
 
-        // Apply Recoil
         this.player.recoilPitch = Math.min(0.18, this.player.recoilPitch + wep.recoil);
 
-        // Unscope briefly after AWP shot
         if (wep.id === 'awp' && this.player.isScoped) {
             this.setScope(false);
         }
@@ -453,7 +506,7 @@ class CSGame {
         const pos = new THREE.Vector3(this.player.x, this.player.y + eyeHeight, this.player.z);
         const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch, this.player.yaw, 0, 'YXZ'));
 
-        const geo = new THREE.SphereGeometry(0.14, 10, 10);
+        const geo = new THREE.SphereGeometry(0.14, 12, 12);
         const mat = new THREE.MeshStandardMaterial({ color: 0x365314, roughness: 0.4 });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.copy(pos);
@@ -472,33 +525,37 @@ class CSGame {
         this.scene.remove(g.mesh);
         window.soundFX.playExplosion();
 
-        // Big explosion flash & particles
-        for (let i = 0; i < 24; i++) {
-            this.spawnImpactSparks(pos, i % 2 === 0 ? 0xf97316 : 0xfacc15, 6.5);
+        for (let i = 0; i < 28; i++) {
+            this.spawnImpactSparks(pos, i % 2 === 0 ? 0xf97316 : 0xfacc15, 7.0);
         }
 
-        // Damage nearby enemies
         const radius = 11.0;
         for (const ent of this.entities) {
             if (ent.hp > 0 && ent.team !== this.player.team) {
                 const dist = Math.hypot(ent.x - pos.x, ent.z - pos.z);
                 if (dist < radius) {
                     const dmg = Math.round(98 * (1 - dist / radius));
-                    this.damageEntity(ent, dmg, this.player.name, 'hegrenade', false, this.player);
+                    if (this.net.isClient) {
+                        this.net.sendHitClaim(ent.id, dmg, 'hegrenade', false);
+                    } else {
+                        this.damageEntity(ent, dmg, this.player.name, 'hegrenade', false, this.player);
+                    }
                 }
             }
         }
     }
 
+    // ==================== HOST-AUTHORITATIVE DAMAGE & KILL TRACKING ====================
     damageEntity(ent, dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
         if (ent.hp <= 0) return;
-        ent.hp -= dmg;
+        ent.hp = Math.max(0, ent.hp - dmg);
 
-        // If target is a remote client connected to Host, notify them
+        // If target is a remote client connected to Host, send authoritative HP & damage flash
         if (this.net.isHost && !ent.isBot) {
             this.net.sendToPeer(ent.id, {
                 type: 'damage_you',
                 dmg,
+                newHp: ent.hp,
                 attacker: attackerName,
                 weapon: weaponId,
                 isHeadshot
@@ -506,31 +563,49 @@ class CSGame {
         }
 
         if (ent.hp <= 0) {
-            ent.hp = 0;
             ent.deaths = (ent.deaths || 0) + 1;
             if (ent.mesh) ent.mesh.visible = false;
 
+            let killerId = 'BOT';
+            let killerTeam = ent.team === 'T' ? 'CT' : 'T';
+
             if (attackerObj) {
                 attackerObj.kills = (attackerObj.kills || 0) + 1;
+                killerTeam = attackerObj.team || killerTeam;
                 if (attackerObj === this.player) {
+                    killerId = 'HOST';
                     this.player.money = Math.min(16000, this.player.money + 300);
                     this.updateVitalsHUD();
+                } else {
+                    killerId = attackerObj.id;
                 }
             }
 
+            // Update Team Score immediately on kill in TDM (or track round wins in Classic)
+            if (this.gameMode === 'tdm') {
+                this.scores[killerTeam] = (this.scores[killerTeam] || 0) + 1;
+            }
+
             this.addKillfeed(attackerName, ent.name, weaponId, isHeadshot);
+            this.updateScoreHUD();
+            this.refreshScoreboardIfOpen();
+
             if (this.net.isHost) {
                 this.net.broadcast({
-                    type: 'killfeed',
-                    killer: attackerName,
-                    victim: ent.name,
+                    type: 'kill_event',
+                    killerId,
+                    killerName: attackerName,
+                    killerKills: attackerObj ? attackerObj.kills : 0,
+                    victimId: ent.id,
+                    victimName: ent.name,
+                    victimDeaths: ent.deaths,
                     weapon: weaponId,
-                    isHeadshot
+                    isHeadshot,
+                    scores: this.scores
                 });
             }
 
             if (this.gameMode === 'tdm') {
-                // Respawn after 3 seconds in TDM
                 setTimeout(() => {
                     if (!this.running) return;
                     const spList = this.map.spawns[ent.team];
@@ -543,6 +618,11 @@ class CSGame {
                         ent.mesh.visible = true;
                         ent.mesh.position.set(ent.x, ent.y, ent.z);
                     }
+                    if (this.net.isHost && !ent.isBot) {
+                        this.net.sendToPeer(ent.id, { type: 'respawn_you' });
+                    }
+                    this.updateScoreHUD();
+                    this.refreshScoreboardIfOpen();
                 }, 3000);
             } else {
                 this.checkRoundWinCondition();
@@ -550,10 +630,9 @@ class CSGame {
         }
     }
 
-    damageLocalPlayer(dmg, attackerName, weaponId, isHeadshot) {
+    damageLocalPlayer(dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
         if (this.player.hp <= 0) return;
 
-        // Armor absorption
         let actualDmg = dmg;
         if (this.player.armor > 0) {
             const absorbed = Math.min(this.player.armor, Math.round(dmg * 0.35));
@@ -564,7 +643,6 @@ class CSGame {
         this.player.hp = Math.max(0, this.player.hp - actualDmg);
         this.updateVitalsHUD();
 
-        // Red damage flash
         const flash = document.getElementById('damage-flash');
         if (flash) {
             flash.style.opacity = '1';
@@ -574,8 +652,39 @@ class CSGame {
         if (this.player.hp <= 0) {
             this.player.deaths++;
             this.setScope(false);
+
+            let killerId = 'BOT';
+            let killerTeam = this.player.team === 'T' ? 'CT' : 'T';
+
+            if (attackerObj) {
+                attackerObj.kills = (attackerObj.kills || 0) + 1;
+                killerId = attackerObj.id || 'BOT';
+                killerTeam = attackerObj.team || killerTeam;
+            }
+
+            if (this.gameMode === 'tdm') {
+                this.scores[killerTeam] = (this.scores[killerTeam] || 0) + 1;
+            }
+
             this.addKillfeed(attackerName, this.player.name, weaponId, isHeadshot);
             this.showAnnouncement(`💀 คุณถูกสังหารโดย ${attackerName}!`, 2.5);
+            this.updateScoreHUD();
+            this.refreshScoreboardIfOpen();
+
+            if (this.net.isHost) {
+                this.net.broadcast({
+                    type: 'kill_event',
+                    killerId,
+                    killerName: attackerName,
+                    killerKills: attackerObj ? attackerObj.kills : 0,
+                    victimId: 'HOST',
+                    victimName: this.player.name,
+                    victimDeaths: this.player.deaths,
+                    weapon: weaponId,
+                    isHeadshot,
+                    scores: this.scores
+                });
+            }
 
             if (this.gameMode === 'tdm') {
                 setTimeout(() => this.respawnLocalPlayer(), 3000);
@@ -583,6 +692,51 @@ class CSGame {
                 this.checkRoundWinCondition();
             }
         }
+    }
+
+    onClientDamagedByHost(data) {
+        if (this.player.hp <= 0) return;
+        this.player.hp = Math.max(0, data.newHp !== undefined ? data.newHp : (this.player.hp - data.dmg));
+        this.updateVitalsHUD();
+
+        const flash = document.getElementById('damage-flash');
+        if (flash) {
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 180);
+        }
+
+        if (this.player.hp <= 0) {
+            this.setScope(false);
+            this.showAnnouncement(`💀 คุณถูกสังหารโดย ${data.attacker}!`, 2.5);
+        }
+    }
+
+    onClientKillEvent(data) {
+        const myId = this.net.peer ? this.net.peer.id : '';
+        if (data.scores) {
+            this.scores = data.scores;
+        }
+        if (data.killerId === myId) {
+            if (data.killerKills !== undefined) this.player.kills = data.killerKills;
+            else this.player.kills++;
+            this.player.money = Math.min(16000, this.player.money + 300);
+            this.updateVitalsHUD();
+        } else {
+            const kEnt = this.entities.find(e => e.id === data.killerId);
+            if (kEnt && data.killerKills !== undefined) kEnt.kills = data.killerKills;
+        }
+
+        if (data.victimId === myId) {
+            if (data.victimDeaths !== undefined) this.player.deaths = data.victimDeaths;
+            else this.player.deaths++;
+        } else {
+            const vEnt = this.entities.find(e => e.id === data.victimId);
+            if (vEnt && data.victimDeaths !== undefined) vEnt.deaths = data.victimDeaths;
+        }
+
+        this.addKillfeed(data.killerName, data.victimName, data.weapon, data.isHeadshot);
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
     }
 
     checkRoundWinCondition() {
@@ -610,6 +764,7 @@ class CSGame {
         this.roundOver = true;
         this.scores[winnerTeam]++;
         this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
 
         const won = this.player.team === winnerTeam;
         this.player.money = Math.min(16000, this.player.money + (won ? 3250 : 1900));
@@ -617,6 +772,15 @@ class CSGame {
 
         window.soundFX.playRoundEnd(won);
         this.showAnnouncement(reasonText, 4.0);
+
+        if (this.net.isHost) {
+            this.net.broadcast({
+                type: 'round_end',
+                winnerTeam,
+                reasonText,
+                scores: this.scores
+            });
+        }
 
         setTimeout(() => {
             if (this.running && !this.net.isClient) {
@@ -635,7 +799,6 @@ class CSGame {
         this.bombState.timer = 35;
         this.bombState.beepTimer = 0.8;
 
-        // Create 3D C4 Mesh
         const c4Group = new THREE.Group();
         const pack = new THREE.Mesh(
             new THREE.BoxGeometry(0.45, 0.16, 0.32),
@@ -673,18 +836,55 @@ class CSGame {
         document.getElementById('bomb-progress-box').classList.add('hidden');
     }
 
-    // ==================== VISUAL EFFECTS ====================
+    // ==================== REALISTIC VISUAL EFFECTS ====================
     spawnBulletTracer(start, end) {
-        const mat = new THREE.LineBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.85 });
+        const mat = new THREE.LineBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.9 });
         const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
         const line = new THREE.Line(geo, mat);
         this.scene.add(line);
-        this.tracers.push({ line, timer: 0.07 });
+        this.tracers.push({ line, timer: 0.065 });
+    }
+
+    spawnShellCasing() {
+        const eyeH = this.player.crouching ? 1.05 : 1.62;
+        const pos = new THREE.Vector3(this.player.x, this.player.y + eyeH - 0.12, this.player.z);
+        const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, this.player.yaw, 0));
+        const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch, this.player.yaw, 0, 'YXZ'));
+
+        pos.addScaledVector(right, 0.22).addScaledVector(forward, 0.35);
+
+        const geo = new THREE.CylinderGeometry(0.008, 0.008, 0.032, 6);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.2 });
+        const shell = new THREE.Mesh(geo, mat);
+        shell.position.copy(pos);
+        shell.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        this.scene.add(shell);
+
+        this.particles.push({
+            mesh: shell,
+            vel: right.multiplyScalar(2.2 + Math.random()).add(new THREE.Vector3(0, 1.8 + Math.random(), 0)),
+            timer: 0.65
+        });
+    }
+
+    spawnBulletDecal(point, normal) {
+        const geo = new THREE.CircleGeometry(0.055, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x1c1917, transparent: true, opacity: 0.82, depthWrite: false });
+        const decal = new THREE.Mesh(geo, mat);
+        decal.position.copy(point).addScaledVector(normal, 0.015);
+        decal.lookAt(point.clone().add(normal));
+        this.scene.add(decal);
+
+        this.bulletDecals.push(decal);
+        if (this.bulletDecals.length > 45) {
+            const old = this.bulletDecals.shift();
+            this.scene.remove(old);
+        }
     }
 
     spawnImpactSparks(point, colorHex, speedScale = 2.8) {
-        for (let i = 0; i < 5; i++) {
-            const geo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+        for (let i = 0; i < 6; i++) {
+            const geo = new THREE.BoxGeometry(0.055, 0.055, 0.055);
             const mat = new THREE.MeshBasicMaterial({ color: colorHex });
             const spark = new THREE.Mesh(geo, mat);
             spark.position.copy(point);
@@ -759,9 +959,11 @@ class CSGame {
 
     updatePlayer(dt) {
         const p = this.player;
-        if (p.hp <= 0) return;
+        if (p.hp <= 0) {
+            this.updateSpectator(dt);
+            return;
+        }
 
-        // Cooldowns & Reload
         if (p.fireCooldown > 0) p.fireCooldown -= dt;
         if (p.recoilPitch > 0) p.recoilPitch = Math.max(0, p.recoilPitch - dt * 0.25);
 
@@ -783,7 +985,6 @@ class CSGame {
             }
         }
 
-        // Firing check (Desktop Mouse OR Mobile Touch Fire OR Mobile Auto-Fire)
         const wep = WEAPONS[p.weaponId];
         if (this.mouseDown || this.touchFiring) {
             if (wep.auto || p.fireCooldown <= 0) {
@@ -793,7 +994,6 @@ class CSGame {
             this.checkMobileAutoFire();
         }
 
-        // Movement Input Vector (Keyboard WASD + Mobile Touch Joystick)
         let moveForward = 0;
         let moveRight = 0;
 
@@ -827,7 +1027,6 @@ class CSGame {
             p.z = nextZ;
         }
 
-        // Gravity & Jumping onto crates
         p.vy -= 22.0 * dt;
         p.y += p.vy * dt;
         const floorY = this.getFloorHeight(p.x, p.y, p.z);
@@ -839,7 +1038,6 @@ class CSGame {
             p.onGround = false;
         }
 
-        // Footsteps & Weapon Bobbing
         const movingSpeed = Math.hypot(wishX, wishZ);
         if (movingSpeed > 1.2 && p.onGround) {
             p.bobTimer += dt * 10;
@@ -850,28 +1048,114 @@ class CSGame {
             }
         }
 
-        // Update Camera Position & Rotation
         const eyeH = p.crouching ? 1.05 : 1.62;
         this.camera.position.set(p.x, p.y + eyeH, p.z);
         this.camera.rotation.order = 'YXZ';
         this.camera.rotation.y = p.yaw;
         this.camera.rotation.x = Math.max(-1.45, Math.min(1.45, p.pitch + p.recoilPitch));
 
-        // Smooth Weapon Viewmodel Recovery
         if (this.weaponMesh && !p.reloading) {
             const bobX = Math.cos(p.bobTimer) * 0.012;
             const bobY = Math.abs(Math.sin(p.bobTimer)) * 0.012;
-            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, 0.25 + bobX, dt * 10);
+            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, 0.24 + bobX, dt * 10);
             this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, -0.23 - bobY, dt * 10);
-            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, -0.45, dt * 12);
+            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, -0.44, dt * 12);
             this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0, dt * 12);
         }
 
-        // Dynamic Crosshair expansion
         this.updateCrosshair(movingSpeed);
-
-        // Bomb Plant / Defuse check
         this.updatePlayerBombInteraction(dt);
+    }
+
+    // ==================== SPECTATOR MODE (WATCH TEAMMATES WHEN DEAD) ====================
+    getLivingTeammates() {
+        return this.entities.filter(e => e.hp > 0 && e.team === this.player.team);
+    }
+
+    cycleSpectator(step = 1) {
+        if (this.player.hp > 0) return;
+        const allies = this.getLivingTeammates();
+        if (allies.length === 0) {
+            this.spectateTarget = null;
+            return;
+        }
+        this.spectateIndex = (this.spectateIndex + step + allies.length) % allies.length;
+        this.spectateTarget = allies[this.spectateIndex];
+        window.soundFX.playReload();
+    }
+
+    toggleSpectateCameraMode() {
+        if (this.player.hp > 0) return;
+        this.spectateThirdPerson = !this.spectateThirdPerson;
+        const camBtn = document.getElementById('btn-spectate-cam');
+        if (camBtn) {
+            camBtn.textContent = this.spectateThirdPerson ? '🎥 มุมมอง: บุคคลที่ 3' : '🎥 มุมมอง: บุคคลที่ 1';
+        }
+    }
+
+    updateSpectator(dt) {
+        const specBar = document.getElementById('spectator-bar');
+        const specName = document.getElementById('spectator-target-name');
+        if (specBar) specBar.classList.remove('hidden');
+
+        // Restore visibility of all living entities before hiding the 1st-person spectated target
+        for (const e of this.entities) {
+            if (e.mesh) e.mesh.visible = (e.hp > 0);
+        }
+
+        const allies = this.getLivingTeammates();
+        if (allies.length === 0) {
+            this.spectateTarget = null;
+            if (specName) specName.textContent = 'ไม่มีเพื่อนร่วมทีมที่ยังมีชีวิต (รอรอบใหม่...)';
+            if (this.weaponMesh) this.weaponMesh.visible = false;
+
+            // Smooth overview camera above map
+            this.spectateOrbitAngle += dt * 0.25;
+            const camX = Math.sin(this.spectateOrbitAngle) * 24;
+            const camZ = Math.cos(this.spectateOrbitAngle) * 24;
+            this.camera.position.set(camX, 18, camZ);
+            this.camera.lookAt(0, 1.5, 0);
+            return;
+        }
+
+        if (!this.spectateTarget || this.spectateTarget.hp <= 0 || this.spectateTarget.team !== this.player.team) {
+            this.spectateIndex = this.spectateIndex % allies.length;
+            this.spectateTarget = allies[this.spectateIndex];
+        }
+
+        const target = this.spectateTarget;
+        const idx = allies.indexOf(target) + 1;
+        if (specName) {
+            specName.textContent = `${target.name} (${target.hp} HP) [${idx}/${allies.length}]`;
+        }
+
+        if (!this.spectateThirdPerson) {
+            // First-Person Teammate POV
+            if (target.mesh) target.mesh.visible = false;
+            if (this.weaponMesh) this.weaponMesh.visible = true;
+
+            this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, target.x, dt * 16);
+            this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, target.y + 1.62, dt * 16);
+            this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, target.z, dt * 16);
+
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.y = target.yaw;
+            this.camera.rotation.x = target.pitch || 0;
+        } else {
+            // Third-Person Follow Camera behind teammate
+            if (target.mesh) target.mesh.visible = true;
+            if (this.weaponMesh) this.weaponMesh.visible = false;
+
+            const dist = 3.8;
+            const desiredX = target.x + Math.sin(target.yaw) * dist;
+            const desiredY = target.y + 2.3;
+            const desiredZ = target.z + Math.cos(target.yaw) * dist;
+
+            this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, desiredX, dt * 12);
+            this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, desiredY, dt * 12);
+            this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, desiredZ, dt * 12);
+            this.camera.lookAt(target.x, target.y + 1.4, target.z);
+        }
     }
 
     checkMobileAutoFire() {
@@ -897,6 +1181,7 @@ class CSGame {
     }
 
     updatePlayerBombInteraction(dt) {
+        if (this.hudEditMode) return;
         const p = this.player;
         const bombBtn = document.getElementById('btn-bomb-action');
         const progBox = document.getElementById('bomb-progress-box');
@@ -986,7 +1271,6 @@ class CSGame {
     }
 
     updateEffects(dt) {
-        // Bullet tracers
         for (let i = this.tracers.length - 1; i >= 0; i--) {
             const t = this.tracers[i];
             t.timer -= dt;
@@ -996,19 +1280,18 @@ class CSGame {
             }
         }
 
-        // Particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const pt = this.particles[i];
             pt.timer -= dt;
             pt.vel.y -= 12 * dt;
             pt.mesh.position.addScaledVector(pt.vel, dt);
+            pt.mesh.rotation.x += 5 * dt;
             if (pt.timer <= 0) {
                 this.scene.remove(pt.mesh);
                 this.particles.splice(i, 1);
             }
         }
 
-        // Grenades
         for (let i = this.grenades.length - 1; i >= 0; i--) {
             const g = this.grenades[i];
             g.timer -= dt;
@@ -1049,6 +1332,7 @@ class CSGame {
                 name,
                 team,
                 isBot: false,
+                isRemotePlayer: true,
                 x: sp.x,
                 y: 0,
                 z: sp.z,
@@ -1059,6 +1343,8 @@ class CSGame {
                 deaths: 0,
                 mesh
             });
+            this.updateScoreHUD();
+            this.refreshScoreboardIfOpen();
         }
     }
 
@@ -1069,6 +1355,8 @@ class CSGame {
             if (ent.mesh) this.scene.remove(ent.mesh);
             this.addChatMessage(`👋 ${ent.name} ออกจากห้อง`, '#94a3b8');
             this.entities.splice(idx, 1);
+            this.updateScoreHUD();
+            this.refreshScoreboardIfOpen();
         }
     }
 
@@ -1079,16 +1367,22 @@ class CSGame {
             ent = this.entities.find(e => e.id === peerId);
         }
         if (ent) {
+            const moved = Math.hypot(data.x - ent.x, data.z - ent.z) > 0.02;
             ent.x = data.x;
             ent.y = data.y;
             ent.z = data.z;
             ent.yaw = data.yaw;
-            ent.hp = data.hp;
+            ent.pitch = data.pitch || 0;
             ent.weapon = data.weapon;
+            // Note: ent.hp, ent.kills, ent.deaths are Host-authoritative and NOT overwritten by Client state!
             if (ent.mesh) {
-                ent.mesh.visible = ent.hp > 0;
+                const isSpectated1P = (this.player.hp <= 0 && this.spectateTarget === ent && !this.spectateThirdPerson);
+                ent.mesh.visible = ent.hp > 0 && !isSpectated1P;
                 ent.mesh.position.set(ent.x, ent.y, ent.z);
                 ent.mesh.rotation.y = ent.yaw;
+                if (window.animateCharacterWalk) {
+                    window.animateCharacterWalk(ent.mesh, moved, 0.05);
+                }
             }
         }
     }
@@ -1103,7 +1397,14 @@ class CSGame {
         const seenIds = new Set();
 
         for (const a of snapshot.actors) {
-            if (a.id === myId) continue;
+            if (a.id === myId) {
+                // Sync Client's own authoritative Kills, Deaths & HP from Host!
+                const changed = (this.player.kills !== a.kills || this.player.deaths !== a.deaths);
+                this.player.kills = a.kills || 0;
+                this.player.deaths = a.deaths || 0;
+                if (changed) this.refreshScoreboardIfOpen();
+                continue;
+            }
             seenIds.add(a.id);
 
             let ent = this.entities.find(e => e.id === a.id);
@@ -1115,38 +1416,48 @@ class CSGame {
                     name: a.name,
                     team: a.team,
                     isBot: a.isBot,
+                    isRemotePlayer: !a.isBot,
                     x: a.x,
                     y: a.y,
                     z: a.z,
                     yaw: a.yaw,
                     hp: a.hp,
                     weapon: a.weapon,
-                    kills: a.kills,
-                    deaths: a.deaths,
+                    kills: a.kills || 0,
+                    deaths: a.deaths || 0,
                     mesh
                 };
                 this.entities.push(ent);
+                this.refreshScoreboardIfOpen();
             } else {
+                const moved = Math.hypot(a.x - ent.x, a.z - ent.z) > 0.02;
+                const scoreChanged = (ent.kills !== a.kills || ent.deaths !== a.deaths || ent.hp !== a.hp);
                 ent.x = a.x;
                 ent.y = a.y;
                 ent.z = a.z;
                 ent.yaw = a.yaw;
+                ent.pitch = a.pitch || 0;
                 ent.hp = a.hp;
-                ent.kills = a.kills;
-                ent.deaths = a.deaths;
+                ent.kills = a.kills || 0;
+                ent.deaths = a.deaths || 0;
                 if (ent.mesh) {
-                    ent.mesh.visible = ent.hp > 0;
+                    const isSpectated1P = (this.player.hp <= 0 && this.spectateTarget === ent && !this.spectateThirdPerson);
+                    ent.mesh.visible = ent.hp > 0 && !isSpectated1P;
                     ent.mesh.position.set(ent.x, ent.y, ent.z);
                     ent.mesh.rotation.y = ent.yaw;
+                    if (window.animateCharacterWalk) {
+                        window.animateCharacterWalk(ent.mesh, moved, 0.05);
+                    }
                 }
+                if (scoreChanged) this.refreshScoreboardIfOpen();
             }
         }
 
-        // Remove stale entities
         for (let i = this.entities.length - 1; i >= 0; i--) {
             if (!seenIds.has(this.entities[i].id)) {
                 if (this.entities[i].mesh) this.scene.remove(this.entities[i].mesh);
                 this.entities.splice(i, 1);
+                this.refreshScoreboardIfOpen();
             }
         }
     }
@@ -1159,11 +1470,11 @@ class CSGame {
     }
 
     onRemoteHitClaim(peerId, data) {
+        const attackerEnt = this.entities.find(e => e.id === peerId);
         if (data.targetId === 'HOST') {
-            this.damageLocalPlayer(data.dmg, data.attacker, data.weapon, data.isHeadshot);
+            this.damageLocalPlayer(data.dmg, data.attacker, data.weapon, data.isHeadshot, attackerEnt);
         } else {
             const target = this.entities.find(e => e.id === data.targetId);
-            const attackerEnt = this.entities.find(e => e.id === peerId);
             if (target) {
                 this.damageEntity(target, data.dmg, data.attacker, data.weapon, data.isHeadshot, attackerEnt);
             }
@@ -1192,7 +1503,6 @@ class CSGame {
             document.getElementById('ammo-reserve').textContent = `/ ${ammoObj.reserve}`;
         }
 
-        // Update slot buttons
         for (let s = 1; s <= 4; s++) {
             const btn = document.getElementById(`slot-btn-${s}`);
             if (!btn) continue;
@@ -1299,6 +1609,18 @@ class CSGame {
             }
             this.keys[e.code] = true;
 
+            if (this.player.hp <= 0) {
+                if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'KeyD') {
+                    this.cycleSpectator(1);
+                } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                    this.cycleSpectator(-1);
+                } else if (e.code === 'Tab') {
+                    e.preventDefault();
+                    this.toggleScoreboard(true);
+                }
+                return;
+            }
+
             if (e.code === 'Space' && this.player.onGround) {
                 this.player.vy = 8.4;
                 this.player.onGround = false;
@@ -1331,9 +1653,16 @@ class CSGame {
             }
         });
 
-        // Mouse Look & Fire
         this.canvas.addEventListener('mousedown', (e) => {
             if (!this.running) return;
+            if (this.player.hp <= 0) {
+                if (e.button === 0) {
+                    this.cycleSpectator(1);
+                } else if (e.button === 2) {
+                    this.toggleSpectateCameraMode();
+                }
+                return;
+            }
             if (!this.mobileMode && document.pointerLockElement !== this.canvas) {
                 this.canvas.requestPointerLock();
                 return;
@@ -1385,6 +1714,7 @@ class CSGame {
         };
 
         joyZone.addEventListener('touchstart', (e) => {
+            if (this.hudEditMode) return;
             e.preventDefault();
             const t = e.changedTouches[0];
             joyTouchId = t.identifier;
@@ -1392,6 +1722,7 @@ class CSGame {
         }, { passive: false });
 
         joyZone.addEventListener('touchmove', (e) => {
+            if (this.hudEditMode) return;
             e.preventDefault();
             for (const t of e.changedTouches) {
                 if (t.identifier === joyTouchId) {
@@ -1413,13 +1744,13 @@ class CSGame {
         joyZone.addEventListener('touchend', resetJoystick);
         joyZone.addEventListener('touchcancel', resetJoystick);
 
-        // Right Look Zone (Touch Drag Aim)
         const lookZone = document.getElementById('look-zone');
         let lookTouchId = null;
         let lastLookX = 0;
         let lastLookY = 0;
 
         lookZone.addEventListener('touchstart', (e) => {
+            if (this.hudEditMode) return;
             e.preventDefault();
             const t = e.changedTouches[0];
             lookTouchId = t.identifier;
@@ -1428,6 +1759,7 @@ class CSGame {
         }, { passive: false });
 
         lookZone.addEventListener('touchmove', (e) => {
+            if (this.hudEditMode) return;
             e.preventDefault();
             for (const t of e.changedTouches) {
                 if (t.identifier === lookTouchId) {
@@ -1451,18 +1783,43 @@ class CSGame {
         lookZone.addEventListener('touchend', endLook);
         lookZone.addEventListener('touchcancel', endLook);
 
-        // Mobile Action Buttons
         const bindHoldBtn = (id, onDown, onUp) => {
             const el = document.getElementById(id);
             if (!el) return;
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); el.classList.add('pressed'); onDown(); }, { passive: false });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); el.classList.remove('pressed'); if (onUp) onUp(); }, { passive: false });
-            el.addEventListener('mousedown', (e) => { e.preventDefault(); onDown(); });
-            el.addEventListener('mouseup', (e) => { e.preventDefault(); if (onUp) onUp(); });
+            el.addEventListener('touchstart', (e) => {
+                if (this.hudEditMode) return;
+                e.preventDefault();
+                el.classList.add('pressed');
+                onDown();
+            }, { passive: false });
+            el.addEventListener('touchend', (e) => {
+                if (this.hudEditMode) return;
+                e.preventDefault();
+                el.classList.remove('pressed');
+                if (onUp) onUp();
+            }, { passive: false });
+            el.addEventListener('mousedown', (e) => {
+                if (this.hudEditMode) return;
+                e.preventDefault();
+                onDown();
+            });
+            el.addEventListener('mouseup', (e) => {
+                if (this.hudEditMode) return;
+                e.preventDefault();
+                if (onUp) onUp();
+            });
         };
 
-        bindHoldBtn('btn-fire-right', () => { this.touchFiring = true; this.shoot(); }, () => { this.touchFiring = false; });
-        bindHoldBtn('btn-fire-left', () => { this.touchFiring = true; this.shoot(); }, () => { this.touchFiring = false; });
+        bindHoldBtn('btn-fire-right', () => {
+            if (this.player.hp <= 0) { this.cycleSpectator(1); return; }
+            this.touchFiring = true;
+            this.shoot();
+        }, () => { this.touchFiring = false; });
+        bindHoldBtn('btn-fire-left', () => {
+            if (this.player.hp <= 0) { this.cycleSpectator(1); return; }
+            this.touchFiring = true;
+            this.shoot();
+        }, () => { this.touchFiring = false; });
         bindHoldBtn('btn-aim', () => { this.setScope(!this.player.isScoped); });
         bindHoldBtn('btn-reload', () => { this.reload(); });
         bindHoldBtn('btn-jump', () => {
@@ -1479,7 +1836,6 @@ class CSGame {
     }
 
     setupUIEvents() {
-        // Team Select in Lobby
         document.getElementById('select-team-t').addEventListener('click', () => {
             this.player.team = 'T';
             document.getElementById('select-team-t').classList.add('active');
@@ -1491,12 +1847,10 @@ class CSGame {
             document.getElementById('select-team-t').classList.remove('active');
         });
 
-        // Quick Play / Start Match
         document.getElementById('btn-start-play').addEventListener('click', () => {
             this.startMatch();
         });
 
-        // Host Online Room
         document.getElementById('btn-host-room').addEventListener('click', () => {
             const statusEl = document.getElementById('room-status-text');
             statusEl.textContent = '⏳ กำลังสร้างรหัสห้องออนไลน์...';
@@ -1509,7 +1863,6 @@ class CSGame {
             });
         });
 
-        // Join Online Room
         document.getElementById('btn-join-room').addEventListener('click', () => {
             const code = document.getElementById('join-code-input').value;
             const statusEl = document.getElementById('room-status-text');
@@ -1522,16 +1875,27 @@ class CSGame {
             });
         });
 
-        // Top HUD Mini Buttons
         document.getElementById('btn-open-buy').addEventListener('click', () => this.toggleBuyMenu());
         document.getElementById('btn-close-buy').addEventListener('click', () => this.toggleBuyMenu(false));
         document.getElementById('btn-open-score').addEventListener('click', () => this.toggleScoreboard());
         document.getElementById('btn-close-score').addEventListener('click', () => this.toggleScoreboard(false));
 
+        const botDiffBtn = document.getElementById('btn-cycle-bot-diff');
+        if (botDiffBtn) {
+            botDiffBtn.addEventListener('click', () => this.cycleBotDifficulty());
+        }
+
         document.getElementById('btn-toggle-mobile').addEventListener('click', () => {
             this.mobileMode = !this.mobileMode;
             this.applyMobileModeUI();
         });
+
+        const editHudBtn = document.getElementById('btn-edit-hud');
+        if (editHudBtn) {
+            editHudBtn.addEventListener('click', () => {
+                this.toggleHudEditor(!this.hudEditMode);
+            });
+        }
 
         document.getElementById('btn-toggle-autofire').addEventListener('click', () => {
             this.autoFireMobile = !this.autoFireMobile;
@@ -1543,15 +1907,44 @@ class CSGame {
             document.getElementById('lobby-overlay').classList.remove('hidden');
         });
 
-        // Weapon Slots Click
         for (let s = 1; s <= 4; s++) {
             document.getElementById(`slot-btn-${s}`).addEventListener('click', () => this.equipSlot(s));
         }
 
-        // Chat Send
         document.getElementById('btn-send-chat').addEventListener('click', () => this.submitChat());
 
+        const specPrev = document.getElementById('btn-spectate-prev');
+        const specNext = document.getElementById('btn-spectate-next');
+        const specCam = document.getElementById('btn-spectate-cam');
+        if (specPrev) specPrev.addEventListener('click', () => this.cycleSpectator(-1));
+        if (specNext) specNext.addEventListener('click', () => this.cycleSpectator(1));
+        if (specCam) specCam.addEventListener('click', () => this.toggleSpectateCameraMode());
+
         this.populateBuyMenu();
+    }
+
+    cycleBotDifficulty() {
+        const order = ['easy', 'normal', 'hard', 'expert'];
+        const curIdx = order.indexOf(this.botAI.difficulty);
+        const nextKey = order[(curIdx + 1) % order.length];
+        this.botAI.setDifficulty(nextKey);
+        const diffSel = document.getElementById('bot-diff-select');
+        if (diffSel) diffSel.value = nextKey;
+        this.updateBotDiffHUD();
+        const cfg = this.botAI.getDiffConfig();
+        this.showAnnouncement(`🤖 ปรับความเก่งของบอทเป็น: ${cfg.label}`, 2.0);
+    }
+
+    updateBotDiffHUD() {
+        const btn = document.getElementById('btn-cycle-bot-diff');
+        if (!btn) return;
+        const shortNames = {
+            easy: '🟢 บอท: ง่าย',
+            normal: '🟡 บอท: ปานกลาง',
+            hard: '🟠 บอท: ยาก',
+            expert: '🔴 บอท: โหดมาก'
+        };
+        btn.textContent = shortNames[this.botAI.difficulty] || '🟡 บอท: ปานกลาง';
     }
 
     submitChat() {
@@ -1635,16 +2028,23 @@ class CSGame {
         }
     }
 
+    refreshScoreboardIfOpen() {
+        const modal = document.getElementById('score-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            this.renderScoreboardTable();
+        }
+    }
+
     renderScoreboardTable() {
         const tbody = document.getElementById('scoreboard-tbody');
         tbody.innerHTML = '';
 
         const all = [
-            { name: this.player.name + ' (คุณ)', team: this.player.team, kills: this.player.kills, deaths: this.player.deaths, hp: this.player.hp },
+            { name: this.player.name + ' (คุณ)', team: this.player.team, kills: this.player.kills || 0, deaths: this.player.deaths || 0, hp: this.player.hp },
             ...this.entities.map(e => ({ name: e.name, team: e.team, kills: e.kills || 0, deaths: e.deaths || 0, hp: e.hp }))
         ];
 
-        all.sort((a, b) => b.kills - a.kills);
+        all.sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
 
         for (const row of all) {
             const tr = document.createElement('tr');
@@ -1652,12 +2052,297 @@ class CSGame {
             tr.innerHTML = `
                 <td style="color:${teamColor};font-weight:700;">${row.team}</td>
                 <td>${row.name}</td>
-                <td>${row.kills}</td>
+                <td style="font-weight:800;color:#fde047;">${row.kills}</td>
                 <td>${row.deaths}</td>
                 <td>${row.hp > 0 ? `<span style="color:#34d399">${row.hp} HP</span>` : '<span style="color:#ef4444">DEAD</span>'}</td>
             `;
             tbody.appendChild(tr);
         }
+    }
+
+    // ==================== MOBILE HUD LAYOUT CUSTOMIZATION ====================
+    getCustomizableHudIds() {
+        return [
+            'joystick-zone',
+            'btn-fire-right',
+            'btn-fire-left',
+            'btn-aim',
+            'btn-reload',
+            'btn-jump',
+            'btn-crouch',
+            'btn-bomb-action'
+        ];
+    }
+
+    setupHudLayoutEditor() {
+        const ids = this.getCustomizableHudIds();
+        let draggingEl = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        const startDrag = (el, clientX, clientY) => {
+            if (!this.hudEditMode) return;
+            this.selectHudElement(el);
+            draggingEl = el;
+            const rect = el.getBoundingClientRect();
+            dragOffsetX = clientX - (rect.left + rect.width / 2);
+            dragOffsetY = clientY - (rect.top + rect.height / 2);
+        };
+
+        const moveDrag = (clientX, clientY) => {
+            if (!this.hudEditMode || !draggingEl) return;
+            const id = draggingEl.id;
+            const cfg = this.hudLayout[id] || { scale: 100, opacity: 100 };
+
+            const cx = Math.max(28, Math.min(window.innerWidth - 28, clientX - dragOffsetX));
+            const cy = Math.max(40, Math.min(window.innerHeight - 28, clientY - dragOffsetY));
+
+            cfg.leftPct = Number(((cx / window.innerWidth) * 100).toFixed(2));
+            cfg.topPct = Number(((cy / window.innerHeight) * 100).toFixed(2));
+            this.hudLayout[id] = cfg;
+
+            this.applyHudElementStyle(draggingEl, cfg);
+        };
+
+        const endDrag = () => {
+            draggingEl = null;
+        };
+
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+
+            el.addEventListener('touchstart', (e) => {
+                if (!this.hudEditMode) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const t = e.changedTouches[0];
+                startDrag(el, t.clientX, t.clientY);
+            }, { passive: false });
+
+            el.addEventListener('touchmove', (e) => {
+                if (!this.hudEditMode || draggingEl !== el) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const t = e.changedTouches[0];
+                moveDrag(t.clientX, t.clientY);
+            }, { passive: false });
+
+            el.addEventListener('touchend', (e) => {
+                if (!this.hudEditMode) return;
+                e.preventDefault();
+                endDrag();
+            }, { passive: false });
+
+            el.addEventListener('mousedown', (e) => {
+                if (!this.hudEditMode) return;
+                e.preventDefault();
+                e.stopPropagation();
+                startDrag(el, e.clientX, e.clientY);
+            });
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (this.hudEditMode && draggingEl) {
+                moveDrag(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (this.hudEditMode) endDrag();
+        });
+
+        // Sliders for Scale, Opacity, and Look Sensitivity
+        const scaleSlider = document.getElementById('hud-scale-slider');
+        const opacitySlider = document.getElementById('hud-opacity-slider');
+        const sensSlider = document.getElementById('hud-sens-slider');
+
+        if (scaleSlider) {
+            scaleSlider.addEventListener('input', () => {
+                const val = parseInt(scaleSlider.value, 10) || 100;
+                document.getElementById('hud-scale-val').textContent = `${val}%`;
+                if (this.selectedHudEl) {
+                    const id = this.selectedHudEl.id;
+                    if (!this.hudLayout[id]) this.captureElementCurrentPosition(this.selectedHudEl);
+                    this.hudLayout[id].scale = val;
+                    this.applyHudElementStyle(this.selectedHudEl, this.hudLayout[id]);
+                }
+            });
+        }
+
+        if (opacitySlider) {
+            opacitySlider.addEventListener('input', () => {
+                const val = parseInt(opacitySlider.value, 10) || 100;
+                document.getElementById('hud-opacity-val').textContent = `${val}%`;
+                if (this.selectedHudEl) {
+                    const id = this.selectedHudEl.id;
+                    if (!this.hudLayout[id]) this.captureElementCurrentPosition(this.selectedHudEl);
+                    this.hudLayout[id].opacity = val;
+                    this.applyHudElementStyle(this.selectedHudEl, this.hudLayout[id]);
+                }
+            });
+        }
+
+        if (sensSlider) {
+            sensSlider.addEventListener('input', () => {
+                const val = parseInt(sensSlider.value, 10) || 100;
+                document.getElementById('hud-sens-val').textContent = `${val}%`;
+                this.lookSensitivity = val / 100;
+            });
+        }
+
+        const resetBtn = document.getElementById('btn-hud-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetHudLayout());
+        }
+
+        const saveBtn = document.getElementById('btn-hud-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveHudLayout();
+                this.toggleHudEditor(false);
+                this.showAnnouncement('✅ บันทึกตำแหน่งปุ่มมือถือเรียบร้อยแล้ว!', 2.2);
+            });
+        }
+    }
+
+    captureElementCurrentPosition(el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        this.hudLayout[el.id] = {
+            leftPct: Number(((cx / window.innerWidth) * 100).toFixed(2)),
+            topPct: Number(((cy / window.innerHeight) * 100).toFixed(2)),
+            scale: 100,
+            opacity: 100
+        };
+    }
+
+    selectHudElement(el) {
+        for (const id of this.getCustomizableHudIds()) {
+            const node = document.getElementById(id);
+            if (node) node.classList.remove('hud-selected-el');
+        }
+        this.selectedHudEl = el;
+        if (!el) return;
+
+        el.classList.add('hud-selected-el');
+        const label = el.getAttribute('data-label') || el.id;
+        document.getElementById('hud-selected-name').textContent = label;
+
+        if (!this.hudLayout[el.id]) {
+            this.captureElementCurrentPosition(el);
+        }
+        const cfg = this.hudLayout[el.id];
+        const scale = cfg.scale || 100;
+        const opacity = cfg.opacity || 100;
+
+        document.getElementById('hud-scale-slider').value = scale;
+        document.getElementById('hud-scale-val').textContent = `${scale}%`;
+        document.getElementById('hud-opacity-slider').value = opacity;
+        document.getElementById('hud-opacity-val').textContent = `${opacity}%`;
+    }
+
+    applyHudElementStyle(el, cfg) {
+        if (!el || !cfg) return;
+        if (cfg.leftPct !== undefined && cfg.topPct !== undefined) {
+            el.style.left = `${cfg.leftPct}%`;
+            el.style.top = `${cfg.topPct}%`;
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+            const scaleVal = (cfg.scale || 100) / 100;
+            el.style.transform = `translate(-50%, -50%) scale(${scaleVal})`;
+        }
+        if (cfg.opacity !== undefined) {
+            el.style.opacity = String(cfg.opacity / 100);
+        }
+    }
+
+    toggleHudEditor(enable) {
+        this.hudEditMode = enable;
+        const mobCtrl = document.getElementById('mobile-controls');
+        const panel = document.getElementById('hud-editor-panel');
+        const bombBtn = document.getElementById('btn-bomb-action');
+
+        if (enable) {
+            this.mobileMode = true;
+            this.applyMobileModeUI();
+            if (document.pointerLockElement) document.exitPointerLock();
+            mobCtrl.classList.add('hud-editing');
+            panel.classList.remove('hidden');
+            if (bombBtn) bombBtn.classList.remove('hidden');
+            this.selectHudElement(document.getElementById('btn-fire-right'));
+        } else {
+            mobCtrl.classList.remove('hud-editing');
+            panel.classList.add('hidden');
+            this.selectHudElement(null);
+        }
+    }
+
+    saveHudLayout() {
+        try {
+            const payload = {
+                lookSensitivity: this.lookSensitivity,
+                elements: this.hudLayout
+            };
+            localStorage.setItem('cs_mobile_hud_layout_v1', JSON.stringify(payload));
+        } catch (e) {
+            console.warn('Could not save HUD layout:', e);
+        }
+    }
+
+    loadHudLayout() {
+        try {
+            const raw = localStorage.getItem('cs_mobile_hud_layout_v1');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.lookSensitivity) {
+                this.lookSensitivity = data.lookSensitivity;
+                const sensPct = Math.round(this.lookSensitivity * 100);
+                const sensSlider = document.getElementById('hud-sens-slider');
+                const sensVal = document.getElementById('hud-sens-val');
+                if (sensSlider) sensSlider.value = sensPct;
+                if (sensVal) sensVal.textContent = `${sensPct}%`;
+            }
+            if (data.elements) {
+                this.hudLayout = data.elements;
+                for (const [id, cfg] of Object.entries(this.hudLayout)) {
+                    const el = document.getElementById(id);
+                    if (el) this.applyHudElementStyle(el, cfg);
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load HUD layout:', e);
+        }
+    }
+
+    resetHudLayout() {
+        this.hudLayout = {};
+        this.lookSensitivity = 1.0;
+        try {
+            localStorage.removeItem('cs_mobile_hud_layout_v1');
+        } catch (e) {}
+
+        for (const id of this.getCustomizableHudIds()) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.left = '';
+                el.style.top = '';
+                el.style.right = '';
+                el.style.bottom = '';
+                el.style.transform = '';
+                el.style.opacity = '';
+            }
+        }
+
+        document.getElementById('hud-scale-slider').value = 100;
+        document.getElementById('hud-scale-val').textContent = '100%';
+        document.getElementById('hud-opacity-slider').value = 100;
+        document.getElementById('hud-opacity-val').textContent = '100%';
+        document.getElementById('hud-sens-slider').value = 100;
+        document.getElementById('hud-sens-val').textContent = '100%';
+
+        this.showAnnouncement('🔄 รีเซ็ตตำแหน่งปุ่มเป็นค่าเริ่มต้นแล้ว', 2.0);
     }
 }
 

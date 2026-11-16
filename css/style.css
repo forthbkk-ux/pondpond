@@ -570,6 +570,18 @@ html, body {
     background: rgba(0, 0, 0, 0.85);
 }
 
+/* Realistic Tactical Camera Vignette */
+#realism-vignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(circle at center, transparent 58%, rgba(8, 10, 14, 0.52) 100%);
+}
+
 /* Damage Vignette */
 #damage-flash {
     position: fixed;
@@ -977,3 +989,131 @@ html, body {
     font-size: 0.75rem;
     text-transform: uppercase;
 }
+
+/* ==================== MOBILE HUD LAYOUT EDITOR ==================== */
+#mobile-controls.hud-editing {
+    z-index: 18;
+    pointer-events: auto;
+    background-color: rgba(10, 15, 28, 0.55);
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+#mobile-controls.hud-editing #look-zone {
+    pointer-events: none;
+}
+
+#mobile-controls.hud-editing .touch-btn,
+#mobile-controls.hud-editing #joystick-zone {
+    cursor: grab;
+    outline: 2px dashed rgba(251, 191, 36, 0.55);
+    outline-offset: 3px;
+}
+
+#mobile-controls.hud-editing .hud-selected-el {
+    outline: 3px solid #fbbf24 !important;
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.85) !important;
+}
+
+#hud-editor-panel {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    width: 94vw;
+    max-width: 680px;
+    pointer-events: auto;
+}
+
+.hud-editor-card {
+    background: rgba(15, 23, 42, 0.96);
+    border: 1.5px solid #f59e0b;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75);
+}
+
+.hud-editor-title {
+    font-size: 0.84rem;
+    color: #f8fafc;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.hud-editor-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.hud-slider-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    flex: 1;
+    min-width: 125px;
+}
+
+.hud-slider-item input[type="range"] {
+    width: 100%;
+    accent-color: #f59e0b;
+    cursor: pointer;
+}
+
+.hud-editor-btns {
+    display: flex;
+    gap: 8px;
+}
+
+/* ==================== SPECTATOR MODE BAR ==================== */
+#spectator-bar {
+    position: absolute;
+    bottom: 86px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(11, 15, 25, 0.92);
+    border: 1.5px solid rgba(56, 189, 248, 0.55);
+    border-radius: 12px;
+    padding: 10px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+    z-index: 12;
+    min-width: 310px;
+}
+
+.spectator-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.spectator-badge {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: #fff;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 99px;
+    letter-spacing: 0.5px;
+}
+
+.spectator-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+

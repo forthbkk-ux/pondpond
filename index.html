@@ -14,7 +14,8 @@
     <!-- 3D WebGL Canvas -->
     <canvas id="game-canvas"></canvas>
 
-    <!-- Damage Vignette & Sniper Scope Overlay -->
+    <!-- Realistic Tactical Lens Vignette, Damage Vignette & Sniper Scope Overlay -->
+    <div id="realism-vignette"></div>
     <div id="damage-flash"></div>
     <div id="scope-overlay" class="hidden"></div>
 
@@ -65,14 +66,25 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label>จำนวนบอท AI ในห้อง (AI Bots)</label>
-                        <select id="bot-count-select" class="select-input">
-                            <option value="8" selected>8 ตัว (5 vs 4 เต็มสนาม DE_DUST2)</option>
-                            <option value="4">4 ตัว (3 vs 2 กำลังดี)</option>
-                            <option value="2">2 ตัว (ดวล 2 vs 1)</option>
-                            <option value="0">0 ตัว (เล่นเฉพาะคนจริงออนไลน์)</option>
-                        </select>
+                    <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div>
+                            <label>จำนวนบอท AI (Bots)</label>
+                            <select id="bot-count-select" class="select-input">
+                                <option value="8" selected>8 ตัว (5 vs 4)</option>
+                                <option value="4">4 ตัว (3 vs 2)</option>
+                                <option value="2">2 ตัว (2 vs 1)</option>
+                                <option value="0">0 ตัว (คนล้วน)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>ความเก่งของบอท (Bot Skill)</label>
+                            <select id="bot-diff-select" class="select-input">
+                                <option value="easy">🟢 ง่าย (Easy)</option>
+                                <option value="normal" selected>🟡 ปานกลาง (Normal)</option>
+                                <option value="hard">🟠 ยาก (Hard)</option>
+                                <option value="expert">🔴 โหดมาก (Expert Pro)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <button id="btn-start-play" class="btn btn-primary" style="margin-top: 6px;">
@@ -145,7 +157,9 @@
                 <div class="top-actions hud-interactive">
                     <button id="btn-open-buy" class="hud-mini-btn">🛒 ซื้อปืน [B]</button>
                     <button id="btn-open-score" class="hud-mini-btn">📊 สกอร์ [Tab]</button>
+                    <button id="btn-cycle-bot-diff" class="hud-mini-btn" style="border-color:#38bdf8;color:#7dd3fc;">🤖 บอท: ปานกลาง</button>
                     <button id="btn-toggle-mobile" class="hud-mini-btn">📱 มือถือ: เปิด</button>
+                    <button id="btn-edit-hud" class="hud-mini-btn" style="border-color:#f59e0b;color:#fbbf24;">🛠️ ปรับปุ่ม</button>
                     <button id="btn-toggle-autofire" class="hud-mini-btn">🎯 ยิงออโต้: ปิด</button>
                     <button id="btn-open-lobby" class="hud-mini-btn">⚙️ เมนู</button>
                 </div>
@@ -175,6 +189,19 @@
             </div>
         </div>
 
+        <!-- Spectator Mode Banner (Shown when Dead) -->
+        <div id="spectator-bar" class="hidden hud-interactive">
+            <div class="spectator-info">
+                <span class="spectator-badge">👁️ SPECTATING</span>
+                <span id="spectator-target-name">กำลังดูเพื่อนร่วมทีม...</span>
+            </div>
+            <div class="spectator-actions">
+                <button id="btn-spectate-prev" class="hud-mini-btn">⏮️ คนก่อนหน้า</button>
+                <button id="btn-spectate-next" class="hud-mini-btn" style="border-color:#f59e0b;color:#fbbf24;">⏭️ คลิกเปลี่ยนคนดู</button>
+                <button id="btn-spectate-cam" class="hud-mini-btn">🎥 มุมมอง: บุคคลที่ 1</button>
+            </div>
+        </div>
+
         <!-- Chat Box -->
         <div id="chat-container">
             <div id="chat-messages"></div>
@@ -197,7 +224,7 @@
                 </div>
             </div>
 
-            <div class="weapon-slots">
+            <div id="weapon-slots-bar" class="weapon-slots">
                 <button id="slot-btn-1" class="slot-btn active">
                     <span>1. ปืนหลัก</span>
                     <span class="slot-name" style="color:#fbbf24;">AK47</span>
@@ -229,7 +256,7 @@
     <!-- ==================== MOBILE TOUCH CONTROLS ==================== -->
     <div id="mobile-controls" class="hidden">
         <!-- Left Virtual Joystick -->
-        <div id="joystick-zone">
+        <div id="joystick-zone" data-label="จอยสติ๊กเดิน">
             <div id="joystick-knob"></div>
         </div>
 
@@ -237,13 +264,40 @@
         <div id="look-zone"></div>
 
         <!-- Ergonomic Mobile Action Buttons -->
-        <div id="btn-fire-left" class="touch-btn">🔥<br>ยิง</div>
-        <div id="btn-fire-right" class="touch-btn">🔥<br>ยิง</div>
-        <div id="btn-aim" class="touch-btn">🎯<br>ซูม</div>
-        <div id="btn-reload" class="touch-btn">🔄<br>รีโหลด</div>
-        <div id="btn-jump" class="touch-btn">⬆️<br>โดด</div>
-        <div id="btn-crouch" class="touch-btn">⬇️<br>ย่อ</div>
-        <div id="btn-bomb-action" class="touch-btn hidden">💣 วางระเบิด C4</div>
+        <div id="btn-fire-left" class="touch-btn" data-label="ปุ่มยิงซ้าย">🔥<br>ยิง</div>
+        <div id="btn-fire-right" class="touch-btn" data-label="ปุ่มยิงขวา">🔥<br>ยิง</div>
+        <div id="btn-aim" class="touch-btn" data-label="ปุ่มซูม">🎯<br>ซูม</div>
+        <div id="btn-reload" class="touch-btn" data-label="ปุ่มรีโหลด">🔄<br>รีโหลด</div>
+        <div id="btn-jump" class="touch-btn" data-label="ปุ่มกระโดด">⬆️<br>โดด</div>
+        <div id="btn-crouch" class="touch-btn" data-label="ปุ่มย่อตัว">⬇️<br>ย่อ</div>
+        <div id="btn-bomb-action" class="touch-btn hidden" data-label="ปุ่มวาง/กู้ระเบิด">💣 วางระเบิด C4</div>
+    </div>
+
+    <!-- ==================== MOBILE HUD LAYOUT EDITOR BAR ==================== -->
+    <div id="hud-editor-panel" class="hidden">
+        <div class="hud-editor-card">
+            <div class="hud-editor-title">
+                🛠️ <strong>โหมดปรับแต่งตำแหน่งปุ่มมือถือ:</strong> แตะและลากปุ่มใดก็ได้เพื่อย้ายตำแหน่ง (<span id="hud-selected-name" style="color:#fbbf24;">ยังไม่ได้เลือกปุ่ม</span>)
+            </div>
+            <div class="hud-editor-controls">
+                <label class="hud-slider-item">
+                    <span>ขนาดปุ่ม (<span id="hud-scale-val">100%</span>)</span>
+                    <input type="range" id="hud-scale-slider" min="60" max="165" value="100">
+                </label>
+                <label class="hud-slider-item">
+                    <span>ความชัด (<span id="hud-opacity-val">100%</span>)</span>
+                    <input type="range" id="hud-opacity-slider" min="25" max="100" value="100">
+                </label>
+                <label class="hud-slider-item">
+                    <span>ความไวหันกล้อง (<span id="hud-sens-val">100%</span>)</span>
+                    <input type="range" id="hud-sens-slider" min="30" max="250" value="100">
+                </label>
+                <div class="hud-editor-btns">
+                    <button id="btn-hud-reset" class="hud-mini-btn" style="background:#334155;">🔄 ค่าเริ่มต้น</button>
+                    <button id="btn-hud-save" class="hud-mini-btn" style="background:#10b981;color:#052e16;border-color:#34d399;">💾 บันทึกและเสร็จสิ้น</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== BUY MENU MODAL ==================== -->
