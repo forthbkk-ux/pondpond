@@ -23,6 +23,18 @@
     <div id="damage-flash"></div>
     <div id="scope-overlay" class="hidden"></div>
 
+    <!-- ==================== MOBILE PORTRAIT ORIENTATION WARNING ==================== -->
+    <div id="portrait-warning-overlay" class="hidden">
+        <div class="portrait-warning-card">
+            <div class="rotate-phone-icon">📱🔄</div>
+            <h2>กรุณาหมุนหน้าจอเป็นแนวนอน</h2>
+            <p>เกม Counter-Strike Online รองรับการเล่นบนมือถือในโหมด <strong>แนวนอน (Landscape)</strong> เท่านั้น<br>กรุณาตะแคงโทรศัพท์ของคุณเพื่อเข้าเล่น</p>
+            <button id="btn-portrait-fullscreen" class="btn btn-primary" style="margin-top: 14px;">
+                📺 กดเพื่อขยายเต็มจอและหมุนแนวนอนอัตโนมัติ
+            </button>
+        </div>
+    </div>
+
     <!-- ==================== LOBBY / MAIN MENU OVERLAY ==================== -->
     <div id="lobby-overlay" class="overlay">
         <div class="lobby-card">
@@ -68,8 +80,8 @@
                     <div class="form-group">
                         <label>โหมดการเล่น (Game Mode)</label>
                         <select id="game-mode-select" class="select-input">
-                            <option value="classic">💣 Classic Bomb Defusal (แบ่งรอบ วางระเบิด A/B + ซื้อปืน)</option>
-                            <option value="tdm">⚔️ Team Deathmatch (เกิดใหม่ต่อเนื่อง เงิน $50,000 ตลอดไม่ลด!)</option>
+                            <option value="classic">💣 Classic Bomb Defusal (แบ่งรอบ วางระเบิด A/B + เงินเริ่มต้น $1,000)</option>
+                            <option value="tdm">💰 Rich Elimination Mode (แบ่งรอบ ตายดูเพื่อนรอจบรอบ + เงิน $50,000 ตลอดไม่ลด!)</option>
                         </select>
                     </div>
 

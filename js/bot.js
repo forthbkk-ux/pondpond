@@ -391,11 +391,34 @@ class BotAI {
                         z: this.game.bombState.z + (Math.random() - 0.5) * 4
                     };
                 } else {
-                    const wp = waypoints[Math.floor(Math.random() * waypoints.length)];
-                    bot.targetWP = {
-                        x: wp.x + (Math.random() - 0.5) * 3,
-                        z: wp.z + (Math.random() - 0.5) * 3
-                    };
+                    const livingEnemies = this.game.entities.filter(e => e.hp > 0 && e.team !== bot.team);
+                    if (this.game.player.hp > 0 && this.game.player.team !== bot.team) {
+                        livingEnemies.push(this.game.player);
+                    }
+                    // When player is dead (spectating) or 45% of the time, bots converge toward enemy positions so rounds don't stall!
+                    if (livingEnemies.length > 0 && (this.game.player.hp <= 0 || Math.random() < 0.45)) {
+                        const targetFoe = livingEnemies[Math.floor(Math.random() * livingEnemies.length)];
+                        // Pick the waypoint closest to that enemy (or mid)
+                        let nearestWP = waypoints[2]; // Mid doors default
+                        let minDist = Infinity;
+                        for (const w of waypoints) {
+                            const d = Math.hypot(w.x - targetFoe.x, w.z - targetFoe.z);
+                            if (d < minDist) {
+                                minDist = d;
+                                nearestWP = w;
+                            }
+                        }
+                        bot.targetWP = {
+                            x: nearestWP.x + (Math.random() - 0.5) * 4,
+                            z: nearestWP.z + (Math.random() - 0.5) * 4
+                        };
+                    } else {
+                        const wp = waypoints[Math.floor(Math.random() * waypoints.length)];
+                        bot.targetWP = {
+                            x: wp.x + (Math.random() - 0.5) * 3,
+                            z: wp.z + (Math.random() - 0.5) * 3
+                        };
+                    }
                 }
             }
 

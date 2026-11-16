@@ -34,7 +34,7 @@ class CSGame {
         this.running = false;
         this.gameMode = 'classic'; // 'classic' or 'tdm'
         this.botCount = 8;
-        this.mobileMode = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
+        this.mobileMode = this.detectMobileDevice();
         this.autoFireMobile = false;
         this.lookSensitivity = 1.0;
 
@@ -160,6 +160,7 @@ class CSGame {
         if (!wepId || !WEAPONS[wepId]) return;
         if (slotNum === 4 && this.player.ammo.hegrenade.clip <= 0) return;
 
+        this.spectatedWepId = null;
         this.player.currentSlot = slotNum;
         this.player.weaponId = wepId;
         this.player.reloading = false;
@@ -627,11 +628,6 @@ class CSGame {
                 }
             }
 
-            // Update Team Score immediately on kill in TDM (or track round wins in Classic)
-            if (this.gameMode === 'tdm') {
-                this.scores[killerTeam] = (this.scores[killerTeam] || 0) + 1;
-            }
-
             this.addKillfeed(attackerName, ent.name, weaponId, isHeadshot);
             this.updateScoreHUD();
             this.refreshScoreboardIfOpen();
@@ -653,32 +649,6 @@ class CSGame {
 
             if (!this.net.isClient) {
                 this.checkRoundWinCondition();
-            }
-
-            if (this.gameMode === 'tdm' && !this.roundOver) {
-                if (!this.respawnTimeouts) this.respawnTimeouts = [];
-                const tid = setTimeout(() => {
-                    if (!this.running || this.roundOver) return;
-                    const spList = this.map.spawns[ent.team];
-                    const sp = spList[Math.floor(Math.random() * spList.length)];
-                    ent.x = sp.x + (Math.random() - 0.5) * 1.2;
-                    ent.y = 0;
-                    ent.z = sp.z + (Math.random() - 0.5) * 1.2;
-                    ent.yaw = sp.yaw;
-                    ent.hp = 100;
-                    ent.invincibleTimer = 2.0; // 2-Second Spawn Protection on Respawn!
-                    if (ent.mesh) {
-                        ent.mesh.visible = true;
-                        ent.mesh.position.set(ent.x, ent.y, ent.z);
-                        ent.mesh.rotation.y = ent.yaw;
-                    }
-                    if (this.net.isHost && !ent.isBot) {
-                        this.net.sendToPeer(ent.id, { type: 'respawn_you' });
-                    }
-                    this.updateScoreHUD();
-                    this.refreshScoreboardIfOpen();
-                }, 3000);
-                this.respawnTimeouts.push(tid);
             }
         }
     }
@@ -715,12 +685,8 @@ class CSGame {
                 killerTeam = attackerObj.team || killerTeam;
             }
 
-            if (this.gameMode === 'tdm') {
-                this.scores[killerTeam] = (this.scores[killerTeam] || 0) + 1;
-            }
-
             this.addKillfeed(attackerName, this.player.name, weaponId, isHeadshot);
-            this.showAnnouncement(`💀 คุณถูกสังหารโดย ${attackerName}!`, 2.5);
+            this.showAnnouncement(`💀 คุณถูกสังหารโดย ${attackerName}! (กำลังดูเพื่อนร่วมทีม - รอจบรอบเพื่อเริ่มใหม่)`, 3.0);
             this.updateScoreHUD();
             this.refreshScoreboardIfOpen();
 
@@ -742,15 +708,6 @@ class CSGame {
             if (!this.net.isClient) {
                 this.checkRoundWinCondition();
             }
-
-            if (this.gameMode === 'tdm' && !this.roundOver) {
-                if (!this.respawnTimeouts) this.respawnTimeouts = [];
-                const tid = setTimeout(() => {
-                    if (!this.running || this.roundOver) return;
-                    this.respawnLocalPlayer();
-                }, 3000);
-                this.respawnTimeouts.push(tid);
-            }
         }
     }
 
@@ -767,7 +724,7 @@ class CSGame {
 
         if (this.player.hp <= 0) {
             this.setScope(false);
-            this.showAnnouncement(`💀 คุณถูกสังหารโดย ${data.attacker}!`, 2.5);
+            this.showAnnouncement(`💀 คุณถูกสังหารโดย ${data.attacker}! (กำลังดูเพื่อนร่วมทีม - รอจบรอบเพื่อเริ่มใหม่)`, 3.0);
         }
     }
 
@@ -819,9 +776,9 @@ class CSGame {
 
         // Only trigger team-wipe if that team actually has members in the match
         if (tTotal > 0 && tAlive === 0 && !this.bombState.planted) {
-            this.endRound('CT', '🛡️ COUNTER-TERRORISTS WIN! (ตายครบทุกคน - รีเซ็ตเกิดที่ฐาน)');
+            this.endRound('CT', '🛡️ COUNTER-TERRORISTS WIN! (ตายครบทุกคน - เริ่มรอบใหม่ที่ฐาน)');
         } else if (ctTotal > 0 && ctAlive === 0) {
-            this.endRound('T', '💣 TERRORISTS WIN! (ตายครบทุกคน - รีเซ็ตเกิดที่ฐาน)');
+            this.endRound('T', '💣 TERRORISTS WIN! (ตายครบทุกคน - เริ่มรอบใหม่ที่ฐาน)');
         }
     }
 
@@ -829,9 +786,7 @@ class CSGame {
         if (this.roundOver) return;
         this.roundOver = true;
         this.clearRespawnTimeouts();
-        if (this.gameMode !== 'tdm') {
-            this.scores[winnerTeam]++;
-        }
+        this.scores[winnerTeam]++;
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
 
@@ -1202,8 +1157,15 @@ class CSGame {
         }
 
         if (!this.spectateThirdPerson) {
-            // First-Person Teammate POV
+            // First-Person Teammate POV + Show Teammate's Weapon Viewmodel
             if (target.mesh) target.mesh.visible = false;
+            const tWepId = target.weapon || 'ak47';
+            if (this.spectatedWepId !== tWepId) {
+                this.spectatedWepId = tWepId;
+                if (this.weaponMesh) this.camera.remove(this.weaponMesh);
+                this.weaponMesh = createWeaponViewModel(tWepId);
+                this.camera.add(this.weaponMesh);
+            }
             if (this.weaponMesh) this.weaponMesh.visible = true;
 
             this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, target.x, dt * 16);
@@ -1665,21 +1627,40 @@ class CSGame {
 
     // ==================== INPUTS & MOBILE CONTROLS ====================
     detectMobileDevice() {
-        return ('ontouchstart' in window) ||
-            navigator.maxTouchPoints > 0 ||
-            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-            window.innerWidth <= 960;
+        const ua = navigator.userAgent || '';
+        // Desktop OS check: if Windows NT or desktop Linux/Mac (without iPadOS multi-touch), strictly PC mode!
+        if (/Windows NT/i.test(ua)) return false;
+        const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+        const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        return isMobileUA || isIPadOS;
+    }
+
+    checkOrientationWarning() {
+        const warnEl = document.getElementById('portrait-warning-overlay');
+        if (!warnEl) return;
+        const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const isPortrait = h > w;
+        // Show rotate-to-landscape warning ONLY when on a mobile device held in portrait orientation
+        warnEl.classList.toggle('hidden', !(this.mobileMode && isPortrait));
     }
 
     applyMobileModeUI() {
-        if (this.detectMobileDevice()) {
-            this.mobileMode = true;
-        }
+        // Strictly lock mode to device type: Mobile = Mobile Mode Only, PC = PC Mode Only
+        this.mobileMode = this.detectMobileDevice();
         document.body.classList.toggle('is-mobile', this.mobileMode);
+
         const mobCtrl = document.getElementById('mobile-controls');
         if (mobCtrl) {
             mobCtrl.classList.toggle('hidden', !this.mobileMode || !this.running);
         }
+
+        const editHudBtn = document.getElementById('btn-edit-hud');
+        if (editHudBtn) {
+            editHudBtn.classList.toggle('hidden', !this.mobileMode);
+        }
+
+        this.checkOrientationWarning();
     }
 
     handleViewportResize() {
@@ -1688,10 +1669,7 @@ class CSGame {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
-        if (this.detectMobileDevice() && !this.mobileMode) {
-            this.mobileMode = true;
-            this.applyMobileModeUI();
-        }
+        this.checkOrientationWarning();
     }
 
     enterFullscreen() {
@@ -1787,6 +1765,8 @@ class CSGame {
                 this.equipSlot(4);
             } else if (e.code === 'KeyB') {
                 this.toggleBuyMenu();
+            } else if (e.code === 'KeyM') {
+                this.toggleSettingsModal();
             } else if (e.code === 'ShiftLeft' || e.code === 'ControlLeft' || e.code === 'KeyC') {
                 this.player.crouching = true;
             } else if (e.code === 'Tab') {
@@ -2013,6 +1993,11 @@ class CSGame {
         const hudFsBtn = document.getElementById('btn-fullscreen');
         if (hudFsBtn) {
             hudFsBtn.addEventListener('click', () => this.toggleFullscreen());
+        }
+
+        const portraitFsBtn = document.getElementById('btn-portrait-fullscreen');
+        if (portraitFsBtn) {
+            portraitFsBtn.addEventListener('click', () => this.enterFullscreen());
         }
 
         document.getElementById('btn-host-room').addEventListener('click', () => {
