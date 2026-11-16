@@ -1646,8 +1646,6 @@ class CSGame {
     }
 
     applyMobileModeUI() {
-        // Strictly lock mode to device type: Mobile = Mobile Mode Only, PC = PC Mode Only
-        this.mobileMode = this.detectMobileDevice();
         document.body.classList.toggle('is-mobile', this.mobileMode);
 
         const mobCtrl = document.getElementById('mobile-controls');
@@ -1655,9 +1653,18 @@ class CSGame {
             mobCtrl.classList.toggle('hidden', !this.mobileMode || !this.running);
         }
 
+        const toggleBtn = document.getElementById('btn-toggle-mobile');
+        if (toggleBtn) {
+            toggleBtn.textContent = this.mobileMode ? '📱 โหมด: มือถือ' : '💻 โหมด: PC';
+        }
+
         const editHudBtn = document.getElementById('btn-edit-hud');
         if (editHudBtn) {
             editHudBtn.classList.toggle('hidden', !this.mobileMode);
+        }
+
+        if (this.mobileMode && document.pointerLockElement) {
+            document.exitPointerLock();
         }
 
         this.checkOrientationWarning();

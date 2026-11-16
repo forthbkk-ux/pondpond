@@ -182,7 +182,10 @@
                 </div>
             </div>
 
-            <div id="killfeed" class="killfeed"></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                <button id="btn-toggle-mobile" class="hud-mini-btn hud-interactive" style="border-color:#38bdf8;color:#7dd3fc;">💻 โหมด: PC</button>
+                <div id="killfeed" class="killfeed"></div>
+            </div>
         </div>
 
         <!-- Center Crosshair & Hitmarker -->
@@ -468,8 +471,7 @@
                     🏠 กลับสู่หน้าล็อบบี้หลัก (เปลี่ยนทีม / สร้างห้องออนไลน์)
                 </button>
 
-                <!-- Hidden legacy toggles (auto-detected on mobile) -->
-                <button id="btn-toggle-mobile" class="hidden"></button>
+                <!-- Hidden legacy toggles -->
                 <button id="btn-toggle-autofire" class="hidden"></button>
             </div>
         </div>
