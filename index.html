@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Counter-Strike Web & Mobile Online (3D Tactical FPS)</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Three.js 3D Engine & PeerJS WebRTC Online Multiplayer -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Damage Vignette & Sniper Scope Overlay -->
+    <div id="damage-flash"></div>
+    <div id="scope-overlay" class="hidden"></div>
+
+    <!-- ==================== LOBBY / MAIN MENU OVERLAY ==================== -->
+    <div id="lobby-overlay" class="overlay">
+        <div class="lobby-card">
+            <div class="lobby-header">
+                <div class="game-title">
+                    <div class="title-badge">CS:WEB</div>
+                    <div>
+                        <h1>COUNTER-STRIKE ONLINE 3D</h1>
+                        <p>เกมยิงปืน Tactical FPS บนเบราว์เซอร์ รองรับทั้งมือถือ (Touch) และคอมพิวเตอร์ (PC)</p>
+                    </div>
+                </div>
+                <div class="online-badge">
+                    <span class="online-dot"></span>
+                    <span>WebRTC Multiplayer + AI Bots</span>
+                </div>
+            </div>
+
+            <div class="lobby-grid">
+                <!-- Left Column: Player & Match Setup -->
+                <div class="panel-box">
+                    <h3>⚙️ ตั้งค่าผู้เล่นและแมตช์</h3>
+
+                    <div class="form-group">
+                        <label>ชื่อในเกม (Player Name)</label>
+                        <input type="text" id="player-name-input" class="text-input" placeholder="ระบุชื่อของคุณ..." value="Striker_TH">
+                    </div>
+
+                    <div class="form-group">
+                        <label>เลือกฝ่าย (Select Team)</label>
+                        <div class="team-selector">
+                            <div id="select-team-t" class="team-btn t-btn active">
+                                💣 TERRORIST<br><small>ฝ่ายวางระเบิด (AK-47)</small>
+                            </div>
+                            <div id="select-team-ct" class="team-btn ct-btn">
+                                🛡️ COUNTER-TERRORIST<br><small>ฝ่ายกู้ระเบิด (M4A1-S)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>โหมดการเล่น (Game Mode)</label>
+                        <select id="game-mode-select" class="select-input">
+                            <option value="classic">💣 Classic Bomb Defusal (แบ่งรอบ วางระเบิด A/B + ซื้อปืน)</option>
+                            <option value="tdm">⚔️ Team Deathmatch (เกิดใหม่ต่อเนื่อง เงิน $16,000)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>จำนวนบอท AI ในห้อง (AI Bots)</label>
+                        <select id="bot-count-select" class="select-input">
+                            <option value="8" selected>8 ตัว (5 vs 4 เต็มสนาม DE_DUST2)</option>
+                            <option value="4">4 ตัว (3 vs 2 กำลังดี)</option>
+                            <option value="2">2 ตัว (ดวล 2 vs 1)</option>
+                            <option value="0">0 ตัว (เล่นเฉพาะคนจริงออนไลน์)</option>
+                        </select>
+                    </div>
+
+                    <button id="btn-start-play" class="btn btn-primary" style="margin-top: 6px;">
+                        🚀 เข้าสู่สมรภูมิทันที (เริ่มเกม)
+                    </button>
+                </div>
+
+                <!-- Right Column: Online Multiplayer Room (Host / Join) -->
+                <div class="panel-box">
+                    <h3>🌐 เล่นออนไลน์กับเพื่อน (ข้ามมือถือ / PC)</h3>
+                    <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 12px;">
+                        สร้างรหัสห้องเพื่อชวนเพื่อนเข้าเล่นด้วยกันแบบเรียลไทม์ผ่านเบราว์เซอร์ (ไม่ต้องลงโปรแกรมเพิ่ม)
+                    </p>
+
+                    <button id="btn-host-room" class="btn btn-secondary">
+                        📡 สร้างห้องออนไลน์ (Host Room)
+                    </button>
+
+                    <div id="room-code-box" class="room-box hidden">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">รหัสห้องของคุณ (ส่งให้เพื่อนกรอก):</div>
+                        <div id="room-code-val" class="room-code-display">CS-0000</div>
+                        <div style="font-size: 0.72rem; color: #34d399;">เมื่อสร้างห้องแล้ว กดปุ่ม "เข้าสู่สมรภูมิทันที" ด้านซ้ายได้เลย!</div>
+                    </div>
+
+                    <div style="margin: 14px 0; border-top: 1px solid rgba(255,255,255,0.08);"></div>
+
+                    <div class="form-group">
+                        <label>มีรหัสห้องของเพื่อนแล้ว? กรอกเพื่อเข้าร่วม:</label>
+                        <div class="join-row">
+                            <input type="text" id="join-code-input" class="text-input" placeholder="เช่น CS-1234 หรือ 1234">
+                            <button id="btn-join-room" class="btn btn-outline" style="width: auto; white-space: nowrap;">
+                                🔗 เข้าร่วมห้อง
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="room-status-text" style="font-size: 0.8rem; color: #fbbf24; min-height: 20px; margin-top: 8px;"></div>
+                </div>
+            </div>
+
+            <div class="controls-guide">
+                <div>📱 <strong>มือถือ (Touch):</strong> จอยสติ๊กซ้ายเดิน • ลากหน้าจอขวาหันกล้อง • ปุ่มยิง/ซูม/รีโหลด/กระโดด/วางระเบิด</div>
+                <div>💻 <strong>คอมพิวเตอร์ (PC):</strong> WASD เดิน • เมาส์เล็ง/ยิง • คลิกขวาซูม • [R] รีโหลด • [B] ซื้อปืน • [E] วาง/กู้ระเบิด</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== IN-GAME HUD ==================== -->
+    <div id="hud" class="hidden">
+        <!-- Top Bar: Radar, Score/Timer, Killfeed -->
+        <div class="top-bar">
+            <div>
+                <div class="radar-wrapper">
+                    <canvas id="radar-canvas" width="130" height="130"></canvas>
+                </div>
+                <div id="money-val" class="money-tag">$1000</div>
+            </div>
+
+            <div class="match-header">
+                <div class="score-pill">
+                    <div id="score-t" class="score-team score-t">0</div>
+                    <div id="round-timer" class="round-timer">1:55</div>
+                    <div id="score-ct" class="score-team score-ct">0</div>
+                </div>
+                <div class="alive-row">
+                    <span id="alive-t" style="color: #fbbf24; font-weight: 700;">T: 5</span>
+                    <span>•</span>
+                    <span id="alive-ct" style="color: #38bdf8; font-weight: 700;">CT: 5</span>
+                </div>
+                <div class="top-actions hud-interactive">
+                    <button id="btn-open-buy" class="hud-mini-btn">🛒 ซื้อปืน [B]</button>
+                    <button id="btn-open-score" class="hud-mini-btn">📊 สกอร์ [Tab]</button>
+                    <button id="btn-toggle-mobile" class="hud-mini-btn">📱 มือถือ: เปิด</button>
+                    <button id="btn-toggle-autofire" class="hud-mini-btn">🎯 ยิงออโต้: ปิด</button>
+                    <button id="btn-open-lobby" class="hud-mini-btn">⚙️ เมนู</button>
+                </div>
+            </div>
+
+            <div id="killfeed" class="killfeed"></div>
+        </div>
+
+        <!-- Center Crosshair & Hitmarker -->
+        <div id="crosshair">
+            <div class="ch-line ch-top"></div>
+            <div class="ch-line ch-bottom"></div>
+            <div class="ch-line ch-left"></div>
+            <div class="ch-line ch-right"></div>
+            <div class="ch-dot"></div>
+        </div>
+        <div id="hitmarker"></div>
+
+        <!-- Center Round Announcement -->
+        <div id="center-announcement" class="hidden">🔥 เริ่มรอบใหม่!</div>
+
+        <!-- Bomb Plant/Defuse Progress -->
+        <div id="bomb-progress-box" class="hidden">
+            <div id="bomb-progress-label" style="font-size: 0.8rem; font-weight: 700; color: #fca5a5;">กำลังวางระเบิด C4...</div>
+            <div class="progress-track">
+                <div id="bomb-progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Chat Box -->
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div id="chat-input-row">
+                <input type="text" id="chat-input" class="text-input" style="padding: 4px 8px; font-size: 0.75rem;" placeholder="พิมพ์แชท...">
+                <button id="btn-send-chat" class="hud-mini-btn">ส่ง</button>
+            </div>
+        </div>
+
+        <!-- Bottom Bar: Vitals, Weapon Switcher, Ammo -->
+        <div class="bottom-bar">
+            <div class="vitals-box">
+                <div class="vital-item">
+                    <span class="vital-icon">➕</span>
+                    <span id="hp-val" class="vital-val">100</span>
+                </div>
+                <div class="vital-item">
+                    <span class="vital-icon">🛡️</span>
+                    <span id="armor-val" class="vital-val">100</span>
+                </div>
+            </div>
+
+            <div class="weapon-slots">
+                <button id="slot-btn-1" class="slot-btn active">
+                    <span>1. ปืนหลัก</span>
+                    <span class="slot-name" style="color:#fbbf24;">AK47</span>
+                </button>
+                <button id="slot-btn-2" class="slot-btn">
+                    <span>2. ปืนพก</span>
+                    <span class="slot-name" style="color:#cbd5e1;">PISTOL</span>
+                </button>
+                <button id="slot-btn-3" class="slot-btn">
+                    <span>3. มีด</span>
+                    <span class="slot-name" style="color:#cbd5e1;">KNIFE</span>
+                </button>
+                <button id="slot-btn-4" class="slot-btn">
+                    <span>4. ระเบิด</span>
+                    <span class="slot-name" style="color:#cbd5e1;">HE</span>
+                </button>
+            </div>
+
+            <div class="ammo-box">
+                <div id="hud-weapon-name" class="weapon-name-hud">CV-47 (AK-47)</div>
+                <div>
+                    <span id="ammo-clip" class="ammo-numbers">30</span>
+                    <span id="ammo-reserve" class="ammo-reserve">/ 90</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MOBILE TOUCH CONTROLS ==================== -->
+    <div id="mobile-controls" class="hidden">
+        <!-- Left Virtual Joystick -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+
+        <!-- Right Touch Look Drag Area -->
+        <div id="look-zone"></div>
+
+        <!-- Ergonomic Mobile Action Buttons -->
+        <div id="btn-fire-left" class="touch-btn">🔥<br>ยิง</div>
+        <div id="btn-fire-right" class="touch-btn">🔥<br>ยิง</div>
+        <div id="btn-aim" class="touch-btn">🎯<br>ซูม</div>
+        <div id="btn-reload" class="touch-btn">🔄<br>รีโหลด</div>
+        <div id="btn-jump" class="touch-btn">⬆️<br>โดด</div>
+        <div id="btn-crouch" class="touch-btn">⬇️<br>ย่อ</div>
+        <div id="btn-bomb-action" class="touch-btn hidden">💣 วางระเบิด C4</div>
+    </div>
+
+    <!-- ==================== BUY MENU MODAL ==================== -->
+    <div id="buy-modal" class="overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h2 style="font-size: 1.15rem; color: #fbbf24;">🛒 ร้านค้าซื้ออาวุธและยุทโธปกรณ์ (BUY MENU)</h2>
+                    <div style="font-size: 0.85rem; color: #34d399; font-weight: 700;">เงินคงเหลือ: <span id="buy-money-val">$1000</span></div>
+                </div>
+                <button id="btn-close-buy" class="btn btn-outline" style="width: auto; padding: 6px 14px;">✖ ปิด [B]</button>
+            </div>
+            <div id="buy-items-grid" class="buy-grid"></div>
+        </div>
+    </div>
+
+    <!-- ==================== SCOREBOARD MODAL ==================== -->
+    <div id="score-modal" class="overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 style="font-size: 1.15rem; color: #38bdf8;">📊 ตารางคะแนนผู้เล่น (SCOREBOARD)</h2>
+                <button id="btn-close-score" class="btn btn-outline" style="width: auto; padding: 6px 14px;">✖ ปิด</button>
+            </div>
+            <table class="score-table">
+                <thead>
+                    <tr>
+                        <th>ทีม</th>
+                        <th>ชื่อผู้เล่น</th>
+                        <th>สังหาร (Kills)</th>
+                        <th>ตาย (Deaths)</th>
+                        <th>สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="scoreboard-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/bot.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
