@@ -85,6 +85,21 @@
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label>🗺️ เลือกด่านสมรภูมิ (Select Map)</label>
+                        <select id="map-select" class="select-input" style="font-weight: 600; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
+                            <option value="de_dust2" selected>🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
+                            <option value="de_inferno">🏛️ DE_INFERNO — เมืองโบราณอิตาลี & ตรอกกล้วย (Inferno)</option>
+                            <option value="de_aztec">🌿 DE_AZTEC — วิหารโบราณหินมอสส์ & สะพานน้ำ (Aztec)</option>
+                            <option value="cs_assault">🏭 CS_ASSAULT — โกดังโรงงานยุทธวิธี & คอนเทนเนอร์ (Assault)</option>
+                            <option value="de_nuke">☢️ DE_NUKE — โรงไฟฟ้านิวเคลียร์ลับสองชั้น (Nuke)</option>
+                            <option value="aim_map">🎯 AIM_MAP — สมรภูมิดวลปืนระยะประชิด (Aim Arena)</option>
+                        </select>
+                        <div id="map-preview-badge" style="margin-top: 6px; padding: 8px 12px; background: rgba(0,0,0,0.35); border-radius: 6px; border: 1px dashed rgba(251,191,36,0.3); font-size: 0.76rem; color: #cbd5e1; line-height: 1.4;">
+                            🏜️ <strong>DE_DUST2:</strong> ทางแยก Long A, อุโมงค์ B Tunnels และประตูกลาง Mid Double Doors
+                        </div>
+                    </div>
+
                     <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <div>
                             <label>จำนวนบอท AI (Bots)</label>
@@ -178,6 +193,8 @@
                 <div class="alive-row">
                     <span id="alive-t" style="color: #fbbf24; font-weight: 700;">T: 5</span>
                     <span>•</span>
+                    <span id="map-name-tag" style="color: #94a3b8; font-size: 0.72rem; font-weight: 700; background: rgba(0,0,0,0.4); padding: 1px 6px; border-radius: 4px;">DE_DUST2</span>
+                    <span>•</span>
                     <span id="alive-ct" style="color: #38bdf8; font-weight: 700;">CT: 5</span>
                 </div>
             </div>
@@ -219,6 +236,7 @@
                 <button id="btn-spectate-prev" class="hud-mini-btn">⏮️ คนก่อนหน้า</button>
                 <button id="btn-spectate-next" class="hud-mini-btn" style="border-color:#f59e0b;color:#fbbf24;">⏭️ คลิกเปลี่ยนคนดู</button>
                 <button id="btn-spectate-cam" class="hud-mini-btn">🎥 มุมมอง: บุคคลที่ 1</button>
+                <button id="btn-spectate-restart" class="hud-mini-btn" style="background:rgba(16,185,129,0.22);border-color:#10b981;color:#34d399;">🔄 เริ่มรอบใหม่ทันที</button>
             </div>
         </div>
 
@@ -464,6 +482,20 @@
                 <button id="btn-toggle-sound" class="btn btn-outline" style="justify-content: flex-start; padding: 12px 16px;">
                     🔊 เสียงเอฟเฟกต์: เปิด
                 </button>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;"></div>
+
+                <div class="form-group" style="margin: 2px 0;">
+                    <label style="font-size: 0.8rem; color: #fbbf24; font-weight: 600;">🗺️ เปลี่ยนด่านสมรภูมิ (Change Map):</label>
+                    <select id="ingame-map-select" class="select-input" style="border-color: rgba(251, 191, 36, 0.5); color: #fde68a;">
+                        <option value="de_dust2">🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
+                        <option value="de_inferno">🏛️ DE_INFERNO — เมืองโบราณอิตาลี & ตรอกกล้วย (Inferno)</option>
+                        <option value="de_aztec">🌿 DE_AZTEC — วิหารโบราณหินมอสส์ & สะพานน้ำ (Aztec)</option>
+                        <option value="cs_assault">🏭 CS_ASSAULT — โกดังโรงงานยุทธวิธี & คอนเทนเนอร์ (Assault)</option>
+                        <option value="de_nuke">☢️ DE_NUKE — โรงไฟฟ้านิวเคลียร์ลับสองชั้น (Nuke)</option>
+                        <option value="aim_map">🎯 AIM_MAP — สมรภูมิดวลปืนระยะประชิด (Aim Arena)</option>
+                    </select>
+                </div>
 
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;"></div>
 

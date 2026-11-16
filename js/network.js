@@ -132,6 +132,7 @@ class NetworkManager {
                 conn.send({
                     type: 'welcome',
                     mode: this.game.gameMode,
+                    mapId: this.game.mapId,
                     scores: this.game.scores,
                     roundTime: this.game.roundTime
                 });
@@ -163,10 +164,16 @@ class NetworkManager {
 
         if (data.type === 'welcome') {
             this.game.gameMode = data.mode;
+            if (data.mapId && this.game.mapId !== data.mapId) {
+                this.game.loadMap(data.mapId);
+            }
             this.game.scores = data.scores;
             this.game.roundTime = data.roundTime;
             this.game.updateVitalsHUD();
             this.game.updateScoreHUD();
+        } else if (data.type === 'map_change') {
+            this.game.loadMap(data.mapId);
+            this.game.addChatMessage(`🗺️ หัวหน้าห้องเปลี่ยนด่านเป็น: ${this.game.getMapName(data.mapId)}`, '#38bdf8');
         } else if (data.type === 'world_snapshot') {
             this.game.applyWorldSnapshot(data);
         } else if (data.type === 'shoot') {

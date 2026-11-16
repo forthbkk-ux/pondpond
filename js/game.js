@@ -27,7 +27,8 @@ class CSGame {
         }
 
         this.setupLights();
-        this.map = new GameMap(this.scene);
+        this.mapId = 'de_dust2';
+        this.map = new GameMap(this.scene, this.mapId, this);
         this.botAI = new BotAI(this);
         this.net = new NetworkManager(this);
 
@@ -107,6 +108,7 @@ class CSGame {
         this.spectateTarget = null;
         this.spectateThirdPerson = false;
         this.spectateOrbitAngle = 0;
+        this.roundRestartTimer = 0;
 
         this.initAmmoForAll();
         this.equipSlot(1);
@@ -118,6 +120,14 @@ class CSGame {
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
+
+        // Background tab heartbeat so Host/Bots/Timers never freeze when tab is unfocused
+        setInterval(() => {
+            if (this.running && (document.hidden || performance.now() - this.lastTime > 200)) {
+                this.lastTime = performance.now();
+                this.stepSimulation(0.1);
+            }
+        }, 100);
     }
 
     setupLights() {
@@ -125,9 +135,11 @@ class CSGame {
         const hemi = new THREE.HemisphereLight(0x8fa3b5, 0x6e604c, 0.48);
         hemi.position.set(0, 50, 0);
         this.scene.add(hemi);
+        this.hemiLight = hemi;
 
         const ambient = new THREE.AmbientLight(0xe5dec9, 0.18);
         this.scene.add(ambient);
+        this.ambientLight = ambient;
 
         const sun = new THREE.DirectionalLight(0xfff3db, 1.38);
         sun.position.set(38, 68, 28);
@@ -143,6 +155,7 @@ class CSGame {
         sun.shadow.camera.top = d;
         sun.shadow.camera.bottom = -d;
         this.scene.add(sun);
+        this.sunLight = sun;
     }
 
     initAmmoForAll() {
@@ -199,6 +212,16 @@ class CSGame {
             this.updateBotDiffHUD();
         }
 
+        const mapSelect = document.getElementById('map-select');
+        if (mapSelect && mapSelect.value) {
+            this.mapId = mapSelect.value;
+        }
+        if (this.map.currentMapId !== this.mapId) {
+            this.loadMap(this.mapId);
+        } else {
+            this.updateMapHUD();
+        }
+
         document.getElementById('lobby-overlay').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
         this.applyMobileModeUI();
@@ -223,7 +246,61 @@ class CSGame {
         }
 
         window.soundFX.init();
-        this.addChatMessage(`🎮 ยินดีต้อนรับสู่ Counter-Strike Online! (${this.gameMode === 'tdm' ? 'Team Deathmatch' : 'Bomb Defusal'})`, '#fbbf24');
+        this.addChatMessage(`🎮 ยินดีต้อนรับสู่ Counter-Strike Online! (${this.gameMode === 'tdm' ? 'Rich Mode' : 'Classic'}) — สมรภูมิ: ${this.getMapName(this.mapId)}`, '#fbbf24');
+    }
+
+    loadMap(mapId) {
+        if (!window.MAP_METADATA || !window.MAP_METADATA[mapId]) mapId = 'de_dust2';
+        this.mapId = mapId;
+        if (!this.map) {
+            this.map = new GameMap(this.scene, mapId, this);
+        } else {
+            this.map.load(mapId);
+        }
+
+        this.updateMapHUD();
+
+        // Sync dropdowns
+        const mapSelect = document.getElementById('map-select');
+        if (mapSelect && mapSelect.value !== mapId) mapSelect.value = mapId;
+        const ingameMapSelect = document.getElementById('ingame-map-select');
+        if (ingameMapSelect && ingameMapSelect.value !== mapId) ingameMapSelect.value = mapId;
+
+        // If game is active, reset round & reposition entities
+        if (this.running) {
+            this.bombState = { planted: false, defused: false, exploded: false, timer: 0, x: 0, z: 0, planter: null };
+            if (this.bombMesh) {
+                this.scene.remove(this.bombMesh);
+                this.bombMesh = null;
+            }
+            this.respawnLocalPlayer();
+            if (!this.net.isClient) {
+                this.setupBots();
+                if (this.net.isHost) {
+                    this.net.broadcast({
+                        type: 'map_change',
+                        mapId: this.mapId
+                    });
+                }
+            }
+            const meta = window.MAP_METADATA ? window.MAP_METADATA[mapId] : null;
+            this.addChatMessage(`🗺️ เข้าสู่สมรภูมิใหม่: ${meta ? meta.name : mapId} (${meta ? meta.subtitle : ''})`, '#38bdf8');
+        }
+    }
+
+    getMapName(mapId) {
+        if (window.MAP_METADATA && window.MAP_METADATA[mapId]) {
+            return window.MAP_METADATA[mapId].name;
+        }
+        return mapId || 'DE_DUST2';
+    }
+
+    updateMapHUD() {
+        const tag = document.getElementById('map-name-tag');
+        if (tag) {
+            const meta = window.MAP_METADATA ? window.MAP_METADATA[this.mapId] : null;
+            tag.textContent = meta ? meta.id.toUpperCase() : (this.mapId ? this.mapId.toUpperCase() : 'DE_DUST2');
+        }
     }
 
     setupBots() {
@@ -273,6 +350,10 @@ class CSGame {
     }
 
     clearRespawnTimeouts() {
+        if (this.roundEndTimeout) {
+            clearTimeout(this.roundEndTimeout);
+            this.roundEndTimeout = null;
+        }
         if (this.respawnTimeouts) {
             for (const tid of this.respawnTimeouts) {
                 clearTimeout(tid);
@@ -283,6 +364,7 @@ class CSGame {
 
     startNewRound() {
         this.roundOver = false;
+        this.roundRestartTimer = 0;
         this.clearRespawnTimeouts();
         this.roundTime = this.gameMode === 'tdm' ? 300 : 115;
         this.clearPlantedBomb();
@@ -774,8 +856,8 @@ class CSGame {
             }
         }
 
-        // Only trigger team-wipe if that team actually has members in the match
-        if (tTotal > 0 && tAlive === 0 && !this.bombState.planted) {
+        // Trigger team-wipe immediately whenever all members of either team are dead
+        if (tTotal > 0 && tAlive === 0) {
             this.endRound('CT', '🛡️ COUNTER-TERRORISTS WIN! (ตายครบทุกคน - เริ่มรอบใหม่ที่ฐาน)');
         } else if (ctTotal > 0 && ctAlive === 0) {
             this.endRound('T', '💣 TERRORISTS WIN! (ตายครบทุกคน - เริ่มรอบใหม่ที่ฐาน)');
@@ -786,6 +868,7 @@ class CSGame {
         if (this.roundOver) return;
         this.roundOver = true;
         this.clearRespawnTimeouts();
+        this.roundRestartTimer = 2.6;
         this.scores[winnerTeam]++;
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
@@ -795,7 +878,7 @@ class CSGame {
         this.updateVitalsHUD();
 
         window.soundFX.playRoundEnd(won);
-        this.showAnnouncement(reasonText, 3.0);
+        this.showAnnouncement(reasonText, 2.6);
 
         if (this.net.isHost) {
             this.net.broadcast({
@@ -806,11 +889,11 @@ class CSGame {
             });
         }
 
-        setTimeout(() => {
-            if (this.running && !this.net.isClient) {
+        this.roundEndTimeout = setTimeout(() => {
+            if (this.running && !this.net.isClient && this.roundOver) {
                 this.startNewRound();
             }
-        }, 3000);
+        }, 2700);
     }
 
     // ==================== C4 BOMB SYSTEM ====================
@@ -962,19 +1045,24 @@ class CSGame {
     }
 
     // ==================== GAME LOOP ====================
+    stepSimulation(dt) {
+        if (!this.running) return;
+        this.updatePlayer(dt);
+        if (!this.net.isClient) {
+            this.botAI.update(dt);
+            this.updateRoundAndBomb(dt);
+        }
+        this.updateEffects(dt);
+        this.net.update(dt);
+        this.map.drawRadar(this.radarCtx, 130, 130, this.player, this.entities, this.bombState);
+    }
+
     loop(now) {
         const dt = Math.min(0.1, (now - this.lastTime) / 1000);
         this.lastTime = now;
 
         if (this.running) {
-            this.updatePlayer(dt);
-            if (!this.net.isClient) {
-                this.botAI.update(dt);
-                this.updateRoundAndBomb(dt);
-            }
-            this.updateEffects(dt);
-            this.net.update(dt);
-            this.map.drawRadar(this.radarCtx, 130, 130, this.player, this.entities, this.bombState);
+            this.stepSimulation(dt);
         }
 
         this.renderer.render(this.scene, this.camera);
@@ -1080,6 +1168,7 @@ class CSGame {
         this.camera.rotation.order = 'YXZ';
         this.camera.rotation.y = p.yaw;
         this.camera.rotation.x = Math.max(-1.45, Math.min(1.45, p.pitch + p.recoilPitch));
+        this.camera.rotation.z = 0;
 
         if (this.weaponMesh && !p.reloading) {
             const bobX = Math.cos(p.bobTimer) * 0.012;
@@ -1133,15 +1222,18 @@ class CSGame {
         const allies = this.getLivingTeammates();
         if (allies.length === 0) {
             this.spectateTarget = null;
-            if (specName) specName.textContent = 'ไม่มีเพื่อนร่วมทีมที่ยังมีชีวิต (รอรอบใหม่...)';
+            if (specName) specName.textContent = 'ไม่มีเพื่อนร่วมทีมที่ยังมีชีวิต (กำลังเริ่มรอบใหม่...)';
             if (this.weaponMesh) this.weaponMesh.visible = false;
 
-            // Smooth overview camera above map
+            // Smooth overview camera above map using clean YXZ Euler rotation
             this.spectateOrbitAngle += dt * 0.25;
             const camX = Math.sin(this.spectateOrbitAngle) * 24;
             const camZ = Math.cos(this.spectateOrbitAngle) * 24;
             this.camera.position.set(camX, 18, camZ);
-            this.camera.lookAt(0, 1.5, 0);
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.y = this.spectateOrbitAngle;
+            this.camera.rotation.x = -0.58;
+            this.camera.rotation.z = 0;
             return;
         }
 
@@ -1173,22 +1265,27 @@ class CSGame {
             this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, target.z, dt * 16);
 
             this.camera.rotation.order = 'YXZ';
-            this.camera.rotation.y = target.yaw;
+            this.camera.rotation.y = target.yaw || 0;
             this.camera.rotation.x = target.pitch || 0;
+            this.camera.rotation.z = 0;
         } else {
-            // Third-Person Follow Camera behind teammate
+            // Third-Person Follow Camera behind teammate using clean YXZ Euler rotation
             if (target.mesh) target.mesh.visible = true;
             if (this.weaponMesh) this.weaponMesh.visible = false;
 
             const dist = 3.8;
-            const desiredX = target.x + Math.sin(target.yaw) * dist;
+            const tyaw = target.yaw || 0;
+            const desiredX = target.x + Math.sin(tyaw) * dist;
             const desiredY = target.y + 2.3;
-            const desiredZ = target.z + Math.cos(target.yaw) * dist;
+            const desiredZ = target.z + Math.cos(tyaw) * dist;
 
             this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, desiredX, dt * 12);
             this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, desiredY, dt * 12);
             this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, desiredZ, dt * 12);
-            this.camera.lookAt(target.x, target.y + 1.4, target.z);
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.y = tyaw;
+            this.camera.rotation.x = -0.22;
+            this.camera.rotation.z = 0;
         }
     }
 
@@ -1271,6 +1368,17 @@ class CSGame {
     }
 
     updateRoundAndBomb(dt) {
+        if (this.roundOver) {
+            if (this.roundRestartTimer > 0) {
+                this.roundRestartTimer -= dt;
+                if (this.roundRestartTimer <= 0 && !this.net.isClient) {
+                    this.startNewRound();
+                }
+            }
+            return;
+        }
+
+        this.checkRoundWinCondition();
         if (this.roundOver) return;
 
         if (this.bombState.planted) {
@@ -1439,10 +1547,13 @@ class CSGame {
 
         for (const a of snapshot.actors) {
             if (a.id === myId) {
-                // Sync Client's own authoritative Kills, Deaths & HP from Host!
+                // Sync Client's own authoritative Kills, Deaths & Respawn state from Host!
                 const changed = (this.player.kills !== a.kills || this.player.deaths !== a.deaths);
                 this.player.kills = a.kills || 0;
                 this.player.deaths = a.deaths || 0;
+                if (this.player.hp <= 0 && a.hp > 0) {
+                    this.respawnLocalPlayer();
+                }
                 if (changed) this.refreshScoreboardIfOpen();
                 continue;
             }
@@ -2044,6 +2155,29 @@ class CSGame {
         const botDiffBtn = document.getElementById('btn-cycle-bot-diff');
         if (botDiffBtn) {
             botDiffBtn.addEventListener('click', () => this.cycleBotDifficulty());
+        }
+
+        const mapSelect = document.getElementById('map-select');
+        const mapPreviewBadge = document.getElementById('map-preview-badge');
+        if (mapSelect && mapPreviewBadge) {
+            mapSelect.addEventListener('change', () => {
+                const mid = mapSelect.value;
+                const meta = window.MAP_METADATA ? window.MAP_METADATA[mid] : null;
+                if (meta) {
+                    mapPreviewBadge.innerHTML = `<strong>${meta.name}:</strong> ${meta.description}`;
+                }
+                const ingameSel = document.getElementById('ingame-map-select');
+                if (ingameSel) ingameSel.value = mid;
+            });
+        }
+
+        const ingameMapSelect = document.getElementById('ingame-map-select');
+        if (ingameMapSelect) {
+            ingameMapSelect.addEventListener('change', () => {
+                const newMid = ingameMapSelect.value;
+                this.loadMap(newMid);
+                if (mapSelect) mapSelect.value = newMid;
+            });
         }
 
         const soundBtn = document.getElementById('btn-toggle-sound');
