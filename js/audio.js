@@ -64,26 +64,34 @@ class SoundSystem {
         let filterFreq = 1600;
         let pitchStart = 180;
 
-        if (weaponId === 'awp') {
-            duration = 0.55;
+        if (weaponId === 'awp' || weaponId === 'ssg08' || weaponId === 'scar20') {
+            duration = weaponId === 'awp' ? 0.58 : 0.42;
             filterFreq = 950;
-            pitchStart = 110;
-        } else if (weaponId === 'ak47') {
+            pitchStart = 105;
+        } else if (weaponId === 'nova' || weaponId === 'sawedoff' || weaponId === 'mag7' || weaponId === 'shotgun' || weaponId === 'spas12') {
+            duration = 0.36;
+            filterFreq = 1100;
+            pitchStart = 120;
+        } else if (weaponId === 'm249' || weaponId === 'negev') {
+            duration = 0.22;
+            filterFreq = 1550;
+            pitchStart = 145;
+        } else if (weaponId === 'ak47' || weaponId === 'galil' || weaponId === 'sg553') {
             duration = 0.24;
             filterFreq = 1400;
             pitchStart = 150;
-        } else if (weaponId === 'm4a1') {
-            duration = 0.17;
-            filterFreq = 2100;
-            pitchStart = 210;
-        } else if (weaponId === 'deagle') {
-            duration = 0.30;
+        } else if (weaponId === 'm4a1' || weaponId === 'mp5' || weaponId === 'pistol') {
+            duration = 0.16;
+            filterFreq = 2200;
+            pitchStart = 220;
+        } else if (weaponId === 'deagle' || weaponId === 'revolver') {
+            duration = 0.32;
             filterFreq = 1200;
-            pitchStart = 135;
-        } else if (weaponId === 'mp5') {
+            pitchStart = 130;
+        } else if (weaponId === 'p90' || weaponId === 'bizon' || weaponId === 'mac10' || weaponId === 'mp9' || weaponId === 'ump45') {
             duration = 0.14;
-            filterFreq = 1900;
-            pitchStart = 200;
+            filterFreq = 1850;
+            pitchStart = 195;
         }
 
         const noise = this.ctx.createBufferSource();

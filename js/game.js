@@ -206,7 +206,7 @@ class CSGame {
         this.scores = { T: 0, CT: 0 };
         this.player.kills = 0;
         this.player.deaths = 0;
-        this.player.money = this.gameMode === 'tdm' ? 16000 : 1000;
+        this.player.money = this.gameMode === 'tdm' ? 50000 : 1000;
         this.player.slots[1] = this.player.team === 'T' ? 'ak47' : 'm4a1';
         this.initAmmoForAll();
 
@@ -236,6 +236,8 @@ class CSGame {
 
         const tNames = ['Bot_Phoenix', 'Bot_Leet', 'Bot_Viper', 'Bot_Razor', 'Bot_Kobra'];
         const ctNames = ['Bot_Maverick', 'Bot_SAS', 'Bot_Ghost', 'Bot_Falcon', 'Bot_Wolf'];
+        const tLoadouts = ['ak47', 'galil', 'sg553', 'p90', 'sawedoff', 'awp', 'negev'];
+        const ctLoadouts = ['m4a1', 'm4a4', 'aug', 'mp5', 'spas12', 'awp', 'm249'];
 
         for (let i = 0; i < this.botCount; i++) {
             const team = (i % 2 === 0) ? (this.player.team === 'T' ? 'CT' : 'T') : this.player.team;
@@ -243,7 +245,8 @@ class CSGame {
             const sp = spawnList[(i + 1) % spawnList.length];
             const namePool = team === 'T' ? tNames : ctNames;
             const botName = namePool[i % namePool.length];
-            const botWep = team === 'T' ? 'ak47' : 'm4a1';
+            const wepPool = team === 'T' ? tLoadouts : ctLoadouts;
+            const botWep = wepPool[i % wepPool.length];
 
             const mesh = createCharacterMesh(team, botName, team === this.player.team);
             mesh.position.set(sp.x, 0, sp.z);
@@ -366,14 +369,21 @@ class CSGame {
         const ammoObj = this.player.ammo[wep.id];
 
         if (wep.id === 'hegrenade') {
-            if (ammoObj.clip <= 0) return;
-            ammoObj.clip--;
+            if (ammoObj.clip <= 0 && ammoObj.reserve <= 0) return;
+            if (ammoObj.clip > 0) ammoObj.clip--;
+            else ammoObj.reserve--;
+            if (ammoObj.clip <= 0 && ammoObj.reserve > 0) {
+                ammoObj.clip = 1;
+                ammoObj.reserve--;
+            }
             this.player.fireCooldown = wep.fireRate;
             this.throwGrenade();
             this.updateWeaponHUD();
-            setTimeout(() => {
-                if (this.player.weaponId === 'hegrenade') this.equipSlot(1);
-            }, 350);
+            if (ammoObj.clip <= 0 && ammoObj.reserve <= 0) {
+                setTimeout(() => {
+                    if (this.player.weaponId === 'hegrenade') this.equipSlot(1);
+                }, 350);
+            }
             return;
         }
 
@@ -1483,6 +1493,9 @@ class CSGame {
 
     // ==================== HUD & UI UPDATES ====================
     updateVitalsHUD() {
+        if (this.gameMode === 'tdm') {
+            this.player.money = 50000;
+        }
         document.getElementById('hp-val').textContent = this.player.hp;
         document.getElementById('armor-val').textContent = this.player.armor;
         document.getElementById('money-val').textContent = `$${this.player.money}`;
@@ -1920,7 +1933,8 @@ class CSGame {
         if (specNext) specNext.addEventListener('click', () => this.cycleSpectator(1));
         if (specCam) specCam.addEventListener('click', () => this.toggleSpectateCameraMode());
 
-        this.populateBuyMenu();
+        this.populateBuyMenu('all');
+        this.setupAmmoSupplyButtons();
     }
 
     cycleBotDifficulty() {
@@ -1957,24 +1971,63 @@ class CSGame {
         this.net.sendChat(txt);
     }
 
-    populateBuyMenu() {
+    populateBuyMenu(selectedCat = 'all') {
+        this.currentBuyCat = selectedCat;
+        const tabsBar = document.getElementById('buy-category-tabs');
         const grid = document.getElementById('buy-items-grid');
+        if (!grid) return;
+
+        // Build Category Filter Tabs
+        if (tabsBar && window.WEAPON_CATEGORIES) {
+            tabsBar.innerHTML = '';
+            for (const cat of window.WEAPON_CATEGORIES) {
+                const btn = document.createElement('button');
+                btn.className = 'buy-tab-btn' + (cat.id === selectedCat ? ' active' : '');
+                btn.textContent = cat.name;
+                btn.addEventListener('click', () => this.populateBuyMenu(cat.id));
+                tabsBar.appendChild(btn);
+            }
+        }
+
         grid.innerHTML = '';
 
-        const items = [
+        const catLabels = {
+            pistol: '🔫 ปืนพก (Pistol)',
+            shotgun: '💥 ปืนลูกซอง (Shotgun)',
+            smg: '⚡ ปืนกลเบา (SMG)',
+            mg: '🛡️ ปืนกลหนัก (LMG)',
+            rifle: '🎯 ปืนไรเฟิล (Rifle)',
+            sniper: '🔭 ปืนสไนเปอร์ (Sniper)',
+            equip: '💣 ยุทโธปกรณ์'
+        };
+
+        const allItems = [
             ...Object.values(WEAPONS).filter(w => w.price > 0),
-            { id: 'armor', name: 'Kevlar + Helmet', type: 'เกราะกันกระสุน + หมวกเหล็ก (100 AP)', price: 1000, isEquipment: true },
-            { id: 'ammo', name: 'Full Ammo Refill', type: 'เติมกระสุนเต็มทุกกระบอก', price: 200, isEquipment: true }
+            { id: 'armor', category: 'equip', name: 'Kevlar + Helmet (100 AP)', type: 'เกราะกันกระสุน + หมวกเหล็กมาตรฐาน', price: 650, isEquipment: true },
+            { id: 'heavyarmor', category: 'equip', name: 'Heavy Tactical Armor (150 AP)', type: 'เกราะจู่โจมหนาพิเศษ 150 AP', price: 1000, isEquipment: true }
         ];
 
-        for (const item of items) {
+        const filtered = selectedCat === 'all'
+            ? allItems
+            : allItems.filter(item => item.category === selectedCat);
+
+        for (const item of filtered) {
             const card = document.createElement('div');
             card.className = 'buy-card';
+            const badgeText = catLabels[item.category] || 'อาวุธ';
+            let statsHtml = '';
+            if (!item.isEquipment && item.clipSize) {
+                const pelletsInfo = item.pellets ? `x${item.pellets}` : '';
+                statsHtml = `<div class="buy-card-stats">⚔️ ดาเมจ: ${item.damage}${pelletsInfo} &nbsp;|&nbsp; 📦 กระสุน: ${item.clipSize} / ${item.reserveMax}</div>`;
+            }
+
             card.innerHTML = `
                 <div>
+                    <span class="buy-card-cat-badge">${badgeText}</span>
                     <div class="buy-card-title">${item.name}</div>
                     <div class="buy-card-type">${item.type}</div>
                 </div>
+                ${statsHtml}
                 <div class="buy-card-price">$${item.price}</div>
             `;
             card.addEventListener('click', () => this.buyItem(item));
@@ -1982,18 +2035,114 @@ class CSGame {
         }
     }
 
+    setupAmmoSupplyButtons() {
+        const bindBtn = (id, cost, actionFn) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('click', () => {
+                if (this.gameMode !== 'tdm') {
+                    if (this.player.money < cost) {
+                        this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อรายการนี้!', 1.5);
+                        return;
+                    }
+                    this.player.money -= cost;
+                } else {
+                    this.player.money = 50000;
+                }
+                actionFn();
+                window.soundFX.playReload();
+                this.updateVitalsHUD();
+                this.updateWeaponHUD();
+            });
+        };
+
+        // 1. Primary Ammo (+150 rounds to Slot 1 weapon)
+        bindBtn('btn-buy-ammo-primary', 80, () => {
+            const wId = this.player.slots[1];
+            if (wId && WEAPONS[wId]) {
+                const w = WEAPONS[wId];
+                this.player.ammo[wId].clip = w.clipSize;
+                this.player.ammo[wId].reserve = Math.min(999, (this.player.ammo[wId].reserve || 0) + 150);
+                this.showAnnouncement(`📦 ซื้อกระสุนปืนหลัก +150 นัด (${w.name})!`, 1.6);
+            }
+        });
+
+        // 2. Pistol Ammo (+100 rounds to Slot 2 weapon)
+        bindBtn('btn-buy-ammo-pistol', 50, () => {
+            const wId = this.player.slots[2];
+            if (wId && WEAPONS[wId]) {
+                const w = WEAPONS[wId];
+                this.player.ammo[wId].clip = w.clipSize;
+                this.player.ammo[wId].reserve = Math.min(999, (this.player.ammo[wId].reserve || 0) + 100);
+                this.showAnnouncement(`📦 ซื้อกระสุนปืนพก +100 นัด (${w.name})!`, 1.6);
+            }
+        });
+
+        // 3. Super Max Ammo Refill (+350 rounds to all weapons)
+        bindBtn('btn-buy-ammo-max', 150, () => {
+            for (const key of Object.keys(WEAPONS)) {
+                if (key === 'knife' || key === 'hegrenade') continue;
+                const w = WEAPONS[key];
+                this.player.ammo[key].clip = w.clipSize;
+                this.player.ammo[key].reserve = Math.min(999, Math.max(w.reserveMax, (this.player.ammo[key].reserve || 0) + 350));
+            }
+            this.showAnnouncement('📦 เติมกระสุนเต็มแม็กพิเศษ (+350 นัด) ทุกกระบอก!', 1.8);
+        });
+
+        // 4. Standard Kevlar + Helmet (100 AP)
+        bindBtn('btn-buy-armor-std', 650, () => {
+            this.player.armor = Math.max(this.player.armor, 100);
+            this.showAnnouncement('🛡️ สวมเกราะ Kevlar + หมวกเหล็ก (100 AP)!', 1.6);
+        });
+
+        // 5. Heavy Tactical Armor (150 AP)
+        bindBtn('btn-buy-armor-heavy', 1000, () => {
+            this.player.armor = 150;
+            this.showAnnouncement('🛡️ สวมเกราะหนักจู่โจมพิเศษ (150 AP)!', 1.6);
+        });
+
+        // 6. Quick Buy HE Grenade (+1 grenade up to 5)
+        bindBtn('btn-buy-nade-quick', 300, () => {
+            this.player.slots[4] = 'hegrenade';
+            const gAmmo = this.player.ammo.hegrenade;
+            if (gAmmo.clip <= 0) gAmmo.clip = 1;
+            else gAmmo.reserve = Math.min(5, (gAmmo.reserve || 0) + 1);
+            this.showAnnouncement(`💣 ซื้อระเบิดมือ M67 เพิ่ม! (มี ${gAmmo.clip + gAmmo.reserve} ลูก)`, 1.6);
+        });
+
+        // 7. Quick HUD Buy Ammo Button (bottom-right HUD next to ammo counter)
+        bindBtn('btn-hud-buy-ammo', 50, () => {
+            const curId = this.player.weaponId;
+            if (curId && WEAPONS[curId] && curId !== 'knife') {
+                const w = WEAPONS[curId];
+                this.player.ammo[curId].clip = w.clipSize;
+                this.player.ammo[curId].reserve = Math.min(999, (this.player.ammo[curId].reserve || 0) + 120);
+                this.showAnnouncement(`➕ เติมกระสุน ${w.name} (+120 นัด)!`, 1.4);
+            }
+        });
+    }
+
     buyItem(item) {
-        if (this.player.money < item.price) {
-            this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อไอเทมนี้!', 1.5);
-            return;
+        if (this.gameMode !== 'tdm') {
+            if (this.player.money < item.price) {
+                this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อไอเทมนี้!', 1.5);
+                return;
+            }
+            this.player.money -= item.price;
+        } else {
+            this.player.money = 50000;
         }
 
-        this.player.money -= item.price;
-
         if (item.id === 'armor') {
-            this.player.armor = 100;
-        } else if (item.id === 'ammo') {
-            this.initAmmoForAll();
+            this.player.armor = Math.max(this.player.armor, 100);
+        } else if (item.id === 'heavyarmor') {
+            this.player.armor = 150;
+        } else if (item.id === 'hegrenade') {
+            this.player.slots[4] = 'hegrenade';
+            const gAmmo = this.player.ammo.hegrenade;
+            if (gAmmo.clip <= 0) gAmmo.clip = 1;
+            else gAmmo.reserve = Math.min(5, (gAmmo.reserve || 0) + 1);
+            this.equipSlot(4);
         } else {
             const wep = WEAPONS[item.id];
             this.player.slots[wep.slot] = wep.id;
@@ -2004,7 +2153,7 @@ class CSGame {
         window.soundFX.playReload();
         this.updateVitalsHUD();
         this.updateWeaponHUD();
-        this.toggleBuyMenu(false);
+        this.showAnnouncement(`✅ ซื้อ ${item.name} สำเร็จ!`, 1.5);
     }
 
     toggleBuyMenu(forceState) {
@@ -2036,28 +2185,66 @@ class CSGame {
     }
 
     renderScoreboardTable() {
-        const tbody = document.getElementById('scoreboard-tbody');
-        tbody.innerHTML = '';
+        const tbodyT = document.getElementById('scoreboard-tbody-t');
+        const tbodyCT = document.getElementById('scoreboard-tbody-ct');
+        if (!tbodyT || !tbodyCT) return;
+
+        tbodyT.innerHTML = '';
+        tbodyCT.innerHTML = '';
 
         const all = [
-            { name: this.player.name + ' (คุณ)', team: this.player.team, kills: this.player.kills || 0, deaths: this.player.deaths || 0, hp: this.player.hp },
-            ...this.entities.map(e => ({ name: e.name, team: e.team, kills: e.kills || 0, deaths: e.deaths || 0, hp: e.hp }))
+            {
+                name: this.player.name + ' (คุณ)',
+                team: this.player.team,
+                kills: this.player.kills || 0,
+                deaths: this.player.deaths || 0,
+                hp: this.player.hp,
+                isMe: true
+            },
+            ...this.entities.map(e => ({
+                name: e.name,
+                team: e.team,
+                kills: e.kills || 0,
+                deaths: e.deaths || 0,
+                hp: e.hp,
+                isMe: false
+            }))
         ];
 
-        all.sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
+        const teamT = all.filter(p => p.team === 'T').sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
+        const teamCT = all.filter(p => p.team === 'CT').sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
 
-        for (const row of all) {
-            const tr = document.createElement('tr');
-            const teamColor = row.team === 'T' ? '#fbbf24' : '#38bdf8';
-            tr.innerHTML = `
-                <td style="color:${teamColor};font-weight:700;">${row.team}</td>
-                <td>${row.name}</td>
-                <td style="font-weight:800;color:#fde047;">${row.kills}</td>
-                <td>${row.deaths}</td>
-                <td>${row.hp > 0 ? `<span style="color:#34d399">${row.hp} HP</span>` : '<span style="color:#ef4444">DEAD</span>'}</td>
-            `;
-            tbody.appendChild(tr);
-        }
+        const totalKillsT = teamT.reduce((sum, p) => sum + p.kills, 0);
+        const totalKillsCT = teamCT.reduce((sum, p) => sum + p.kills, 0);
+
+        const roundsT = document.getElementById('sb-rounds-t');
+        const killsT = document.getElementById('sb-kills-t');
+        const roundsCT = document.getElementById('sb-rounds-ct');
+        const killsCT = document.getElementById('sb-kills-ct');
+
+        if (roundsT) roundsT.textContent = this.scores.T;
+        if (killsT) killsT.textContent = totalKillsT;
+        if (roundsCT) roundsCT.textContent = this.scores.CT;
+        if (killsCT) killsCT.textContent = totalKillsCT;
+
+        const renderTeamRows = (list, tbody, accentColor) => {
+            for (const row of list) {
+                const tr = document.createElement('tr');
+                if (row.isMe) {
+                    tr.style.background = 'rgba(255, 255, 255, 0.08)';
+                }
+                tr.innerHTML = `
+                    <td style="font-weight:${row.isMe ? '800' : '600'};color:${row.isMe ? accentColor : '#f8fafc'};">${row.name}</td>
+                    <td style="font-weight:800;color:#fde047;">${row.kills}</td>
+                    <td>${row.deaths}</td>
+                    <td>${row.hp > 0 ? `<span style="color:#34d399;font-weight:700;">${row.hp} HP</span>` : '<span style="color:#ef4444;font-weight:700;">DEAD</span>'}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        };
+
+        renderTeamRows(teamT, tbodyT, '#fbbf24');
+        renderTeamRows(teamCT, tbodyCT, '#38bdf8');
     }
 
     // ==================== MOBILE HUD LAYOUT CUSTOMIZATION ====================

@@ -875,16 +875,20 @@ html, body {
     font-size: 0.88rem;
 }
 
-/* ==================== BUY MENU MODAL ==================== */
+/* ==================== BUY MENU MODAL (CATEGORIZED + SIDE PANEL) ==================== */
 .modal-box {
     width: 100%;
-    max-width: 720px;
-    background: rgba(15, 23, 42, 0.96);
+    max-width: 780px;
+    background: rgba(13, 19, 31, 0.97);
     border: 1px solid rgba(245, 158, 11, 0.45);
     border-radius: 12px;
-    padding: 18px;
-    max-height: 90vh;
+    padding: 16px 18px;
+    max-height: 92vh;
     overflow-y: auto;
+}
+
+.buy-modal-wide, .score-modal-wide {
+    max-width: 960px;
 }
 
 .modal-header {
@@ -893,48 +897,226 @@ html, body {
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     padding-bottom: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
+}
+
+.buy-tabs-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.buy-tab-btn {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #cbd5e1;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.buy-tab-btn:hover {
+    border-color: #f59e0b;
+    color: #fff;
+}
+
+.buy-tab-btn.active {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-color: #fbbf24;
+    color: #0b0e14;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
+}
+
+.buy-layout-split {
+    display: grid;
+    grid-template-columns: 1fr 265px;
+    gap: 14px;
+    align-items: start;
+}
+
+@media (max-width: 760px) {
+    .buy-layout-split {
+        grid-template-columns: 1fr;
+    }
 }
 
 .buy-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 9px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .buy-card {
-    background: rgba(30, 41, 59, 0.75);
+    background: rgba(24, 34, 50, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 8px;
-    padding: 10px;
+    padding: 10px 11px;
     cursor: pointer;
     transition: all 0.15s;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    gap: 6px;
 }
 
 .buy-card:hover {
     border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.16);
+    transform: translateY(-1px);
+}
+
+.buy-card-cat-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fbbf24;
     background: rgba(245, 158, 11, 0.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-bottom: 3px;
 }
 
 .buy-card-title {
     font-weight: 800;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     color: #f8fafc;
 }
 
 .buy-card-type {
     font-size: 0.72rem;
     color: #94a3b8;
-    margin-bottom: 6px;
+}
+
+.buy-card-stats {
+    font-size: 0.69rem;
+    color: #cbd5e1;
+    background: rgba(11, 15, 25, 0.55);
+    padding: 3px 6px;
+    border-radius: 4px;
 }
 
 .buy-card-price {
-    font-weight: 800;
+    font-weight: 900;
     color: #34d399;
-    font-size: 0.9rem;
+    font-size: 0.94rem;
+}
+
+.buy-side-panel {
+    background: rgba(11, 15, 25, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.side-panel-title {
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: #38bdf8;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+.ammo-supply-btn {
+    width: 100%;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #f8fafc;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    transition: all 0.15s;
+}
+
+.ammo-supply-btn:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.18);
+}
+
+.ammo-supply-btn:active {
+    transform: scale(0.97);
+}
+
+.supply-name {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.supply-sub {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}
+
+.supply-price {
+    font-size: 0.86rem;
+    font-weight: 900;
+    color: #34d399;
+    margin-left: 8px;
+}
+
+/* ==================== TEAM SEPARATED SCOREBOARD ==================== */
+.scoreboard-teams-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+@media (max-width: 760px) {
+    .scoreboard-teams-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.team-score-box {
+    background: rgba(11, 15, 25, 0.82);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.team-box-t {
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
+.team-box-ct {
+    border-color: rgba(56, 189, 248, 0.45);
+}
+
+.team-score-header {
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.header-t {
+    background: rgba(245, 158, 11, 0.22);
+    color: #fbbf24;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.header-ct {
+    background: rgba(56, 189, 248, 0.22);
+    color: #38bdf8;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 /* ==================== CHAT & RADIO ==================== */

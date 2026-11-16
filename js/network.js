@@ -165,6 +165,7 @@ class NetworkManager {
             this.game.gameMode = data.mode;
             this.game.scores = data.scores;
             this.game.roundTime = data.roundTime;
+            this.game.updateVitalsHUD();
             this.game.updateScoreHUD();
         } else if (data.type === 'world_snapshot') {
             this.game.applyWorldSnapshot(data);
