@@ -271,29 +271,43 @@ class CSGame {
         }
     }
 
+    clearRespawnTimeouts() {
+        if (this.respawnTimeouts) {
+            for (const tid of this.respawnTimeouts) {
+                clearTimeout(tid);
+            }
+        }
+        this.respawnTimeouts = [];
+    }
+
     startNewRound() {
         this.roundOver = false;
+        this.clearRespawnTimeouts();
         this.roundTime = this.gameMode === 'tdm' ? 300 : 115;
         this.clearPlantedBomb();
 
         this.respawnLocalPlayer();
 
+        const nowMs = performance.now();
         this.entities.forEach((ent, idx) => {
             const spList = this.map.spawns[ent.team];
             const sp = spList[(idx + 1) % spList.length];
-            ent.x = sp.x + (Math.random() - 0.5) * 1.5;
+            ent.x = sp.x + (Math.random() - 0.5) * 1.2;
             ent.y = 0;
-            ent.z = sp.z + (Math.random() - 0.5) * 1.5;
+            ent.z = sp.z + (Math.random() - 0.5) * 1.2;
             ent.yaw = sp.yaw;
             ent.hp = 100;
+            ent.invincibleTimer = 2.0;
+            ent.ignoreStateUntil = nowMs + 500;
             ent.targetWP = null;
             if (ent.mesh) {
                 ent.mesh.visible = true;
                 ent.mesh.position.set(ent.x, ent.y, ent.z);
+                ent.mesh.rotation.y = ent.yaw;
             }
         });
 
-        this.showAnnouncement('🔥 เริ่มรอบใหม่! เตรียมอาวุธให้พร้อม', 2.5);
+        this.showAnnouncement('🔥 เริ่มรอบใหม่ที่ฐาน! (🛡️ อมตะเกิดใหม่ 2 วินาที)', 2.2);
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
 
@@ -308,25 +322,27 @@ class CSGame {
 
     onClientRoundReset(data) {
         this.roundOver = false;
+        this.clearRespawnTimeouts();
         this.scores = data.scores;
         this.roundTime = data.roundTime;
         this.clearPlantedBomb();
         this.respawnLocalPlayer();
-        this.showAnnouncement('🔥 เริ่มรอบใหม่!', 2.2);
+        this.showAnnouncement('🔥 เริ่มรอบใหม่ที่ฐาน! (🛡️ อมตะเกิดใหม่ 2 วินาที)', 2.2);
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
     }
 
     onClientRoundEnd(data) {
         this.roundOver = true;
+        this.clearRespawnTimeouts();
         this.scores = data.scores;
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
         const won = this.player.team === data.winnerTeam;
-        this.player.money = Math.min(16000, this.player.money + (won ? 3250 : 1900));
+        this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
         this.updateVitalsHUD();
         window.soundFX.playRoundEnd(won);
-        this.showAnnouncement(data.reasonText, 4.0);
+        this.showAnnouncement(data.reasonText, 3.2);
     }
 
     respawnLocalPlayer() {
@@ -349,16 +365,36 @@ class CSGame {
         this.player.pitch = 0;
         this.player.hp = 100;
         this.player.armor = 100;
+        this.player.invincibleTimer = 2.0; // 2-Second Spawn Protection Invincibility!
         this.player.reloading = false;
+        if (this.gameMode === 'tdm') {
+            this.player.money = 50000;
+        }
 
         for (const k of Object.keys(this.player.ammo)) {
             this.player.ammo[k].clip = WEAPONS[k].clipSize;
-            this.player.ammo[k].reserve = WEAPONS[k].reserveMax;
+            this.player.ammo[k].reserve = Math.max(this.player.ammo[k].reserve || 0, WEAPONS[k].reserveMax);
         }
         this.equipSlot(this.player.slots[1] ? 1 : 2);
         this.updateVitalsHUD();
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
+        this.showAnnouncement('🛡️ เกิดใหม่ที่ฐาน (อมตะ 2 วินาที!)', 2.0);
+
+        if (this.net.isClient && this.net.hostConn && this.net.hostConn.open) {
+            this.net.hostConn.send({
+                type: 'state',
+                id: this.net.peer.id,
+                name: this.player.name,
+                team: this.player.team,
+                x: this.player.x,
+                y: this.player.y,
+                z: this.player.z,
+                yaw: this.player.yaw,
+                pitch: this.player.pitch,
+                weapon: this.player.weaponId
+            });
+        }
     }
 
     shoot() {
@@ -557,7 +593,7 @@ class CSGame {
 
     // ==================== HOST-AUTHORITATIVE DAMAGE & KILL TRACKING ====================
     damageEntity(ent, dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
-        if (ent.hp <= 0) return;
+        if (ent.hp <= 0 || (ent.invincibleTimer && ent.invincibleTimer > 0)) return;
         ent.hp = Math.max(0, ent.hp - dmg);
 
         // If target is a remote client connected to Host, send authoritative HP & damage flash
@@ -584,7 +620,7 @@ class CSGame {
                 killerTeam = attackerObj.team || killerTeam;
                 if (attackerObj === this.player) {
                     killerId = 'HOST';
-                    this.player.money = Math.min(16000, this.player.money + 300);
+                    this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + 300);
                     this.updateVitalsHUD();
                 } else {
                     killerId = attackerObj.id;
@@ -615,18 +651,26 @@ class CSGame {
                 });
             }
 
-            if (this.gameMode === 'tdm') {
-                setTimeout(() => {
-                    if (!this.running) return;
+            if (!this.net.isClient) {
+                this.checkRoundWinCondition();
+            }
+
+            if (this.gameMode === 'tdm' && !this.roundOver) {
+                if (!this.respawnTimeouts) this.respawnTimeouts = [];
+                const tid = setTimeout(() => {
+                    if (!this.running || this.roundOver) return;
                     const spList = this.map.spawns[ent.team];
                     const sp = spList[Math.floor(Math.random() * spList.length)];
-                    ent.x = sp.x;
+                    ent.x = sp.x + (Math.random() - 0.5) * 1.2;
                     ent.y = 0;
-                    ent.z = sp.z;
+                    ent.z = sp.z + (Math.random() - 0.5) * 1.2;
+                    ent.yaw = sp.yaw;
                     ent.hp = 100;
+                    ent.invincibleTimer = 2.0; // 2-Second Spawn Protection on Respawn!
                     if (ent.mesh) {
                         ent.mesh.visible = true;
                         ent.mesh.position.set(ent.x, ent.y, ent.z);
+                        ent.mesh.rotation.y = ent.yaw;
                     }
                     if (this.net.isHost && !ent.isBot) {
                         this.net.sendToPeer(ent.id, { type: 'respawn_you' });
@@ -634,14 +678,13 @@ class CSGame {
                     this.updateScoreHUD();
                     this.refreshScoreboardIfOpen();
                 }, 3000);
-            } else {
-                this.checkRoundWinCondition();
+                this.respawnTimeouts.push(tid);
             }
         }
     }
 
     damageLocalPlayer(dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
-        if (this.player.hp <= 0) return;
+        if (this.player.hp <= 0 || (this.player.invincibleTimer && this.player.invincibleTimer > 0)) return;
 
         let actualDmg = dmg;
         if (this.player.armor > 0) {
@@ -696,16 +739,23 @@ class CSGame {
                 });
             }
 
-            if (this.gameMode === 'tdm') {
-                setTimeout(() => this.respawnLocalPlayer(), 3000);
-            } else if (!this.net.isClient) {
+            if (!this.net.isClient) {
                 this.checkRoundWinCondition();
+            }
+
+            if (this.gameMode === 'tdm' && !this.roundOver) {
+                if (!this.respawnTimeouts) this.respawnTimeouts = [];
+                const tid = setTimeout(() => {
+                    if (!this.running || this.roundOver) return;
+                    this.respawnLocalPlayer();
+                }, 3000);
+                this.respawnTimeouts.push(tid);
             }
         }
     }
 
     onClientDamagedByHost(data) {
-        if (this.player.hp <= 0) return;
+        if (this.player.hp <= 0 || (this.player.invincibleTimer && this.player.invincibleTimer > 0)) return;
         this.player.hp = Math.max(0, data.newHp !== undefined ? data.newHp : (this.player.hp - data.dmg));
         this.updateVitalsHUD();
 
@@ -729,7 +779,7 @@ class CSGame {
         if (data.killerId === myId) {
             if (data.killerKills !== undefined) this.player.kills = data.killerKills;
             else this.player.kills++;
-            this.player.money = Math.min(16000, this.player.money + 300);
+            this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + 300);
             this.updateVitalsHUD();
         } else {
             const kEnt = this.entities.find(e => e.id === data.killerId);
@@ -750,38 +800,47 @@ class CSGame {
     }
 
     checkRoundWinCondition() {
-        if (this.roundOver || this.gameMode === 'tdm') return;
+        if (this.roundOver) return;
 
         let tAlive = (this.player.team === 'T' && this.player.hp > 0) ? 1 : 0;
         let ctAlive = (this.player.team === 'CT' && this.player.hp > 0) ? 1 : 0;
+        let tTotal = (this.player.team === 'T') ? 1 : 0;
+        let ctTotal = (this.player.team === 'CT') ? 1 : 0;
 
         for (const ent of this.entities) {
-            if (ent.hp > 0) {
-                if (ent.team === 'T') tAlive++;
-                else ctAlive++;
+            if (ent.team === 'T') {
+                tTotal++;
+                if (ent.hp > 0) tAlive++;
+            } else {
+                ctTotal++;
+                if (ent.hp > 0) ctAlive++;
             }
         }
 
-        if (tAlive === 0 && !this.bombState.planted) {
-            this.endRound('CT', '🛡️ COUNTER-TERRORISTS WIN! (กวาดล้างผู้ก่อการร้ายสำเร็จ)');
-        } else if (ctAlive === 0) {
-            this.endRound('T', '💣 TERRORISTS WIN! (กวาดล้างหน่วยต่อต้านสำเร็จ)');
+        // Only trigger team-wipe if that team actually has members in the match
+        if (tTotal > 0 && tAlive === 0 && !this.bombState.planted) {
+            this.endRound('CT', '🛡️ COUNTER-TERRORISTS WIN! (ตายครบทุกคน - รีเซ็ตเกิดที่ฐาน)');
+        } else if (ctTotal > 0 && ctAlive === 0) {
+            this.endRound('T', '💣 TERRORISTS WIN! (ตายครบทุกคน - รีเซ็ตเกิดที่ฐาน)');
         }
     }
 
     endRound(winnerTeam, reasonText) {
         if (this.roundOver) return;
         this.roundOver = true;
-        this.scores[winnerTeam]++;
+        this.clearRespawnTimeouts();
+        if (this.gameMode !== 'tdm') {
+            this.scores[winnerTeam]++;
+        }
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
 
         const won = this.player.team === winnerTeam;
-        this.player.money = Math.min(16000, this.player.money + (won ? 3250 : 1900));
+        this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
         this.updateVitalsHUD();
 
         window.soundFX.playRoundEnd(won);
-        this.showAnnouncement(reasonText, 4.0);
+        this.showAnnouncement(reasonText, 3.0);
 
         if (this.net.isHost) {
             this.net.broadcast({
@@ -796,7 +855,7 @@ class CSGame {
             if (this.running && !this.net.isClient) {
                 this.startNewRound();
             }
-        }, 4200);
+        }, 3000);
     }
 
     // ==================== C4 BOMB SYSTEM ====================
@@ -974,6 +1033,9 @@ class CSGame {
             return;
         }
 
+        if (p.invincibleTimer > 0) {
+            p.invincibleTimer = Math.max(0, p.invincibleTimer - dt);
+        }
         if (p.fireCooldown > 0) p.fireCooldown -= dt;
         if (p.recoilPitch > 0) p.recoilPitch = Math.max(0, p.recoilPitch - dt * 0.25);
 
@@ -1067,10 +1129,10 @@ class CSGame {
         if (this.weaponMesh && !p.reloading) {
             const bobX = Math.cos(p.bobTimer) * 0.012;
             const bobY = Math.abs(Math.sin(p.bobTimer)) * 0.012;
-            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, 0.24 + bobX, dt * 10);
-            this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, -0.23 - bobY, dt * 10);
-            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, -0.44, dt * 12);
-            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0, dt * 12);
+            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, 0.21 + bobX, dt * 10);
+            this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, -0.21 - bobY, dt * 10);
+            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, -0.39, dt * 12);
+            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.02, dt * 12);
         }
 
         this.updateCrosshair(movingSpeed);
@@ -1281,6 +1343,12 @@ class CSGame {
     }
 
     updateEffects(dt) {
+        for (const ent of this.entities) {
+            if (ent.invincibleTimer > 0) {
+                ent.invincibleTimer = Math.max(0, ent.invincibleTimer - dt);
+            }
+        }
+
         for (let i = this.tracers.length - 1; i >= 0; i--) {
             const t = this.tracers[i];
             t.timer -= dt;
@@ -1377,6 +1445,7 @@ class CSGame {
             ent = this.entities.find(e => e.id === peerId);
         }
         if (ent) {
+            if (ent.ignoreStateUntil && performance.now() < ent.ignoreStateUntil) return;
             const moved = Math.hypot(data.x - ent.x, data.z - ent.z) > 0.02;
             ent.x = data.x;
             ent.y = data.y;
@@ -1606,11 +1675,69 @@ class CSGame {
         }
     }
 
+    handleViewportResize() {
+        const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+    }
+
+    enterFullscreen() {
+        const docEl = document.documentElement;
+        const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+        if (reqFs) {
+            try {
+                const p = reqFs.call(docEl);
+                if (p && p.catch) p.catch(() => {});
+            } catch (e) {}
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            try {
+                screen.orientation.lock('landscape').catch(() => {});
+            } catch (e) {}
+        }
+        window.scrollTo(0, 1);
+        setTimeout(() => this.handleViewportResize(), 200);
+    }
+
+    toggleFullscreen() {
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+        if (!isFs) {
+            this.enterFullscreen();
+        } else {
+            const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+            if (exitFs) {
+                try { exitFs.call(document); } catch (e) {}
+            }
+        }
+        setTimeout(() => {
+            this.updateFullscreenButtons();
+            this.handleViewportResize();
+        }, 200);
+    }
+
+    updateFullscreenButtons() {
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+        const hudFsBtn = document.getElementById('btn-fullscreen');
+        const lobbyFsBtn = document.getElementById('btn-lobby-fullscreen');
+        if (hudFsBtn) hudFsBtn.textContent = isFs ? '📺 ย่อจอ' : '📺 เต็มจอ';
+        if (lobbyFsBtn) lobbyFsBtn.textContent = isFs ? '📺 ออกจากเต็มจอ' : '📺 เปิดเต็มจอ (Fullscreen)';
+    }
+
     setupInputs() {
-        window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        window.addEventListener('resize', () => this.handleViewportResize());
+        window.addEventListener('orientationchange', () => setTimeout(() => this.handleViewportResize(), 250));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => this.handleViewportResize());
+        }
+        document.addEventListener('fullscreenchange', () => {
+            this.updateFullscreenButtons();
+            this.handleViewportResize();
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            this.updateFullscreenButtons();
+            this.handleViewportResize();
         });
 
         window.addEventListener('keydown', (e) => {
@@ -1861,8 +1988,21 @@ class CSGame {
         });
 
         document.getElementById('btn-start-play').addEventListener('click', () => {
+            if (this.mobileMode) {
+                this.enterFullscreen();
+            }
             this.startMatch();
         });
+
+        const lobbyFsBtn = document.getElementById('btn-lobby-fullscreen');
+        if (lobbyFsBtn) {
+            lobbyFsBtn.addEventListener('click', () => this.toggleFullscreen());
+        }
+
+        const hudFsBtn = document.getElementById('btn-fullscreen');
+        if (hudFsBtn) {
+            hudFsBtn.addEventListener('click', () => this.toggleFullscreen());
+        }
 
         document.getElementById('btn-host-room').addEventListener('click', () => {
             const statusEl = document.getElementById('room-status-text');
