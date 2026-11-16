@@ -1664,14 +1664,21 @@ class CSGame {
     }
 
     // ==================== INPUTS & MOBILE CONTROLS ====================
+    detectMobileDevice() {
+        return ('ontouchstart' in window) ||
+            navigator.maxTouchPoints > 0 ||
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+            window.innerWidth <= 960;
+    }
+
     applyMobileModeUI() {
+        if (this.detectMobileDevice()) {
+            this.mobileMode = true;
+        }
+        document.body.classList.toggle('is-mobile', this.mobileMode);
         const mobCtrl = document.getElementById('mobile-controls');
         if (mobCtrl) {
             mobCtrl.classList.toggle('hidden', !this.mobileMode || !this.running);
-        }
-        const toggleBtn = document.getElementById('btn-toggle-mobile');
-        if (toggleBtn) {
-            toggleBtn.textContent = this.mobileMode ? '📱 มือถือ: เปิด' : '💻 PC: เปิด';
         }
     }
 
@@ -1681,6 +1688,10 @@ class CSGame {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
+        if (this.detectMobileDevice() && !this.mobileMode) {
+            this.mobileMode = true;
+            this.applyMobileModeUI();
+        }
     }
 
     enterFullscreen() {
@@ -1721,7 +1732,7 @@ class CSGame {
         const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
         const hudFsBtn = document.getElementById('btn-fullscreen');
         const lobbyFsBtn = document.getElementById('btn-lobby-fullscreen');
-        if (hudFsBtn) hudFsBtn.textContent = isFs ? '📺 ย่อจอ' : '📺 เต็มจอ';
+        if (hudFsBtn) hudFsBtn.textContent = isFs ? '📺 ออกจากโหมดเต็มจอ (Exit Fullscreen)' : '📺 เปิดโหมดเต็มจอ (Fullscreen)';
         if (lobbyFsBtn) lobbyFsBtn.textContent = isFs ? '📺 ออกจากเต็มจอ' : '📺 เปิดเต็มจอ (Fullscreen)';
     }
 
@@ -2033,29 +2044,50 @@ class CSGame {
         document.getElementById('btn-open-score').addEventListener('click', () => this.toggleScoreboard());
         document.getElementById('btn-close-score').addEventListener('click', () => this.toggleScoreboard(false));
 
+        const openSettingsBtn = document.getElementById('btn-open-settings');
+        const closeSettingsBtn = document.getElementById('btn-close-settings');
+        if (openSettingsBtn) openSettingsBtn.addEventListener('click', () => this.toggleSettingsModal(true));
+        if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => this.toggleSettingsModal(false));
+
         const botDiffBtn = document.getElementById('btn-cycle-bot-diff');
         if (botDiffBtn) {
             botDiffBtn.addEventListener('click', () => this.cycleBotDifficulty());
         }
 
-        document.getElementById('btn-toggle-mobile').addEventListener('click', () => {
-            this.mobileMode = !this.mobileMode;
-            this.applyMobileModeUI();
-        });
+        const soundBtn = document.getElementById('btn-toggle-sound');
+        if (soundBtn) {
+            soundBtn.addEventListener('click', () => {
+                window.soundFX.enabled = !window.soundFX.enabled;
+                soundBtn.textContent = window.soundFX.enabled ? '🔊 เสียงเอฟเฟกต์: เปิด' : '🔇 เสียงเอฟเฟกต์: ปิด';
+            });
+        }
+
+        const mobToggleBtn = document.getElementById('btn-toggle-mobile');
+        if (mobToggleBtn) {
+            mobToggleBtn.addEventListener('click', () => {
+                this.mobileMode = !this.mobileMode;
+                this.applyMobileModeUI();
+            });
+        }
 
         const editHudBtn = document.getElementById('btn-edit-hud');
         if (editHudBtn) {
             editHudBtn.addEventListener('click', () => {
-                this.toggleHudEditor(!this.hudEditMode);
+                this.toggleSettingsModal(false);
+                this.toggleHudEditor(true);
             });
         }
 
-        document.getElementById('btn-toggle-autofire').addEventListener('click', () => {
-            this.autoFireMobile = !this.autoFireMobile;
-            document.getElementById('btn-toggle-autofire').textContent = this.autoFireMobile ? '🎯 ยิงออโต้: เปิด' : '🎯 ยิงออโต้: ปิด';
-        });
+        const autoFireBtn = document.getElementById('btn-toggle-autofire');
+        if (autoFireBtn) {
+            autoFireBtn.addEventListener('click', () => {
+                this.autoFireMobile = !this.autoFireMobile;
+                autoFireBtn.textContent = this.autoFireMobile ? '🎯 ยิงออโต้: เปิด' : '🎯 ยิงออโต้: ปิด';
+            });
+        }
 
         document.getElementById('btn-open-lobby').addEventListener('click', () => {
+            this.toggleSettingsModal(false);
             if (document.pointerLockElement) document.exitPointerLock();
             document.getElementById('lobby-overlay').classList.remove('hidden');
         });
@@ -2089,14 +2121,28 @@ class CSGame {
         this.showAnnouncement(`🤖 ปรับความเก่งของบอทเป็น: ${cfg.label}`, 2.0);
     }
 
+    toggleSettingsModal(forceState) {
+        const modal = document.getElementById('settings-modal');
+        if (!modal) return;
+        const show = forceState !== undefined ? forceState : modal.classList.contains('hidden');
+        modal.classList.toggle('hidden', !show);
+        if (show) {
+            this.updateBotDiffHUD();
+            this.updateFullscreenButtons();
+            if (document.pointerLockElement) document.exitPointerLock();
+        } else if (!this.mobileMode && this.running && !this.hudEditMode) {
+            this.canvas.requestPointerLock();
+        }
+    }
+
     updateBotDiffHUD() {
         const btn = document.getElementById('btn-cycle-bot-diff');
         if (!btn) return;
         const shortNames = {
-            easy: '🟢 บอท: ง่าย',
-            normal: '🟡 บอท: ปานกลาง',
-            hard: '🟠 บอท: ยาก',
-            expert: '🔴 บอท: โหดมาก'
+            easy: '🟢 บอท: ง่าย (แตะเพื่อเปลี่ยนความเก่งบอท)',
+            normal: '🟡 บอท: ปานกลาง (แตะเพื่อเปลี่ยนความเก่งบอท)',
+            hard: '🟠 บอท: ยาก (แตะเพื่อเปลี่ยนความเก่งบอท)',
+            expert: '🔴 บอท: โหดมาก (แตะเพื่อเปลี่ยนความเก่งบอท)'
         };
         btn.textContent = shortNames[this.botAI.difficulty] || '🟡 บอท: ปานกลาง';
     }
