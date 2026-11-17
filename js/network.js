@@ -150,6 +150,9 @@ class NetworkManager {
                 this.game.plantBombAt(data.x, data.z, data.site, data.planter);
             } else if (data.type === 'bomb_defuse') {
                 this.game.onBombDefused(data.defuser);
+            } else if (data.type === 'team_change') {
+                this.game.onRemotePlayerTeamChanged(conn.peer, data);
+                this.broadcastExcept(conn.peer, data);
             }
         });
 
@@ -188,6 +191,8 @@ class NetworkManager {
             this.game.onClientRoundReset(data);
         } else if (data.type === 'round_end') {
             this.game.onClientRoundEnd(data);
+        } else if (data.type === 'team_change') {
+            this.game.onClientRemoteTeamChanged(data);
         } else if (data.type === 'chat') {
             this.game.addChatMessage(`${data.sender}: ${data.text}`);
         }

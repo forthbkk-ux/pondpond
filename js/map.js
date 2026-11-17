@@ -9,6 +9,34 @@ const MAP_METADATA = {
         description: 'สมรภูมิทะเลทรายยอดนิยมตลอดกาล ทางแยก Long A, อุโมงค์ B Tunnels และประตูกลาง Mid Double Doors',
         mapSize: 90
     },
+    de_megacity: {
+        id: 'de_megacity',
+        name: '🏙️ DE_MEGACITY',
+        subtitle: 'มหานครยุทธวิธีขนาดมหึมา 160m (Mega Metropolis)',
+        description: 'แผนที่ยักษ์แนวใหม่ขนาดใหญ่ที่สุด 160 เมตร ถนนหลวงหลายเลน ตึกระฟ้า ทางเดินใต้ดิน สะพานลอยสไนเปอร์ และพลาซ่าใหญ่',
+        mapSize: 160
+    },
+    de_mirage: {
+        id: 'de_mirage',
+        name: '🕌 DE_MIRAGE',
+        subtitle: 'พระราชวังโมร็อกโก & ตลาดโบราณ (Mirage)',
+        description: 'สมรภูมิแข่งขันยอดนิยม ทางขึ้น Palace พระราชวังโบราณ หน้าต่าง Mid Sniper และซอย B Apartments',
+        mapSize: 105
+    },
+    cs_office: {
+        id: 'cs_office',
+        name: '❄️ CS_OFFICE',
+        subtitle: 'สำนักงานหรูหรากลางพายุหิมะ (Office Winter)',
+        description: 'อาคารสำนักงานไฮเทคกลางลานหิมะ ห้องประชุม เซิร์ฟเวอร์รูม โซนเคาน์เตอร์ และลานจอดรถด้านนอก',
+        mapSize: 115
+    },
+    de_vertigo: {
+        id: 'de_vertigo',
+        name: '🏗️ DE_VERTIGO',
+        subtitle: 'ดาดฟ้าตึกระฟ้า 50 ชั้น & ไซต์ก่อสร้าง (Vertigo Highrise)',
+        description: 'ไซต์งานก่อสร้างบนตึกระฟ้าสูงเสียดฟ้า เครนยกสีเหลืองยักษ์ คานเหล็ก เสาคอนกรีต และทางลาดเชื่อมดาดฟ้า',
+        mapSize: 110
+    },
     de_inferno: {
         id: 'de_inferno',
         name: '🏛️ DE_INFERNO',
@@ -105,6 +133,18 @@ class GameMap {
         this.mapSize = meta.mapSize;
 
         switch (mapId) {
+            case 'de_megacity':
+                this.buildMegaCity();
+                break;
+            case 'de_mirage':
+                this.buildMirage();
+                break;
+            case 'cs_office':
+                this.buildOffice();
+                break;
+            case 'de_vertigo':
+                this.buildVertigo();
+                break;
             case 'de_inferno':
                 this.buildInferno();
                 break;
@@ -305,6 +345,72 @@ class GameMap {
         });
     }
 
+    addStreetLamp(x, z, h = 5.6) {
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x22262c, metalness: 0.85, roughness: 0.35 });
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, h, 10), poleMat);
+        pole.position.set(x, h / 2, z);
+        pole.castShadow = true;
+        this.scene.add(pole);
+        this.mapObjects.push(pole);
+        this.shootableMeshes.push(pole);
+
+        const headMat = new THREE.MeshBasicMaterial({ color: 0xfff4d0 });
+        const lampHead = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.8), headMat);
+        lampHead.position.set(x, h + 0.1, z);
+        this.scene.add(lampHead);
+        this.mapObjects.push(lampHead);
+
+        const pLight = new THREE.PointLight(0xffeaae, 0.85, 24);
+        pLight.position.set(x, h - 0.2, z);
+        this.scene.add(pLight);
+        this.mapLights.push(pLight);
+
+        this.colliders.push({
+            minX: x - 0.3, maxX: x + 0.3,
+            minY: 0, maxY: h,
+            minZ: z - 0.3, maxZ: z + 0.3,
+            isCrate: true
+        });
+    }
+
+    addPineTree(x, z, h = 5.2) {
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2714, roughness: 0.95 });
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 2.0, 8), trunkMat);
+        trunk.position.set(x, 1.0, z);
+        trunk.castShadow = true;
+        this.scene.add(trunk);
+        this.mapObjects.push(trunk);
+        this.shootableMeshes.push(trunk);
+
+        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1e3a29, roughness: 0.85 });
+        const snowMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.95 });
+
+        for (let i = 0; i < 3; i++) {
+            const rad = 1.8 - i * 0.45;
+            const coneH = 2.2 - i * 0.3;
+            const cy = 1.8 + i * 1.35;
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, coneH, 8), foliageMat);
+            cone.position.set(x, cy, z);
+            cone.castShadow = true;
+            this.scene.add(cone);
+            this.mapObjects.push(cone);
+            this.shootableMeshes.push(cone);
+
+            // Snow cap on pine branch tier
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.96, 0.4, 8), snowMat);
+            cap.position.set(x, cy + coneH * 0.38, z);
+            this.scene.add(cap);
+            this.mapObjects.push(cap);
+        }
+
+        this.colliders.push({
+            minX: x - 0.38, maxX: x + 0.38,
+            minY: 0, maxY: h,
+            minZ: z - 0.38, maxZ: z + 0.38,
+            isCrate: true
+        });
+    }
+
     createBombsiteZone(x, z, label) {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
@@ -381,7 +487,8 @@ class GameMap {
         skyTex.mapping = THREE.EquirectangularReflectionMapping;
         this.scene.environment = skyTex;
 
-        const skyGeo = new THREE.SphereGeometry(190, 32, 24);
+        const skyRadius = Math.max(220, this.mapSize * 1.55);
+        const skyGeo = new THREE.SphereGeometry(skyRadius, 32, 24);
         const skyMat = new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false });
         const skyMesh = new THREE.Mesh(skyGeo, skyMat);
         this.scene.add(skyMesh);
@@ -1363,6 +1470,706 @@ class GameMap {
         // Flank Peek Boxes
         this.addBlock(16, 0, 0, 2.8, 2.2, 2.8, crateMat, true);
         this.addBlock(-16, 0, 0, 2.8, 2.2, 2.8, crateMat, true);
+    }
+
+    // =========================================================================
+    // MAP 7: DE_MEGACITY (Mega Metropolis 160m - Brand New Mega Arena)
+    // =========================================================================
+    buildMegaCity() {
+        this.buildSky('#0a1128', '#1c2d5a', '#ea580c', 720, 160, 'rgba(255, 237, 213, 1.0)');
+        this.updateAtmosphericLighting(0x60a5fa, 0x1e293b, 0xffedd5, 0xffd8a8, 1.45);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 66, yaw: 0 },
+                { x: -8, z: 67, yaw: 0 },
+                { x: 8, z: 67, yaw: 0 },
+                { x: -18, z: 64, yaw: 0 },
+                { x: 18, z: 64, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -66, yaw: Math.PI },
+                { x: -8, z: -67, yaw: Math.PI },
+                { x: 8, z: -67, yaw: Math.PI },
+                { x: -18, z: -64, yaw: Math.PI },
+                { x: 18, z: -64, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 48, z: -20, radius: 7.5, label: 'A' },
+            B: { x: -48, z: 20, radius: 7.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Commercial District (T spawn & alleys)
+            { x: 0, z: 64 }, { x: -18, z: 60 }, { x: 18, z: 60 }, { x: -36, z: 54 }, { x: 36, z: 54 },
+            // South-Mid Boulevard & Metro approach
+            { x: 0, z: 42 }, { x: -24, z: 38 }, { x: 24, z: 38 }, { x: -48, z: 36 },
+            // Bombsite B (Transit Terminal & Subway Depot)
+            { x: -48, z: 20 }, { x: -36, z: 16 }, { x: -56, z: 8 },
+            // Central Plaza, Avenue & Elevated Skybridge
+            { x: 0, z: 18 }, { x: 0, z: 0 }, { x: -14, z: 0 }, { x: 14, z: 0 }, { x: 0, z: -18 },
+            // Bombsite A (Financial Plaza & Bank Vault Steps)
+            { x: 48, z: -20 }, { x: 36, z: -16 }, { x: 56, z: -8 }, { x: 48, z: -36 },
+            // North Civic Center (CT spawn & avenues)
+            { x: 0, z: -42 }, { x: -24, z: -38 }, { x: 24, z: -38 }, { x: -36, z: -54 }, { x: 36, z: -54 },
+            { x: 0, z: -64 }, { x: -18, z: -60 }, { x: 18, z: -60 }
+        ];
+
+        // 1. Asphalt Boulevard Ground with Road Lanes & Zebra Crossings
+        const roadCanvas = document.createElement('canvas');
+        roadCanvas.width = 512;
+        roadCanvas.height = 512;
+        const rCtx = roadCanvas.getContext('2d');
+        rCtx.fillStyle = '#1e232a';
+        rCtx.fillRect(0, 0, 512, 512);
+
+        // Asphalt texture speckles
+        for (let i = 0; i < 20000; i++) {
+            rCtx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.06)';
+            rCtx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+        }
+
+        // Sidewalk curb edge lines
+        rCtx.fillStyle = '#94a3b8';
+        rCtx.fillRect(0, 0, 512, 12);
+        rCtx.fillRect(0, 500, 512, 12);
+
+        // Double yellow center divider line
+        rCtx.fillStyle = '#f59e0b';
+        rCtx.fillRect(0, 252, 512, 3);
+        rCtx.fillRect(0, 257, 512, 3);
+
+        // White dashed lane markings
+        rCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        for (let x = 0; x < 512; x += 48) {
+            rCtx.fillRect(x, 128, 24, 3);
+            rCtx.fillRect(x, 384, 24, 3);
+        }
+
+        const roadTex = new THREE.CanvasTexture(roadCanvas);
+        roadTex.wrapS = THREE.RepeatWrapping;
+        roadTex.wrapT = THREE.RepeatWrapping;
+        roadTex.repeat.set(16, 16);
+
+        // 2. High-Rise Glass Skyscraper Curtain Wall Texture
+        const skyCanvas = document.createElement('canvas');
+        skyCanvas.width = 512;
+        skyCanvas.height = 512;
+        const sCtx = skyCanvas.getContext('2d');
+        sCtx.fillStyle = '#0f172a';
+        sCtx.fillRect(0, 0, 512, 512);
+
+        for (let y = 0; y < 512; y += 32) {
+            for (let x = 0; x < 512; x += 24) {
+                const lit = Math.random() > 0.45;
+                if (lit) {
+                    sCtx.fillStyle = Math.random() > 0.3 ? '#fef08a' : '#7dd3fc';
+                } else {
+                    sCtx.fillStyle = '#1e293b';
+                }
+                sCtx.fillRect(x + 2, y + 2, 20, 28);
+                sCtx.strokeStyle = '#020617';
+                sCtx.lineWidth = 2;
+                sCtx.strokeRect(x, y, 24, 32);
+            }
+        }
+        const skyscapeTex = new THREE.CanvasTexture(skyCanvas);
+        skyscapeTex.wrapS = THREE.RepeatWrapping;
+        skyscapeTex.wrapT = THREE.RepeatWrapping;
+
+        // 3. Concrete Urban Sidewalk & Wall Texture
+        const urbanCanvas = document.createElement('canvas');
+        urbanCanvas.width = 512;
+        urbanCanvas.height = 512;
+        const uCtx = urbanCanvas.getContext('2d');
+        uCtx.fillStyle = '#475569';
+        uCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            for (let x = 0; x < 512; x += 64) {
+                uCtx.fillStyle = (x + y) % 128 === 0 ? '#64748b' : '#475569';
+                uCtx.fillRect(x + 1, y + 1, 62, 62);
+                uCtx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+                uCtx.lineWidth = 2;
+                uCtx.strokeRect(x, y, 64, 64);
+            }
+        }
+        const urbanTex = new THREE.CanvasTexture(urbanCanvas);
+        urbanTex.wrapS = THREE.RepeatWrapping;
+        urbanTex.wrapT = THREE.RepeatWrapping;
+
+        // 4. Financial Bank Neoclassical Granite Texture
+        const bankCanvas = document.createElement('canvas');
+        bankCanvas.width = 512;
+        bankCanvas.height = 512;
+        const bCtx = bankCanvas.getContext('2d');
+        bCtx.fillStyle = '#334155';
+        bCtx.fillRect(0, 0, 512, 512);
+        bCtx.strokeStyle = '#1e293b';
+        bCtx.lineWidth = 6;
+        bCtx.strokeRect(8, 8, 496, 496);
+        bCtx.fillStyle = '#fbbf24';
+        bCtx.font = 'bold 22px monospace';
+        bCtx.textAlign = 'center';
+        bCtx.fillText('METROPOLIS RESERVE BANK // SEC-A', 256, 42);
+        const bankTex = new THREE.CanvasTexture(bankCanvas);
+
+        // Floor Mesh
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: roadTex,
+            bumpMap: roadTex,
+            bumpScale: 0.05,
+            roughness: 0.88,
+            metalness: 0.1
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const roadWallMat = new THREE.MeshStandardMaterial({ map: urbanTex, roughness: 0.85 });
+        const glassBuildingMat = new THREE.MeshStandardMaterial({ map: skyscapeTex, roughness: 0.25, metalness: 0.75 });
+        const bankMat = new THREE.MeshStandardMaterial({ map: bankTex, roughness: 0.65 });
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.35 });
+
+        const half = this.mapSize / 2;
+        const wallH = 12.0;
+
+        // Perimeter Boundaries
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 3, roadWallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 3, roadWallMat, false, true);
+        this.addBlock(-half, 0, 0, 3, wallH, this.mapSize, roadWallMat, false, true);
+        this.addBlock(half, 0, 0, 3, wallH, this.mapSize, roadWallMat, false, true);
+
+        // 4 Mega Skyscraper Corner Complexes (Heights 28m - 34m)
+        this.addBlock(-58, 0, -58, 28, 32, 28, glassBuildingMat);
+        this.addBlock(58, 0, -58, 28, 34, 28, glassBuildingMat);
+        this.addBlock(-58, 0, 58, 28, 30, 28, glassBuildingMat);
+        this.addBlock(58, 0, 58, 28, 32, 28, glassBuildingMat);
+
+        // Bombsite A: Financial Plaza Building & Bank Steps
+        this.addBlock(48, 0, -28, 34, 16, 18, bankMat);
+        this.addBlock(48, 0, -18, 18, 1.2, 4, roadWallMat); // Bank Entrance Steps
+        this.addBlock(40, 0, -20, 2.4, 4.5, 2.4, bankMat);  // Neoclassical Pillar 1
+        this.addBlock(56, 0, -20, 2.4, 4.5, 2.4, bankMat);  // Neoclassical Pillar 2
+        this.addConcreteBarrier(44, -14, 0);
+        this.addConcreteBarrier(52, -14, 0);
+        this.addContainerProp(36, -8, 6.2, 2.6, 2.6, Math.PI / 4, 0x1e3a8a, 'SEC-VAULT');
+        this.addBarrelProp(48, -12, 0x10b981);
+        this.addBarrelProp(49, -12, 0x10b981);
+
+        // Bombsite B: Transit Terminal & Metro Subway Canopy
+        this.addBlock(-48, 0, 28, 34, 15, 18, roadWallMat);
+        this.addBlock(-48, 0, 18, 16, 4.8, 8, roadWallMat); // Subway Entrance Building
+        this.addBlock(-48, 0, 12, 8, 1.2, 4, roadWallMat);  // Station Subway Stairs
+        this.addContainerProp(-36, 10, 6.2, 2.6, 2.6, 0, 0x854d0e, 'METRO-CARGO');
+        this.addContainerProp(-42, 6, 6.2, 2.6, 2.6, Math.PI / 2, 0x1e3a8a, 'TRANSIT-77');
+        this.addConcreteBarrier(-48, 15, Math.PI / 2);
+        this.addBarrelProp(-38, 22, 0xd97706, true);
+        this.addBarrelProp(-39.2, 22, 0xd97706, true);
+
+        // Central Elevated Pedestrian Skybridge (Spans over Boulevard at z: 0)
+        // Deck elevated at y: 4.6m (walkable overhead sniper roost)
+        this.addBlock(0, 4.4, 0, 32, 0.6, 5.0, metalMat);
+        // Handrails
+        this.addBlock(0, 5.0, -2.4, 32, 1.2, 0.3, roadWallMat);
+        this.addBlock(0, 5.0, 2.4, 32, 1.2, 0.3, roadWallMat);
+        // Skybridge Support Columns
+        this.addBlock(-12, 0, -1.8, 1.8, 4.4, 1.8, metalMat);
+        this.addBlock(12, 0, -1.8, 1.8, 4.4, 1.8, metalMat);
+        this.addBlock(-12, 0, 1.8, 1.8, 4.4, 1.8, metalMat);
+        this.addBlock(12, 0, 1.8, 1.8, 4.4, 1.8, metalMat);
+        // Skybridge Stair Ramps (East and West access)
+        this.addBlock(-18, 0, 0, 4, 1.4, 4.2, roadWallMat);
+        this.addBlock(-15, 1.4, 0, 4, 1.5, 4.2, roadWallMat);
+        this.addBlock(-12, 2.9, 0, 4, 1.5, 4.2, roadWallMat);
+        this.addBlock(18, 0, 0, 4, 1.4, 4.2, roadWallMat);
+        this.addBlock(15, 1.4, 0, 4, 1.5, 4.2, roadWallMat);
+        this.addBlock(12, 2.9, 0, 4, 1.5, 4.2, roadWallMat);
+
+        // Mid Boulevard Jersey Barriers & Tactical Cover
+        this.addConcreteBarrier(0, 16, 0);
+        this.addConcreteBarrier(0, -16, 0);
+        this.addConcreteBarrier(-8, 30, Math.PI / 2);
+        this.addConcreteBarrier(8, -30, Math.PI / 2);
+
+        // Central Plaza Fountain Pedestal (x: 0, z: 0)
+        this.addBlock(0, 0, 0, 4.5, 0.9, 4.5, roadWallMat);
+
+        // North & South Commercial Mid Blocks
+        this.addBlock(-26, 0, -42, 16, 8, 12, glassBuildingMat);
+        this.addBlock(26, 0, -42, 16, 8, 12, glassBuildingMat);
+        this.addBlock(-26, 0, 42, 16, 8, 12, glassBuildingMat);
+        this.addBlock(26, 0, 42, 16, 8, 12, glassBuildingMat);
+
+        // Street Lamps along the Grand Boulevard
+        this.addStreetLamp(-14, 52);
+        this.addStreetLamp(14, 52);
+        this.addStreetLamp(-14, 24);
+        this.addStreetLamp(14, 24);
+        this.addStreetLamp(-14, -24);
+        this.addStreetLamp(14, -24);
+        this.addStreetLamp(-14, -52);
+        this.addStreetLamp(14, -52);
+    }
+
+    // =========================================================================
+    // MAP 8: DE_MIRAGE (Moroccan Palace & Ancient Bazaar 105m)
+    // =========================================================================
+    buildMirage() {
+        this.buildSky('#1d4ed8', '#60a5fa', '#fed7aa', 700, 140, 'rgba(255, 247, 237, 1.0)');
+        this.updateAtmosphericLighting(0x93c5fd, 0x78553d, 0xfde68a, 0xfffbeb, 1.42);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 42, yaw: 0 },
+                { x: -6, z: 43, yaw: 0 },
+                { x: 6, z: 43, yaw: 0 },
+                { x: -14, z: 40, yaw: 0 },
+                { x: 14, z: 40, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -42, yaw: Math.PI },
+                { x: -6, z: -43, yaw: Math.PI },
+                { x: 6, z: -43, yaw: Math.PI },
+                { x: -14, z: -40, yaw: Math.PI },
+                { x: 14, z: -40, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 28, z: -24, radius: 6.5, label: 'A' },
+            B: { x: -28, z: -24, radius: 6.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            { x: 0, z: 40 }, { x: 18, z: 36 }, { x: -18, z: 36 },
+            // A Palace Approach
+            { x: 28, z: 24 }, { x: 34, z: 8 }, { x: 32, z: -12 }, { x: 28, z: -24 },
+            // Mid Courtyard & Catwalk
+            { x: 0, z: 22 }, { x: 0, z: 0 }, { x: -14, z: 2 }, { x: 0, z: -20 }, { x: 12, z: -22 },
+            // B Apartments & Market
+            { x: -24, z: 24 }, { x: -32, z: 6 }, { x: -28, z: -10 }, { x: -28, z: -24 }, { x: -16, z: -32 },
+            // CT Base
+            { x: 0, z: -40 }, { x: 16, z: -38 }, { x: -16, z: -38 }
+        ];
+
+        // Moroccan Paver Ground
+        const groundCanvas = document.createElement('canvas');
+        groundCanvas.width = 512;
+        groundCanvas.height = 512;
+        const gCtx = groundCanvas.getContext('2d');
+        gCtx.fillStyle = '#b49f82';
+        gCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 48) {
+            for (let x = 0; x < 512; x += 48) {
+                gCtx.fillStyle = (x + y) % 96 === 0 ? '#c7b499' : '#a89477';
+                gCtx.fillRect(x + 1, y + 1, 46, 46);
+                gCtx.strokeStyle = 'rgba(74, 55, 36, 0.4)';
+                gCtx.lineWidth = 2;
+                gCtx.strokeRect(x, y, 48, 48);
+            }
+        }
+        const mirageGroundTex = new THREE.CanvasTexture(groundCanvas);
+        mirageGroundTex.wrapS = THREE.RepeatWrapping;
+        mirageGroundTex.wrapT = THREE.RepeatWrapping;
+        mirageGroundTex.repeat.set(14, 14);
+
+        // Moroccan Sandstone Adobe Wall
+        const wallCanvas = document.createElement('canvas');
+        wallCanvas.width = 512;
+        wallCanvas.height = 512;
+        const wCtx = wallCanvas.getContext('2d');
+        wCtx.fillStyle = '#c4a682';
+        wCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            wCtx.fillStyle = 'rgba(92, 64, 40, 0.4)';
+            wCtx.fillRect(0, y, 512, 3);
+            for (let x = (y % 128 === 0 ? 0 : 64); x < 512; x += 128) {
+                wCtx.fillRect(x, y, 3, 64);
+            }
+        }
+        const mirageWallTex = new THREE.CanvasTexture(wallCanvas);
+
+        // Wooden Market Crate Texture
+        const crateCanvas = document.createElement('canvas');
+        crateCanvas.width = 256;
+        crateCanvas.height = 256;
+        const cCtx = crateCanvas.getContext('2d');
+        cCtx.fillStyle = '#855829';
+        cCtx.fillRect(0, 0, 256, 256);
+        cCtx.strokeStyle = '#4a2f10';
+        cCtx.lineWidth = 16;
+        cCtx.strokeRect(8, 8, 240, 240);
+        cCtx.fillStyle = 'rgba(254, 243, 199, 0.85)';
+        cCtx.font = 'bold 22px monospace';
+        cCtx.textAlign = 'center';
+        cCtx.fillText('MAROC // BAZAAR', 128, 134);
+        const mirageCrateTex = new THREE.CanvasTexture(crateCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: mirageGroundTex,
+            bumpMap: mirageGroundTex,
+            bumpScale: 0.05,
+            roughness: 0.88
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const wallMat = new THREE.MeshStandardMaterial({ map: mirageWallTex, roughness: 0.88 });
+        const crateMat = new THREE.MeshStandardMaterial({ map: mirageCrateTex, roughness: 0.75 });
+
+        const half = this.mapSize / 2;
+        const wallH = 8.5;
+
+        // Perimeter
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 2, wallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 2, wallMat, false, true);
+        this.addBlock(-half, 0, 0, 2, wallH, this.mapSize, wallMat, false, true);
+        this.addBlock(half, 0, 0, 2, wallH, this.mapSize, wallMat, false, true);
+
+        // A Site: Palace Structure (Elevated Balcony)
+        this.addBlock(36, 0, -12, 14, 9, 24, wallMat);
+        this.addBlock(28, 2.8, -12, 6, 0.5, 12, wallMat); // Palace Balcony Floor
+        this.addBlock(28, 3.3, -18, 6, 1.0, 0.4, wallMat); // Balcony Rail
+        this.addBlock(28, 0, -24, 3.5, 3.2, 3.5, crateMat, true); // Triple Box Stack
+        this.addBlock(28, 3.2, -24, 2.2, 2.0, 2.2, crateMat, true);
+        this.addBlock(22, 0, -32, 4.5, 3.5, 4.5, wallMat); // CT Ticket Booth
+
+        // Mid Courtyard: Sniper Window & Catwalk
+        this.addBlock(6, 0, -18, 12, 7.5, 4, wallMat); // Mid Window Wall
+        this.addBlock(0, 0, 0, 4, 1.6, 2, crateMat, true); // Mid Cart
+        this.addBlock(-12, 0, 4, 16, 2.8, 3.5, wallMat); // Catwalk Short B
+        this.addBlock(-12, 2.8, 4, 16, 0.5, 3.5, wallMat);
+
+        // B Site: Apartments & Market
+        this.addBlock(-36, 0, 8, 14, 8, 24, wallMat); // B Apps Building
+        this.addBlock(-26, 0, -24, 3.5, 2.8, 3.5, crateMat, true);
+        this.addBlock(-18, 0, -28, 10, 6.5, 3, wallMat); // Market Wall
+        this.addConcreteBarrier(-28, -16, 0);
+        this.addBarrelProp(-32, -22, 0x1e3a8a);
+        this.addBarrelProp(-33.2, -22, 0x1e3a8a);
+    }
+
+    // =========================================================================
+    // MAP 9: CS_OFFICE (High-Tech Corporate Office & Winter Snow 115m)
+    // =========================================================================
+    buildOffice() {
+        this.buildSky('#334155', '#64748b', '#e2e8f0', 600, 150, 'rgba(255, 255, 255, 0.95)');
+        this.updateAtmosphericLighting(0xcbd5e1, 0x475569, 0xf8fafc, 0xffffff, 1.35);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 46, yaw: 0 },
+                { x: -6, z: 47, yaw: 0 },
+                { x: 6, z: 47, yaw: 0 },
+                { x: -14, z: 44, yaw: 0 },
+                { x: 14, z: 44, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -46, yaw: Math.PI },
+                { x: -6, z: -47, yaw: Math.PI },
+                { x: 6, z: -47, yaw: Math.PI },
+                { x: -14, z: -44, yaw: Math.PI },
+                { x: 14, z: -44, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 26, z: 8, radius: 6.5, label: 'A' },
+            B: { x: -26, z: 12, radius: 6.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            // Front Snowy Courtyard (CT Base)
+            { x: 0, z: -44 }, { x: -18, z: -42 }, { x: 18, z: -42 }, { x: 0, z: -32 },
+            // Office Lobby & Entrance
+            { x: 0, z: -20 }, { x: -16, z: -18 }, { x: 16, z: -18 },
+            // Central Office Hallway
+            { x: 0, z: -4 }, { x: 0, z: 10 },
+            // Bombsite A: Server Room
+            { x: 18, z: 0 }, { x: 26, z: 8 }, { x: 32, z: 16 },
+            // Bombsite B: Executive Conference Room
+            { x: -18, z: 2 }, { x: -26, z: 12 }, { x: -32, z: 20 },
+            // Back Warehouse & Garage (T Base)
+            { x: 0, z: 28 }, { x: -16, z: 36 }, { x: 16, z: 36 }, { x: 0, z: 44 }
+        ];
+
+        // Fresh Winter Snow Texture
+        const snowCanvas = document.createElement('canvas');
+        snowCanvas.width = 512;
+        snowCanvas.height = 512;
+        const snCtx = snowCanvas.getContext('2d');
+        snCtx.fillStyle = '#f1f5f9';
+        snCtx.fillRect(0, 0, 512, 512);
+        for (let i = 0; i < 22000; i++) {
+            snCtx.fillStyle = i % 2 === 0 ? 'rgba(203, 213, 225, 0.35)' : 'rgba(255, 255, 255, 0.8)';
+            snCtx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+        }
+        const snowTex = new THREE.CanvasTexture(snowCanvas);
+        snowTex.wrapS = THREE.RepeatWrapping;
+        snowTex.wrapT = THREE.RepeatWrapping;
+        snowTex.repeat.set(16, 16);
+
+        // Dark Granite Corporate Wall Texture
+        const graniteCanvas = document.createElement('canvas');
+        graniteCanvas.width = 512;
+        graniteCanvas.height = 512;
+        const grCtx = graniteCanvas.getContext('2d');
+        grCtx.fillStyle = '#1e293b';
+        grCtx.fillRect(0, 0, 512, 512);
+        grCtx.strokeStyle = '#0f172a';
+        grCtx.lineWidth = 4;
+        grCtx.strokeRect(6, 6, 500, 500);
+        for (let y = 0; y < 512; y += 128) {
+            grCtx.strokeRect(0, y, 512, 2);
+        }
+        const graniteTex = new THREE.CanvasTexture(graniteCanvas);
+
+        // Server Rack Blinking LED Texture (Bombsite A)
+        const serverCanvas = document.createElement('canvas');
+        serverCanvas.width = 256;
+        serverCanvas.height = 256;
+        const svCtx = serverCanvas.getContext('2d');
+        svCtx.fillStyle = '#0f172a';
+        svCtx.fillRect(0, 0, 256, 256);
+        for (let y = 12; y < 240; y += 22) {
+            svCtx.fillStyle = '#1e293b';
+            svCtx.fillRect(12, y, 232, 16);
+            for (let x = 20; x < 230; x += 18) {
+                svCtx.fillStyle = Math.random() > 0.4 ? '#22c55e' : (Math.random() > 0.5 ? '#38bdf8' : '#ef4444');
+                svCtx.fillRect(x, y + 4, 6, 6);
+            }
+        }
+        const serverTex = new THREE.CanvasTexture(serverCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: snowTex,
+            bumpMap: snowTex,
+            bumpScale: 0.08,
+            roughness: 0.95
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const wallMat = new THREE.MeshStandardMaterial({ map: graniteTex, roughness: 0.65 });
+        const serverMat = new THREE.MeshStandardMaterial({ map: serverTex, roughness: 0.45, metalness: 0.65 });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x93c5fd, roughness: 0.15, metalness: 0.85, transparent: true, opacity: 0.85 });
+
+        const half = this.mapSize / 2;
+        const wallH = 8.0;
+
+        // Perimeter Boundaries
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 2, wallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 2, wallMat, false, true);
+        this.addBlock(-half, 0, 0, 2, wallH, this.mapSize, wallMat, false, true);
+        this.addBlock(half, 0, 0, 2, wallH, this.mapSize, wallMat, false, true);
+
+        // Main Corporate Office Building (z: -24 to 28, x: -38 to 38)
+        this.addBlock(-26, 0, -24, 24, 7.5, 2, wallMat); // Front Left Wall
+        this.addBlock(26, 0, -24, 24, 7.5, 2, wallMat);  // Front Right Wall
+        this.addBlock(0, 0, -24, 12, 7.5, 1.5, glassMat); // Front Glass Entrance Doors
+
+        // Reception Desk & Lobby (z: -18)
+        this.addBlock(0, 0, -16, 7.5, 1.2, 2.4, wallMat, true); // Reception Counter
+
+        // Central Dividing Wall with Doorways
+        this.addBlock(-16, 0, 2, 22, 7.5, 2, wallMat);
+        this.addBlock(16, 0, 2, 22, 7.5, 2, wallMat);
+
+        // Bombsite A: Server Room Complex
+        this.addBlock(38, 0, 8, 2, 7.5, 24, wallMat);
+        this.addBlock(26, 0, 4, 3.8, 3.2, 1.6, serverMat, true);
+        this.addBlock(26, 0, 8, 3.8, 3.2, 1.6, serverMat, true);
+        this.addBlock(26, 0, 12, 3.8, 3.2, 1.6, serverMat, true);
+        this.addBlock(32, 0, 8, 3.8, 3.2, 1.6, serverMat, true);
+
+        // Bombsite B: Executive Conference Room
+        this.addBlock(-38, 0, 12, 2, 7.5, 24, wallMat);
+        this.addBlock(-26, 0, 12, 9.0, 1.0, 3.4, wallMat, true); // Long Boardroom Conference Table
+        this.addBlock(-26, 0, 18, 5.0, 2.2, 1.2, wallMat, true); // Projector Display Console
+
+        // Back Garage & Warehouse Wall (z: 28)
+        this.addBlock(-20, 0, 28, 28, 7.5, 2, wallMat);
+        this.addBlock(20, 0, 28, 28, 7.5, 2, wallMat);
+        this.addConcreteBarrier(0, 32, 0);
+
+        // Front Snowy Courtyard Pine Trees & Props
+        this.addPineTree(-18, -36);
+        this.addPineTree(18, -36);
+        this.addPineTree(-32, -42);
+        this.addPineTree(32, -42);
+        this.addConcreteBarrier(-10, -32, 0);
+        this.addConcreteBarrier(10, -32, 0);
+    }
+
+    // =========================================================================
+    // MAP 10: DE_VERTIGO (Skyscraper 50th Floor Rooftop & Tower Crane 110m)
+    // =========================================================================
+    buildVertigo() {
+        this.buildSky('#0369a1', '#38bdf8', '#f8fafc', 680, 130, 'rgba(255, 255, 240, 1.0)');
+        this.updateAtmosphericLighting(0x7dd3fc, 0x334155, 0xffffff, 0xffedd5, 1.50);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 40, yaw: 0 },
+                { x: -6, z: 41, yaw: 0 },
+                { x: 6, z: 41, yaw: 0 },
+                { x: -14, z: 38, yaw: 0 },
+                { x: 14, z: 38, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -40, yaw: Math.PI },
+                { x: -6, z: -41, yaw: Math.PI },
+                { x: 6, z: -41, yaw: Math.PI },
+                { x: -14, z: -38, yaw: Math.PI },
+                { x: 14, z: -38, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 26, z: -18, radius: 6.5, label: 'A' },
+            B: { x: -26, z: 16, radius: 6.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            { x: 0, z: 38 }, { x: -16, z: 36 }, { x: 16, z: 36 },
+            // A Site Ramp & Crane
+            { x: 20, z: 20 }, { x: 26, z: 4 }, { x: 26, z: -18 }, { x: 34, z: -26 },
+            // Mid Elevator Core & Scaffolding
+            { x: 0, z: 20 }, { x: 0, z: 0 }, { x: 0, z: -20 }, { x: -12, z: 0 }, { x: 12, z: 0 },
+            // B Site HVAC & Electrical Plant
+            { x: -20, z: 24 }, { x: -26, z: 16 }, { x: -34, z: 4 }, { x: -26, z: -8 },
+            // CT Base
+            { x: 0, z: -38 }, { x: -16, z: -36 }, { x: 16, z: -36 }
+        ];
+
+        // Construction Poured Concrete Slab Floor
+        const concCanvas = document.createElement('canvas');
+        concCanvas.width = 512;
+        concCanvas.height = 512;
+        const cCtx = concCanvas.getContext('2d');
+        cCtx.fillStyle = '#64748b';
+        cCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            for (let x = 0; x < 512; x += 64) {
+                cCtx.fillStyle = (x + y) % 128 === 0 ? '#475569' : '#64748b';
+                cCtx.fillRect(x + 1, y + 1, 62, 62);
+                cCtx.strokeStyle = '#334155';
+                cCtx.lineWidth = 2;
+                cCtx.strokeRect(x, y, 64, 64);
+            }
+        }
+        // Safety yellow & black hazard perimeter border
+        for (let x = 0; x < 512; x += 32) {
+            cCtx.fillStyle = (x / 32 % 2 === 0) ? '#f59e0b' : '#0f172a';
+            cCtx.fillRect(x, 0, 32, 14);
+            cCtx.fillRect(x, 498, 32, 14);
+        }
+        const vertigoFloorTex = new THREE.CanvasTexture(concCanvas);
+        vertigoFloorTex.wrapS = THREE.RepeatWrapping;
+        vertigoFloorTex.wrapT = THREE.RepeatWrapping;
+        vertigoFloorTex.repeat.set(12, 12);
+
+        // Red Construction Steel Girder Texture
+        const steelCanvas = document.createElement('canvas');
+        steelCanvas.width = 256;
+        steelCanvas.height = 256;
+        const stCtx = steelCanvas.getContext('2d');
+        stCtx.fillStyle = '#991b1b';
+        stCtx.fillRect(0, 0, 256, 256);
+        stCtx.strokeStyle = '#450a0a';
+        stCtx.lineWidth = 12;
+        stCtx.strokeRect(6, 6, 244, 244);
+        const steelTex = new THREE.CanvasTexture(steelCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: vertigoFloorTex,
+            bumpMap: vertigoFloorTex,
+            bumpScale: 0.06,
+            roughness: 0.85
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const steelMat = new THREE.MeshStandardMaterial({ map: steelTex, metalness: 0.8, roughness: 0.4 });
+        const concWallMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.88 });
+        const yellowCraneMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.75, roughness: 0.35 });
+
+        const half = this.mapSize / 2;
+        const wallH = 5.5;
+
+        // Perimeter Safety Railings & Concrete Walls
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 1.8, concWallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 1.8, concWallMat, false, true);
+        this.addBlock(-half, 0, 0, 1.8, wallH, this.mapSize, concWallMat, false, true);
+        this.addBlock(half, 0, 0, 1.8, wallH, this.mapSize, concWallMat, false, true);
+
+        // Giant Yellow Skyscraper Construction Tower Crane (Site A)
+        // Crane Vertical Mast Tower (18m high)
+        const mast = new THREE.Mesh(new THREE.BoxGeometry(2.4, 18, 2.4), yellowCraneMat);
+        mast.position.set(24, 9, -16);
+        mast.castShadow = true;
+        this.scene.add(mast);
+        this.mapObjects.push(mast);
+        this.shootableMeshes.push(mast);
+        this.colliders.push({ minX: 22.8, maxX: 25.2, minY: 0, maxY: 18, minZ: -17.2, maxZ: -14.8, isCrate: true });
+
+        // Crane Horizontal Boom Jib (26m long)
+        const jib = new THREE.Mesh(new THREE.BoxGeometry(26, 1.8, 1.8), yellowCraneMat);
+        jib.position.set(24, 18.5, -16);
+        this.scene.add(jib);
+        this.mapObjects.push(jib);
+
+        // Central Elevator Shaft Core (x: 0, z: 0)
+        this.addBlock(0, 0, 0, 16, 9.0, 14, concWallMat);
+        // Elevated Walkway Ramp alongside elevator shaft
+        this.addBlock(10, 0, 0, 4, 1.4, 14, steelMat);
+        this.addBlock(10, 1.4, 0, 4, 1.4, 10, steelMat);
+
+        // Bombsite A: Construction Barricades & Pallet Forms
+        this.addConcreteBarrier(22, -18, 0);
+        this.addConcreteBarrier(30, -18, 0);
+        this.addBlock(26, 0, -22, 3.4, 2.2, 3.4, steelMat, true);
+        this.addBarrelProp(28, -14, 0xd97706, true);
+        this.addBarrelProp(29.2, -14, 0xd97706, true);
+
+        // Bombsite B: Heavy Industrial HVAC Chiller Units & Conduits
+        this.addBlock(-26, 0, 16, 6.5, 3.2, 3.8, concWallMat, true); // HVAC Chiller 1
+        this.addBlock(-26, 0, 22, 6.5, 3.2, 3.8, concWallMat, true); // HVAC Chiller 2
+        this.addConcreteBarrier(-26, 10, Math.PI / 2);
+        this.addContainerProp(-34, 14, 6.2, 2.6, 2.6, Math.PI / 2, 0x1e3a8a, 'HVAC-GEN4');
     }
 
     getInBombsite(x, z) {

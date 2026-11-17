@@ -61,8 +61,12 @@
                     <h3>⚙️ ตั้งค่าผู้เล่นและแมตช์</h3>
 
                     <div class="form-group">
-                        <label>ชื่อในเกม (Player Name)</label>
-                        <input type="text" id="player-name-input" class="text-input" placeholder="ระบุชื่อของคุณ..." value="Striker_TH">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <label style="margin-bottom:0;">ชื่อในเกม (Player Name) <span style="color:#ef4444;font-weight:bold;">*</span></label>
+                            <span id="name-status-badge" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);">🔴 บังคับตั้งชื่อก่อนเล่น</span>
+                        </div>
+                        <input type="text" id="player-name-input" class="text-input" placeholder="⚠️ กรุณาพิมพ์ชื่อเล่นของคุณที่นี่..." maxlength="16">
+                        <div id="name-error-msg" style="display:none;color:#f87171;font-size:0.75rem;margin-top:4px;">⚠️ กรุณาระบุชื่อเล่นของคุณก่อนเข้าเล่น เพื่อใช้ระบุตัวตนและเล่นกับเพื่อนออนไลน์!</div>
                     </div>
 
                     <div class="form-group">
@@ -89,6 +93,10 @@
                         <label>🗺️ เลือกด่านสมรภูมิ (Select Map)</label>
                         <select id="map-select" class="select-input" style="font-weight: 600; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
                             <option value="de_dust2" selected>🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
+                            <option value="de_megacity">🏙️ DE_MEGACITY — มหานครยุทธวิธีขนาดมหึมา 160m (Mega City - แผนที่ยักษ์แนวใหม่!)</option>
+                            <option value="de_mirage">🕌 DE_MIRAGE — พระราชวังโมร็อกโก & ตลาดโบราณ (Mirage)</option>
+                            <option value="cs_office">❄️ CS_OFFICE — สำนักงานหรูหรากลางพายุหิมะ (Office Winter)</option>
+                            <option value="de_vertigo">🏗️ DE_VERTIGO — ดาดฟ้าตึกระฟ้า 50 ชั้น & ไซต์ก่อสร้าง (Vertigo Highrise)</option>
                             <option value="de_inferno">🏛️ DE_INFERNO — เมืองโบราณอิตาลี & ตรอกกล้วย (Inferno)</option>
                             <option value="de_aztec">🌿 DE_AZTEC — วิหารโบราณหินมอสส์ & สะพานน้ำ (Aztec)</option>
                             <option value="cs_assault">🏭 CS_ASSAULT — โกดังโรงงานยุทธวิธี & คอนเทนเนอร์ (Assault)</option>
@@ -485,10 +493,28 @@
 
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;"></div>
 
+                <!-- Dedicated In-Game Team Switching (Removes player completely from old team) -->
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                        <span style="font-size: 0.82rem; color: #cbd5e1;">ฝ่ายปัจจุบันของคุณ:</span>
+                        <span id="current-team-badge" style="font-size: 0.8rem; font-weight: 700; color: #fbbf24; padding: 2px 8px; border-radius: 4px; background: rgba(245,158,11,0.2);">💣 TERRORIST</span>
+                    </div>
+                    <button id="btn-switch-team" class="btn btn-outline" style="width: 100%; justify-content: center; padding: 10px; border-color: #f59e0b; color: #fbbf24; font-weight: 700;">
+                        🔄 สลับฝั่งทีมทันที (โจร ⇄ ตำรวจ)
+                    </button>
+                    <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 5px; text-align: center;">⚡ ย้ายฝั่งทันที & ลบตัวคุณออกจากทีมเดิมให้อยู่ฝั่งเดียวอย่างถูกต้อง</div>
+                </div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;"></div>
+
                 <div class="form-group" style="margin: 2px 0;">
                     <label style="font-size: 0.8rem; color: #fbbf24; font-weight: 600;">🗺️ เปลี่ยนด่านสมรภูมิ (Change Map):</label>
                     <select id="ingame-map-select" class="select-input" style="border-color: rgba(251, 191, 36, 0.5); color: #fde68a;">
                         <option value="de_dust2">🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
+                        <option value="de_megacity">🏙️ DE_MEGACITY — มหานครยุทธวิธีขนาดมหึมา 160m (Mega City)</option>
+                        <option value="de_mirage">🕌 DE_MIRAGE — พระราชวังโมร็อกโก & ตลาดโบราณ (Mirage)</option>
+                        <option value="cs_office">❄️ CS_OFFICE — สำนักงานหรูหรากลางพายุหิมะ (Office Winter)</option>
+                        <option value="de_vertigo">🏗️ DE_VERTIGO — ดาดฟ้าตึกระฟ้า 50 ชั้น & ไซต์ก่อสร้าง (Vertigo Highrise)</option>
                         <option value="de_inferno">🏛️ DE_INFERNO — เมืองโบราณอิตาลี & ตรอกกล้วย (Inferno)</option>
                         <option value="de_aztec">🌿 DE_AZTEC — วิหารโบราณหินมอสส์ & สะพานน้ำ (Aztec)</option>
                         <option value="cs_assault">🏭 CS_ASSAULT — โกดังโรงงานยุทธวิธี & คอนเทนเนอร์ (Assault)</option>

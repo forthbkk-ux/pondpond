@@ -10,7 +10,7 @@ class CSGame {
         this.scene.background = new THREE.Color(0x8a9ba8);
         this.scene.fog = new THREE.FogExp2(0xb5aa96, 0.0082);
 
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 260);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 450);
         this.scene.add(this.camera);
 
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
@@ -114,6 +114,7 @@ class CSGame {
         this.equipSlot(1);
         this.setupInputs();
         this.setupUIEvents();
+        this.initPlayerNameConfig();
         this.setupHudLayoutEditor();
         this.loadHudLayout();
         this.applyMobileModeUI();
@@ -201,8 +202,9 @@ class CSGame {
     }
 
     startMatch() {
-        const nameInput = document.getElementById('player-name-input').value.trim();
-        if (nameInput) this.player.name = nameInput;
+        if (!this.validatePlayerName(false)) return;
+
+        this.purgePlayerGhost(this.player.name, 'LOCAL');
 
         this.gameMode = document.getElementById('game-mode-select').value;
         this.botCount = parseInt(document.getElementById('bot-count-select').value, 10) || 0;
@@ -846,7 +848,10 @@ class CSGame {
         let tTotal = (this.player.team === 'T') ? 1 : 0;
         let ctTotal = (this.player.team === 'CT') ? 1 : 0;
 
+        const seenNames = new Set([this.player.name]);
         for (const ent of this.entities) {
+            if (ent.name === this.player.name || seenNames.has(ent.name)) continue;
+            seenNames.add(ent.name);
             if (ent.team === 'T') {
                 tTotal++;
                 if (ent.hp > 0) tAlive++;
@@ -1466,34 +1471,312 @@ class CSGame {
         }
     }
 
+    // ==================== PLAYER NAME CONFIG & VALIDATION ====================
+    initPlayerNameConfig() {
+        const input = document.getElementById('player-name-input');
+        const badge = document.getElementById('name-status-badge');
+        let saved = '';
+        try {
+            saved = localStorage.getItem('cs_player_name_saved') || '';
+        } catch (e) {}
+
+        if (saved && saved.trim().length >= 2 && saved.trim() !== 'Striker_TH' && saved.trim() !== 'ผู้เล่น' && saved.trim() !== 'Player') {
+            this.player.name = saved.trim();
+            if (input) input.value = this.player.name;
+            if (badge) {
+                badge.className = 'name-badge-ok';
+                badge.textContent = '✅ ชื่อพร้อมใช้งาน';
+            }
+        } else {
+            this.player.name = '';
+            if (input) input.value = '';
+            if (badge) {
+                badge.className = 'name-badge-warn';
+                badge.textContent = '🔴 บังคับตั้งชื่อก่อนเล่น';
+            }
+        }
+    }
+
+    updateNameBadgeOnInput() {
+        const input = document.getElementById('player-name-input');
+        const badge = document.getElementById('name-status-badge');
+        const errEl = document.getElementById('name-error-msg');
+        if (!input) return;
+
+        const val = input.value.trim();
+        if (val.length >= 2 && val !== 'Striker_TH' && val !== 'ผู้เล่น' && val !== 'Player') {
+            if (badge) {
+                badge.className = 'name-badge-ok';
+                badge.textContent = '✅ ชื่อพร้อมใช้งาน';
+            }
+            if (errEl) errEl.style.display = 'none';
+            input.classList.remove('input-error');
+        } else {
+            if (badge) {
+                badge.className = 'name-badge-warn';
+                badge.textContent = '🔴 บังคับตั้งชื่อก่อนเล่น';
+            }
+        }
+    }
+
+    validatePlayerName(isOnlineAction = false) {
+        const input = document.getElementById('player-name-input');
+        const badge = document.getElementById('name-status-badge');
+        const errEl = document.getElementById('name-error-msg');
+        const statusEl = document.getElementById('room-status-text');
+
+        const val = input ? input.value.trim() : '';
+
+        if (!val || val.length < 2 || val === 'Striker_TH' || val === 'ผู้เล่น' || val === 'Player') {
+            if (input) {
+                input.classList.remove('input-error');
+                void input.offsetWidth;
+                input.classList.add('input-error');
+                input.focus();
+            }
+            if (badge) {
+                badge.className = 'name-badge-warn';
+                badge.textContent = '🔴 บังคับตั้งชื่อก่อนเล่น';
+            }
+            if (errEl) {
+                errEl.style.display = 'block';
+                errEl.textContent = '⚠️ บังคับตั้งชื่อของคุณก่อนเข้าเล่น เพื่อใช้ระบุตัวตนและเล่นกับเพื่อนออนไลน์!';
+            }
+            if (isOnlineAction && statusEl) {
+                statusEl.textContent = '⚠️ ต้องตั้งชื่อตัวละครของคุณก่อนสร้างหรือเข้าร่วมห้องกับเพื่อน!';
+            }
+            return false;
+        }
+
+        this.player.name = val;
+        try {
+            localStorage.setItem('cs_player_name_saved', val);
+        } catch (e) {}
+
+        if (input) input.classList.remove('input-error');
+        if (errEl) errEl.style.display = 'none';
+        if (badge) {
+            badge.className = 'name-badge-ok';
+            badge.textContent = '✅ ชื่อพร้อมใช้งาน';
+        }
+        return true;
+    }
+
+    // ==================== CLEAN TEAM SWITCHING & GHOST PURGING ====================
+    switchTeam(newTeam = null) {
+        if (!newTeam) {
+            newTeam = this.player.team === 'T' ? 'CT' : 'T';
+        }
+        const oldTeam = this.player.team;
+
+        this.player.team = newTeam;
+
+        // 1. Update Lobby team selector buttons
+        const btnT = document.getElementById('select-team-t');
+        const btnCT = document.getElementById('select-team-ct');
+        if (btnT && btnCT) {
+            btnT.classList.toggle('active', newTeam === 'T');
+            btnCT.classList.toggle('active', newTeam === 'CT');
+        }
+
+        // 2. Update In-Game Settings modal team badge and button
+        const teamBadge = document.getElementById('current-team-badge');
+        if (teamBadge) {
+            teamBadge.textContent = newTeam === 'T' ? '💣 TERRORIST' : '🛡️ COUNTER-TERRORIST';
+            teamBadge.style.color = newTeam === 'T' ? '#fbbf24' : '#38bdf8';
+            teamBadge.style.background = newTeam === 'T' ? 'rgba(245,158,11,0.2)' : 'rgba(56,189,248,0.2)';
+        }
+
+        // 3. Switch default rifle loadout for the team
+        this.player.slots[1] = newTeam === 'T' ? 'ak47' : 'm4a1';
+        this.equipSlot(1);
+
+        // 4. PURGE any existing entity / ghost matching local player name from entities list & scene!
+        this.purgePlayerGhost(this.player.name, 'LOCAL');
+
+        // 5. If match is active, respawn local player at new team spawn and re-sync
+        if (this.running) {
+            this.respawnLocalPlayer();
+            const teamName = newTeam === 'T' ? 'โจร (TERRORIST)' : 'ตำรวจ (COUNTER-TERRORIST)';
+            this.addChatMessage(`🔄 คุณได้ย้ายไปอยู่ฝ่าย ${teamName} (ลบออกจากทีมเดิมแล้ว)`, newTeam === 'T' ? '#fbbf24' : '#38bdf8');
+            this.showAnnouncement(`🔄 คุณได้ย้ายไปอยู่ฝ่าย ${teamName}!`, 2.5);
+
+            // In Single Player / Host: Rebalance Bots cleanly so teams are equal without duplicates!
+            if (!this.net.isClient) {
+                this.setupBots();
+            }
+
+            // In Multiplayer: Synchronize team switch immediately
+            if (this.net.isClient && this.net.hostConn && this.net.hostConn.open) {
+                this.net.hostConn.send({
+                    type: 'team_change',
+                    id: this.net.peer ? this.net.peer.id : '',
+                    name: this.player.name,
+                    newTeam: newTeam,
+                    oldTeam: oldTeam,
+                    weapon: this.player.weaponId
+                });
+            } else if (this.net.isHost) {
+                this.net.broadcast({
+                    type: 'team_change',
+                    id: 'HOST',
+                    name: this.player.name,
+                    newTeam: newTeam,
+                    oldTeam: oldTeam
+                });
+            }
+        }
+
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
+    }
+
+    purgePlayerGhost(name, exceptId = null) {
+        if (!name) return;
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const e = this.entities[i];
+            if (e.id === exceptId) continue;
+            if (e.name === name || (exceptId === 'LOCAL' && e.id === 'LOCAL')) {
+                if (e.mesh) this.scene.remove(e.mesh);
+                this.entities.splice(i, 1);
+            }
+        }
+    }
+
     // ==================== NETWORK SYNC CALLBACKS ====================
     onRemotePlayerJoined(peerId, name, team, weapon) {
-        let existing = this.entities.find(e => e.id === peerId);
-        if (!existing) {
-            const sp = this.map.spawns[team][0];
-            const mesh = createCharacterMesh(team, name, team === this.player.team);
-            mesh.position.set(sp.x, 0, sp.z);
-            this.scene.add(mesh);
-
-            this.entities.push({
-                id: peerId,
-                name,
-                team,
-                isBot: false,
-                isRemotePlayer: true,
-                x: sp.x,
-                y: 0,
-                z: sp.z,
-                yaw: sp.yaw,
-                hp: 100,
-                weapon: weapon || 'ak47',
-                kills: 0,
-                deaths: 0,
-                mesh
-            });
-            this.updateScoreHUD();
-            this.refreshScoreboardIfOpen();
+        // ALWAYS purge any existing entity with this peerId OR player name from either team!
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const e = this.entities[i];
+            if (e.id === peerId || (name && e.name === name)) {
+                if (e.mesh) this.scene.remove(e.mesh);
+                this.entities.splice(i, 1);
+            }
         }
+
+        const spList = this.map.spawns[team] || this.map.spawns.T;
+        const sp = spList[0];
+        const mesh = createCharacterMesh(team, name, team === this.player.team);
+        mesh.position.set(sp.x, 0, sp.z);
+        this.scene.add(mesh);
+
+        this.entities.push({
+            id: peerId,
+            name,
+            team,
+            isBot: false,
+            isRemotePlayer: true,
+            x: sp.x,
+            y: 0,
+            z: sp.z,
+            yaw: sp.yaw,
+            hp: 100,
+            weapon: weapon || (team === 'T' ? 'ak47' : 'm4a1'),
+            kills: 0,
+            deaths: 0,
+            mesh
+        });
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
+    }
+
+    onRemotePlayerTeamChanged(peerId, data) {
+        const newTeam = data.newTeam;
+        const playerName = data.name;
+
+        // 1. Remove ANY entity with this peerId or player name from any team!
+        let oldKills = 0;
+        let oldDeaths = 0;
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const e = this.entities[i];
+            if (e.id === peerId || (playerName && e.name === playerName)) {
+                oldKills = e.kills || oldKills;
+                oldDeaths = e.deaths || oldDeaths;
+                if (e.mesh) this.scene.remove(e.mesh);
+                this.entities.splice(i, 1);
+            }
+        }
+
+        // 2. Add player exclusively to newTeam with correct model skin
+        const spList = this.map.spawns[newTeam] || this.map.spawns.T;
+        const sp = spList[Math.floor(Math.random() * spList.length)];
+        const mesh = createCharacterMesh(newTeam, playerName, newTeam === this.player.team);
+        mesh.position.set(sp.x, 0, sp.z);
+        this.scene.add(mesh);
+
+        this.entities.push({
+            id: peerId,
+            name: playerName,
+            team: newTeam,
+            isBot: false,
+            isRemotePlayer: true,
+            x: sp.x,
+            y: 0,
+            z: sp.z,
+            yaw: sp.yaw,
+            hp: 100,
+            weapon: data.weapon || (newTeam === 'T' ? 'ak47' : 'm4a1'),
+            kills: oldKills,
+            deaths: oldDeaths,
+            mesh
+        });
+
+        const teamName = newTeam === 'T' ? 'โจร (TERRORIST)' : 'ตำรวจ (COUNTER-TERRORIST)';
+        this.addChatMessage(`🔄 ${playerName} ย้ายไปอยู่ฝ่าย ${teamName} (ลบออกจากทีมเดิมแล้ว)`, newTeam === 'T' ? '#fbbf24' : '#38bdf8');
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
+    }
+
+    onClientRemoteTeamChanged(data) {
+        const myId = this.net.peer ? this.net.peer.id : '';
+        if (data.id === myId || (data.name && data.name === this.player.name)) {
+            if (this.player.team !== data.newTeam) {
+                this.switchTeam(data.newTeam);
+            }
+            return;
+        }
+
+        // Purge any entity with this id or matching name from any team
+        let oldKills = 0;
+        let oldDeaths = 0;
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const e = this.entities[i];
+            if (e.id === data.id || (data.name && e.name === data.name)) {
+                oldKills = e.kills || oldKills;
+                oldDeaths = e.deaths || oldDeaths;
+                if (e.mesh) this.scene.remove(e.mesh);
+                this.entities.splice(i, 1);
+            }
+        }
+
+        // Recreate on newTeam
+        const spList = this.map.spawns[data.newTeam] || this.map.spawns.T;
+        const sp = spList[0];
+        const mesh = createCharacterMesh(data.newTeam, data.name, data.newTeam === this.player.team);
+        mesh.position.set(sp.x, 0, sp.z);
+        this.scene.add(mesh);
+
+        this.entities.push({
+            id: data.id,
+            name: data.name,
+            team: data.newTeam,
+            isBot: false,
+            isRemotePlayer: true,
+            x: sp.x,
+            y: 0,
+            z: sp.z,
+            yaw: sp.yaw,
+            hp: 100,
+            weapon: data.weapon || (data.newTeam === 'T' ? 'ak47' : 'm4a1'),
+            kills: oldKills,
+            deaths: oldDeaths,
+            mesh
+        });
+
+        const teamName = data.newTeam === 'T' ? 'โจร (TERRORIST)' : 'ตำรวจ (COUNTER-TERRORIST)';
+        this.addChatMessage(`🔄 ${data.name} ย้ายไปอยู่ฝ่าย ${teamName} (ลบออกจากทีมเดิมแล้ว)`, data.newTeam === 'T' ? '#fbbf24' : '#38bdf8');
+        this.updateScoreHUD();
+        this.refreshScoreboardIfOpen();
     }
 
     onRemotePlayerLeft(peerId) {
@@ -1509,12 +1792,24 @@ class CSGame {
     }
 
     updateRemotePlayerState(peerId, data) {
-        let ent = this.entities.find(e => e.id === peerId);
+        let ent = this.entities.find(e => e.id === peerId || (data.name && e.name === data.name));
         if (!ent) {
             this.onRemotePlayerJoined(peerId, data.name, data.team, data.weapon);
-            ent = this.entities.find(e => e.id === peerId);
+            ent = this.entities.find(e => e.id === peerId || (data.name && e.name === data.name));
         }
         if (ent) {
+            if (data.team && ent.team !== data.team) {
+                // Team changed! Cleanly remove from old team and update to new team
+                ent.team = data.team;
+                if (ent.mesh) {
+                    this.scene.remove(ent.mesh);
+                    ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team);
+                    this.scene.add(ent.mesh);
+                }
+                this.purgePlayerGhost(ent.name, ent.id);
+                this.updateScoreHUD();
+                this.refreshScoreboardIfOpen();
+            }
             if (ent.ignoreStateUntil && performance.now() < ent.ignoreStateUntil) return;
             const moved = Math.hypot(data.x - ent.x, data.z - ent.z) > 0.02;
             ent.x = data.x;
@@ -1546,7 +1841,7 @@ class CSGame {
         const seenIds = new Set();
 
         for (const a of snapshot.actors) {
-            if (a.id === myId) {
+            if (a.id === myId || (a.name && a.name === this.player.name)) {
                 // Sync Client's own authoritative Kills, Deaths & Respawn state from Host!
                 const changed = (this.player.kills !== a.kills || this.player.deaths !== a.deaths);
                 this.player.kills = a.kills || 0;
@@ -1559,7 +1854,7 @@ class CSGame {
             }
             seenIds.add(a.id);
 
-            let ent = this.entities.find(e => e.id === a.id);
+            let ent = this.entities.find(e => e.id === a.id || (a.name && e.name === a.name));
             if (!ent) {
                 const mesh = createCharacterMesh(a.team, a.name, a.team === this.player.team);
                 this.scene.add(mesh);
@@ -1582,6 +1877,14 @@ class CSGame {
                 this.entities.push(ent);
                 this.refreshScoreboardIfOpen();
             } else {
+                if (a.team && ent.team !== a.team) {
+                    ent.team = a.team;
+                    if (ent.mesh) {
+                        this.scene.remove(ent.mesh);
+                        ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team);
+                        this.scene.add(ent.mesh);
+                    }
+                }
                 const moved = Math.hypot(a.x - ent.x, a.z - ent.z) > 0.02;
                 const scoreChanged = (ent.kills !== a.kills || ent.deaths !== a.deaths || ent.hp !== a.hp);
                 ent.x = a.x;
@@ -1676,7 +1979,11 @@ class CSGame {
 
         let tAlive = (this.player.team === 'T' && this.player.hp > 0) ? 1 : 0;
         let ctAlive = (this.player.team === 'CT' && this.player.hp > 0) ? 1 : 0;
+
+        const seenNames = new Set([this.player.name]);
         for (const e of this.entities) {
+            if (e.name === this.player.name || seenNames.has(e.name)) continue;
+            seenNames.add(e.name);
             if (e.hp > 0) {
                 if (e.team === 'T') tAlive++;
                 else ctAlive++;
@@ -2085,18 +2392,34 @@ class CSGame {
     }
 
     setupUIEvents() {
+        const nameInput = document.getElementById('player-name-input');
+        if (nameInput) {
+            nameInput.addEventListener('input', () => this.updateNameBadgeOnInput());
+            nameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (this.validatePlayerName(false)) {
+                        this.startMatch();
+                    }
+                }
+            });
+        }
+
         document.getElementById('select-team-t').addEventListener('click', () => {
-            this.player.team = 'T';
-            document.getElementById('select-team-t').classList.add('active');
-            document.getElementById('select-team-ct').classList.remove('active');
+            this.switchTeam('T');
         });
         document.getElementById('select-team-ct').addEventListener('click', () => {
-            this.player.team = 'CT';
-            document.getElementById('select-team-ct').classList.add('active');
-            document.getElementById('select-team-t').classList.remove('active');
+            this.switchTeam('CT');
         });
 
+        const switchTeamBtn = document.getElementById('btn-switch-team');
+        if (switchTeamBtn) {
+            switchTeamBtn.addEventListener('click', () => {
+                this.switchTeam();
+            });
+        }
+
         document.getElementById('btn-start-play').addEventListener('click', () => {
+            if (!this.validatePlayerName(false)) return;
             if (this.mobileMode) {
                 this.enterFullscreen();
             }
@@ -2119,6 +2442,7 @@ class CSGame {
         }
 
         document.getElementById('btn-host-room').addEventListener('click', () => {
+            if (!this.validatePlayerName(true)) return;
             const statusEl = document.getElementById('room-status-text');
             statusEl.textContent = '⏳ กำลังสร้างรหัสห้องออนไลน์...';
             this.net.hostRoom((code) => {
@@ -2131,6 +2455,7 @@ class CSGame {
         });
 
         document.getElementById('btn-join-room').addEventListener('click', () => {
+            if (!this.validatePlayerName(true)) return;
             const code = document.getElementById('join-code-input').value;
             const statusEl = document.getElementById('room-status-text');
             statusEl.textContent = '⏳ กำลังเชื่อมต่อเข้าห้อง...';
@@ -2504,6 +2829,14 @@ class CSGame {
         tbodyT.innerHTML = '';
         tbodyCT.innerHTML = '';
 
+        const seenNames = new Set([this.player.name]);
+        const uniqueEntities = [];
+        for (const e of this.entities) {
+            if (e.name === this.player.name || seenNames.has(e.name)) continue;
+            seenNames.add(e.name);
+            uniqueEntities.push(e);
+        }
+
         const all = [
             {
                 name: this.player.name + ' (คุณ)',
@@ -2513,7 +2846,7 @@ class CSGame {
                 hp: this.player.hp,
                 isMe: true
             },
-            ...this.entities.map(e => ({
+            ...uniqueEntities.map(e => ({
                 name: e.name,
                 team: e.team,
                 kills: e.kills || 0,
