@@ -16,6 +16,34 @@ const MAP_METADATA = {
         description: 'แผนที่ยักษ์แนวใหม่ขนาดใหญ่ที่สุด 160 เมตร ถนนหลวงหลายเลน ตึกระฟ้า ทางเดินใต้ดิน สะพานลอยสไนเปอร์ และพลาซ่าใหญ่',
         mapSize: 160
     },
+    de_desert_storm: {
+        id: 'de_desert_storm',
+        name: '🏜️ DE_DESERT_STORM',
+        subtitle: 'มหาป้อมปราการทะเลทราย 180m (แผนที่ยักษ์)',
+        description: 'สมรภูมิทะเลทรายขนาดมหึมา 180 เมตร โรงเก็บเครื่องบินรบ บังเกอร์สื่อสาร คลังขีปนาวุธ หอคอยสไนเปอร์ และแนวร่องคูดิน',
+        mapSize: 180
+    },
+    de_harbor_mega: {
+        id: 'de_harbor_mega',
+        name: '⚓ DE_HARBOR_MEGA',
+        subtitle: 'ท่าเรือขนส่งสินค้าและเรือรบยักษ์ 185m (แผนที่ยักษ์)',
+        description: 'ท่าเรือยุทธวิธีขนาดยักษ์ 185 เมตร เรือรบพิฆาตเทียบท่า เครนยกตู้สินค้า เขาวงกตคอนเทนเนอร์ 3 ชั้น และอู่ต่อเรือ',
+        mapSize: 185
+    },
+    cs_airport: {
+        id: 'cs_airport',
+        name: '✈️ CS_AIRPORT',
+        subtitle: 'ท่าอากาศยานนานาชาติ & รันเวย์เครื่องบิน 190m (แผนที่ยักษ์)',
+        description: 'สนามบินนานาชาติขนาดมหึมา 190 เมตร รันเวย์กว้าง เครื่องบินเจ็ทโดยสารยักษ์ หอควบคุมการบิน ATC และอาคารผู้โดยสาร',
+        mapSize: 190
+    },
+    cs_mansion_mega: {
+        id: 'cs_mansion_mega',
+        name: '🏰 CS_MANSION_MEGA',
+        subtitle: 'มหาคฤหาสน์หรูและสวนวงกต 175m (แผนที่ยักษ์)',
+        description: 'คฤหาสน์ส่วนตัวสุดหรู 175 เมตร โถงบันไดคู่สองชั้น สวนเขาวงกตต้นไม้ สระว่ายน้ำโอลิมปิก และห้องเก็บไวน์ใต้ดิน',
+        mapSize: 175
+    },
     de_mirage: {
         id: 'de_mirage',
         name: '🕌 DE_MIRAGE',
@@ -135,6 +163,18 @@ class GameMap {
         switch (mapId) {
             case 'de_megacity':
                 this.buildMegaCity();
+                break;
+            case 'de_desert_storm':
+                this.buildDesertStorm();
+                break;
+            case 'de_harbor_mega':
+                this.buildHarborMega();
+                break;
+            case 'cs_airport':
+                this.buildAirport();
+                break;
+            case 'cs_mansion_mega':
+                this.buildMansionMega();
                 break;
             case 'de_mirage':
                 this.buildMirage();
@@ -487,7 +527,7 @@ class GameMap {
         skyTex.mapping = THREE.EquirectangularReflectionMapping;
         this.scene.environment = skyTex;
 
-        const skyRadius = Math.max(220, this.mapSize * 1.55);
+        const skyRadius = Math.max(280, this.mapSize * 1.6);
         const skyGeo = new THREE.SphereGeometry(skyRadius, 32, 24);
         const skyMat = new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false });
         const skyMesh = new THREE.Mesh(skyGeo, skyMat);
@@ -1718,6 +1758,659 @@ class GameMap {
         this.addStreetLamp(14, -24);
         this.addStreetLamp(-14, -52);
         this.addStreetLamp(14, -52);
+    }
+
+    // =========================================================================
+    // MAP 8: DE_DESERT_STORM (Massive Desert Warfare Outpost 180m)
+    // =========================================================================
+    buildDesertStorm() {
+        this.buildSky('#7c2d12', '#b45309', '#fde68a', 720, 160, 'rgba(255, 237, 213, 1.0)');
+        this.updateAtmosphericLighting(0xf59e0b, 0x451a03, 0xfef3c7, 0xfde68a, 1.50);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 76, yaw: 0 },
+                { x: -10, z: 78, yaw: 0 },
+                { x: 10, z: 78, yaw: 0 },
+                { x: -22, z: 74, yaw: 0 },
+                { x: 22, z: 74, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -76, yaw: Math.PI },
+                { x: -10, z: -78, yaw: Math.PI },
+                { x: 10, z: -78, yaw: Math.PI },
+                { x: -22, z: -74, yaw: Math.PI },
+                { x: 22, z: -74, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 55, z: -25, radius: 8.0, label: 'A' },
+            B: { x: -55, z: 25, radius: 8.0, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Desert Outpost (T Spawn)
+            { x: 0, z: 74 }, { x: -24, z: 70 }, { x: 24, z: 70 }, { x: -48, z: 60 }, { x: 48, z: 60 },
+            // South Canyon Approach & Trenches
+            { x: 0, z: 48 }, { x: -32, z: 42 }, { x: 32, z: 42 },
+            // Bombsite B (Missile Silo & Heavy Fuel Tank Farm)
+            { x: -55, z: 25 }, { x: -40, z: 20 }, { x: -68, z: 12 }, { x: -55, z: 40 },
+            // Center Battlefield & Sniper Watchtower
+            { x: 0, z: 20 }, { x: 0, z: 0 }, { x: -18, z: 0 }, { x: 18, z: 0 }, { x: 0, z: -20 },
+            // Bombsite A (Communications Bunker & Radar)
+            { x: 55, z: -25 }, { x: 40, z: -20 }, { x: 68, z: -12 }, { x: 55, z: -40 },
+            // North Airbase Garrison & Hangar (CT Spawn)
+            { x: 0, z: -48 }, { x: -32, z: -42 }, { x: 32, z: -42 },
+            { x: 0, z: -74 }, { x: -24, z: -70 }, { x: 24, z: -70 }, { x: -48, z: -60 }, { x: 48, z: -60 }
+        ];
+
+        // Desert Dune Ground Texture
+        const duneCanvas = document.createElement('canvas');
+        duneCanvas.width = 512;
+        duneCanvas.height = 512;
+        const dCtx = duneCanvas.getContext('2d');
+        dCtx.fillStyle = '#b49065';
+        dCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 48) {
+            dCtx.fillStyle = (y / 48 % 2 === 0) ? 'rgba(90, 68, 42, 0.28)' : 'rgba(225, 200, 160, 0.22)';
+            dCtx.fillRect(0, y, 512, 24);
+        }
+        for (let i = 0; i < 18000; i++) {
+            dCtx.fillStyle = i % 2 === 0 ? 'rgba(50, 36, 20, 0.3)' : 'rgba(255, 235, 195, 0.15)';
+            dCtx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+        }
+        const duneTex = new THREE.CanvasTexture(duneCanvas);
+        duneTex.wrapS = THREE.RepeatWrapping;
+        duneTex.wrapT = THREE.RepeatWrapping;
+        duneTex.repeat.set(22, 22);
+
+        // Fortified Camo Concrete Wall Texture
+        const fortCanvas = document.createElement('canvas');
+        fortCanvas.width = 512;
+        fortCanvas.height = 512;
+        const fCtx = fortCanvas.getContext('2d');
+        fCtx.fillStyle = '#786650';
+        fCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            fCtx.fillStyle = 'rgba(40, 30, 20, 0.45)';
+            fCtx.fillRect(0, y, 512, 3);
+            for (let x = (y % 128 === 0 ? 0 : 64); x < 512; x += 128) {
+                fCtx.fillRect(x, y, 3, 64);
+            }
+        }
+        const fortTex = new THREE.CanvasTexture(fortCanvas);
+
+        // Heavy Steel Fuel Tank Texture
+        const tankCanvas = document.createElement('canvas');
+        tankCanvas.width = 256;
+        tankCanvas.height = 256;
+        const tCtx = tankCanvas.getContext('2d');
+        tCtx.fillStyle = '#475569';
+        tCtx.fillRect(0, 0, 256, 256);
+        tCtx.strokeStyle = '#ef4444';
+        tCtx.lineWidth = 14;
+        tCtx.strokeRect(7, 7, 242, 242);
+        tCtx.fillStyle = '#fee2e2';
+        tCtx.font = 'bold 22px monospace';
+        tCtx.textAlign = 'center';
+        tCtx.fillText('FLAMMABLE JP-8', 128, 134);
+        const tankTex = new THREE.CanvasTexture(tankCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: duneTex,
+            bumpMap: duneTex,
+            bumpScale: 0.08,
+            roughness: 0.92
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const fortMat = new THREE.MeshStandardMaterial({ map: fortTex, roughness: 0.88 });
+        const tankMat = new THREE.MeshStandardMaterial({ map: tankTex, roughness: 0.55, metalness: 0.65 });
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.35 });
+
+        const half = this.mapSize / 2;
+        const wallH = 14.0;
+
+        // Giant Outer Fortress Perimeter
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 4, fortMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 4, fortMat, false, true);
+        this.addBlock(-half, 0, 0, 4, wallH, this.mapSize, fortMat, false, true);
+        this.addBlock(half, 0, 0, 4, wallH, this.mapSize, fortMat, false, true);
+
+        // 4 Corner Observation Fortresses
+        this.addBlock(-68, 0, -68, 30, 22, 30, fortMat);
+        this.addBlock(68, 0, -68, 30, 22, 30, fortMat);
+        this.addBlock(-68, 0, 68, 30, 22, 30, fortMat);
+        this.addBlock(68, 0, 68, 30, 22, 30, fortMat);
+
+        // Aircraft/Helicopter Hangar (North-West)
+        this.addBlock(-45, 0, -45, 34, 16, 28, steelMat);
+        this.addBlock(-45, 0, -31, 28, 1.2, 8, fortMat);
+
+        // Bombsite A: Communications Bunker & Radar Post (East)
+        this.addBlock(55, 0, -25, 26, 8.5, 24, fortMat);
+        this.addBlock(55, 8.5, -25, 4.5, 4.0, 4.5, steelMat);
+        this.addConcreteBarrier(44, -25, Math.PI / 2);
+        this.addConcreteBarrier(66, -25, Math.PI / 2);
+        this.addContainerProp(42, -15, 6.2, 2.6, 2.6, 0, 0x1e3a8a, 'MIL-SAT9');
+        this.addBarrelProp(54, -15, 0x15803d);
+        this.addBarrelProp(55.2, -15, 0x15803d);
+
+        // Bombsite B: Missile Silo & Heavy Fuel Tank Farm (West)
+        this.addBlock(-55, 0, 25, 32, 1.4, 32, steelMat);
+        this.addBlock(-45, 0, 18, 9, 8.5, 9, tankMat);
+        this.addBlock(-65, 0, 18, 9, 8.5, 9, tankMat);
+        this.addBlock(-45, 0, 32, 9, 8.5, 9, tankMat);
+        this.addBlock(-65, 0, 32, 9, 8.5, 9, tankMat);
+        this.addConcreteBarrier(-55, 12, 0);
+        this.addContainerProp(-36, 25, 6.2, 2.6, 2.6, Math.PI / 2, 0x991b1b, 'ORD-NUK4');
+        this.addBarrelProp(-48, 38, 0xd97706, true);
+        this.addBarrelProp(-49.2, 38, 0xd97706, true);
+
+        // Central Sniper Watchtower (x: 0, z: 0)
+        this.addBlock(0, 0, 0, 5.0, 12.0, 5.0, steelMat);
+        this.addBlock(0, 12.0, 0, 9.0, 0.6, 9.0, steelMat);
+        this.addBlock(0, 12.6, -4.2, 9.0, 1.2, 0.3, fortMat);
+        this.addBlock(0, 12.6, 4.2, 9.0, 1.2, 0.3, fortMat);
+        this.addBlock(-4.2, 12.6, 0, 0.3, 1.2, 9.0, fortMat);
+        this.addBlock(4.2, 12.6, 0, 0.3, 1.2, 9.0, fortMat);
+
+        // Sunken Trench Walls (Mid Cross)
+        this.addBlock(0, 0, 24, 22, 1.8, 3.2, fortMat);
+        this.addBlock(0, 0, -24, 22, 1.8, 3.2, fortMat);
+        this.addBlock(-24, 0, 0, 3.2, 1.8, 22, fortMat);
+        this.addBlock(24, 0, 0, 3.2, 1.8, 22, fortMat);
+
+        // Sandbag & Concrete Defensive Barricades
+        this.addConcreteBarrier(-16, 52, 0);
+        this.addConcreteBarrier(16, 52, 0);
+        this.addConcreteBarrier(-16, -52, 0);
+        this.addConcreteBarrier(16, -52, 0);
+    }
+
+    // =========================================================================
+    // MAP 9: DE_HARBOR_MEGA (Massive Shipping Port & Naval Warship 185m)
+    // =========================================================================
+    buildHarborMega() {
+        this.buildSky('#082f49', '#0284c7', '#fdba74', 680, 170, 'rgba(255, 237, 213, 1.0)');
+        this.updateAtmosphericLighting(0x38bdf8, 0x0f172a, 0xffedd5, 0xffd8a8, 1.45);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 78, yaw: 0 },
+                { x: -10, z: 80, yaw: 0 },
+                { x: 10, z: 80, yaw: 0 },
+                { x: -24, z: 76, yaw: 0 },
+                { x: 24, z: 76, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -78, yaw: Math.PI },
+                { x: -10, z: -80, yaw: Math.PI },
+                { x: 10, z: -80, yaw: Math.PI },
+                { x: -24, z: -76, yaw: Math.PI },
+                { x: 24, z: -76, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 56, z: -10, radius: 8.0, label: 'A' },
+            B: { x: -55, z: 20, radius: 8.0, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Cargo Gate (T Spawn)
+            { x: 0, z: 76 }, { x: -28, z: 72 }, { x: 28, z: 72 }, { x: -54, z: 64 }, { x: 54, z: 64 },
+            // Container Yard South & Drydock Approach
+            { x: 0, z: 50 }, { x: -36, z: 45 }, { x: 36, z: 45 },
+            // Bombsite B (Drydock Basin & Torpedo Warehouse)
+            { x: -55, z: 20 }, { x: -40, z: 15 }, { x: -68, z: 6 }, { x: -55, z: 36 },
+            // Central Port Corridor & Gantry Crane Base
+            { x: 0, z: 24 }, { x: 0, z: 0 }, { x: 24, z: 0 }, { x: -24, z: 0 }, { x: 0, z: -24 },
+            // Bombsite A (Moored Naval Warship Superstructure Deck)
+            { x: 56, z: -10 }, { x: 56, z: 15 }, { x: 56, z: -35 }, { x: 42, z: -10 },
+            // North Port Authority (CT Spawn)
+            { x: 0, z: -50 }, { x: -36, z: -45 }, { x: 36, z: -45 },
+            { x: 0, z: -76 }, { x: -28, z: -72 }, { x: 28, z: -72 }, { x: -54, z: -64 }, { x: 54, z: -64 }
+        ];
+
+        // Concrete Pier Dock Ground
+        const dockCanvas = document.createElement('canvas');
+        dockCanvas.width = 512;
+        dockCanvas.height = 512;
+        const dkCtx = dockCanvas.getContext('2d');
+        dkCtx.fillStyle = '#334155';
+        dkCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            for (let x = 0; x < 512; x += 64) {
+                dkCtx.fillStyle = (x + y) % 128 === 0 ? '#475569' : '#334155';
+                dkCtx.fillRect(x + 2, y + 2, 60, 60);
+                dkCtx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
+                dkCtx.lineWidth = 2;
+                dkCtx.strokeRect(x, y, 64, 64);
+            }
+        }
+        for (let y = 0; y < 512; y += 32) {
+            dkCtx.fillStyle = (y / 32 % 2 === 0) ? '#f59e0b' : '#0f172a';
+            dkCtx.fillRect(496, y, 16, 32);
+        }
+        const dockTex = new THREE.CanvasTexture(dockCanvas);
+        dockTex.wrapS = THREE.RepeatWrapping;
+        dockTex.wrapT = THREE.RepeatWrapping;
+        dockTex.repeat.set(20, 20);
+
+        // Naval Gray Warship Steel Hull Texture
+        const shipCanvas = document.createElement('canvas');
+        shipCanvas.width = 512;
+        shipCanvas.height = 512;
+        const sCtx = shipCanvas.getContext('2d');
+        sCtx.fillStyle = '#475569';
+        sCtx.fillRect(0, 0, 512, 512);
+        sCtx.strokeStyle = '#1e293b';
+        sCtx.lineWidth = 8;
+        sCtx.strokeRect(6, 6, 500, 500);
+        sCtx.fillStyle = '#f8fafc';
+        sCtx.font = 'bold 36px monospace';
+        sCtx.fillText('DDG-88 AEGIS', 42, 68);
+        const shipTex = new THREE.CanvasTexture(shipCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: dockTex,
+            bumpMap: dockTex,
+            bumpScale: 0.06,
+            roughness: 0.85
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const dockWallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+        const shipMat = new THREE.MeshStandardMaterial({ map: shipTex, roughness: 0.55, metalness: 0.65 });
+        const craneYellowMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.75, roughness: 0.35 });
+        const warehouseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 });
+
+        const half = this.mapSize / 2;
+        const wallH = 13.0;
+
+        // Perimeter Walls
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 3, dockWallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 3, dockWallMat, false, true);
+        this.addBlock(-half, 0, 0, 3, wallH, this.mapSize, dockWallMat, false, true);
+        this.addBlock(half, 0, 0, 3, wallH, this.mapSize, dockWallMat, false, true);
+
+        // Moored Naval Warship (Bombsite A: East Dock, length 85m, width 18m)
+        this.addBlock(56, 0, -5, 18, 5.5, 85, shipMat);
+        this.addBlock(56, 5.5, -10, 12, 6.5, 34, shipMat);
+        this.addBlock(56, 12.0, -10, 4, 7.5, 4, shipMat);
+        this.addBlock(44, 0, -5, 6, 5.5, 10, dockWallMat);
+
+        // Bombsite B: Drydock Basin & Torpedo Warehouse (West)
+        this.addBlock(-55, 0, 20, 26, 10.5, 36, warehouseMat);
+        this.addBlock(-55, 0, 4, 16, 1.4, 12, dockWallMat);
+        this.addContainerProp(-40, 20, 6.2, 2.6, 2.6, 0, 0x1e3a8a, 'TORP-533');
+        this.addContainerProp(-40, 26, 6.2, 2.6, 2.6, 0, 0x1e3a8a, 'NAV-ORD8');
+        this.addBarrelProp(-32, 22, 0xd97706, true);
+        this.addBarrelProp(-32, 23.5, 0xd97706, true);
+
+        // Giant Rail-Mounted Dock Gantry Crane (x: 20, z: 0)
+        this.addBlock(14, 0, 0, 2.2, 20.0, 2.2, craneYellowMat);
+        this.addBlock(28, 0, 0, 2.2, 20.0, 2.2, craneYellowMat);
+        this.addBlock(21, 20.0, 0, 24.0, 2.4, 4.0, craneYellowMat);
+
+        // Multi-Story Container Labyrinth (South & Mid Yard)
+        this.addContainerProp(-12, 45, 6.2, 2.6, 2.6, 0, 0x1e3a8a, 'MSK-901');
+        this.addContainerProp(-12, 45, 6.2, 5.2, 2.6, 0, 0x991b1b, 'MSK-902');
+        this.addContainerProp(12, 45, 6.2, 2.6, 2.6, Math.PI / 2, 0x15803d, 'EVER-44');
+        this.addContainerProp(12, 45, 6.2, 5.2, 2.6, Math.PI / 2, 0x854d0e, 'HAPAG-11');
+
+        this.addContainerProp(-12, -45, 6.2, 2.6, 2.6, Math.PI / 2, 0x991b1b, 'COSCO-08');
+        this.addContainerProp(-12, -45, 6.2, 5.2, 2.6, Math.PI / 2, 0x1e3a8a, 'ONE-604');
+        this.addContainerProp(12, -45, 6.2, 2.6, 2.6, 0, 0x15803d, 'CMA-72');
+
+        this.addContainerProp(-25, 0, 6.2, 2.6, 2.6, 0, 0x854d0e, 'YANG-33');
+        this.addContainerProp(-25, 0, 6.2, 5.2, 2.6, 0, 0x1e3a8a, 'ZIM-91');
+        this.addContainerProp(0, 0, 6.2, 2.6, 2.6, Math.PI / 2, 0x991b1b, 'OOCL-19');
+
+        // Concrete Jersey Barriers
+        this.addConcreteBarrier(-20, 60, 0);
+        this.addConcreteBarrier(20, 60, 0);
+        this.addConcreteBarrier(-20, -60, 0);
+        this.addConcreteBarrier(20, -60, 0);
+
+        // Dockside Street Lamps
+        this.addStreetLamp(36, 40);
+        this.addStreetLamp(36, -40);
+        this.addStreetLamp(-36, 40);
+        this.addStreetLamp(-36, -40);
+    }
+
+    // =========================================================================
+    // MAP 10: CS_AIRPORT (International Airport Runway & Jetliner 190m)
+    // =========================================================================
+    buildAirport() {
+        this.buildSky('#0f172a', '#1e293b', '#64748b', 650, 150, 'rgba(255, 255, 255, 1.0)');
+        this.updateAtmosphericLighting(0x94a3b8, 0x1e293b, 0xf8fafc, 0xffffff, 1.48);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 80, yaw: 0 },
+                { x: -12, z: 82, yaw: 0 },
+                { x: 12, z: 82, yaw: 0 },
+                { x: -26, z: 78, yaw: 0 },
+                { x: 26, z: 78, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -80, yaw: Math.PI },
+                { x: -12, z: -82, yaw: Math.PI },
+                { x: 12, z: -82, yaw: Math.PI },
+                { x: -26, z: -78, yaw: Math.PI },
+                { x: 26, z: -78, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 38, z: -8, radius: 8.5, label: 'A' },
+            B: { x: -50, z: 42, radius: 8.0, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Cargo Ramp (T Spawn)
+            { x: 0, z: 78 }, { x: -30, z: 74 }, { x: 30, z: 74 }, { x: -58, z: 68 }, { x: 58, z: 68 },
+            // Taxiway South & Fuel Depot Approach
+            { x: 0, z: 52 }, { x: -36, z: 48 }, { x: 36, z: 48 },
+            // Bombsite B (ATC Control Tower & Jet Fuel Farm)
+            { x: -50, z: 42 }, { x: -36, z: 32 }, { x: -65, z: 36 }, { x: -50, z: 58 },
+            // Center Tarmac & Runway Intersection
+            { x: 0, z: 24 }, { x: 0, z: 0 }, { x: 22, z: 0 }, { x: -22, z: 0 }, { x: 0, z: -24 },
+            // Bombsite A (Giant Jetliner Cargo Hold & Wing)
+            { x: 38, z: -8 }, { x: 38, z: 16 }, { x: 38, z: -32 }, { x: 24, z: -8 },
+            // North VIP Departure Terminal (CT Spawn)
+            { x: 0, z: -52 }, { x: -36, z: -48 }, { x: 36, z: -48 },
+            { x: 0, z: -78 }, { x: -30, z: -74 }, { x: 30, z: -74 }, { x: -58, z: -68 }, { x: 58, z: -68 }
+        ];
+
+        // Tarmac Runway Asphalt Texture with White Centerlines
+        const runwayCanvas = document.createElement('canvas');
+        runwayCanvas.width = 512;
+        runwayCanvas.height = 512;
+        const rwCtx = runwayCanvas.getContext('2d');
+        rwCtx.fillStyle = '#1e293b';
+        rwCtx.fillRect(0, 0, 512, 512);
+
+        // White Runway Centerline Stripes
+        rwCtx.fillStyle = '#ffffff';
+        for (let y = 0; y < 512; y += 64) {
+            rwCtx.fillRect(244, y, 24, 38);
+        }
+        // Yellow Taxiway Edge Lines
+        rwCtx.fillStyle = '#f59e0b';
+        rwCtx.fillRect(32, 0, 6, 512);
+        rwCtx.fillRect(474, 0, 6, 512);
+
+        const runwayTex = new THREE.CanvasTexture(runwayCanvas);
+        runwayTex.wrapS = THREE.RepeatWrapping;
+        runwayTex.wrapT = THREE.RepeatWrapping;
+        runwayTex.repeat.set(20, 20);
+
+        // Passenger Jetliner Metal Hull Texture
+        const jetCanvas = document.createElement('canvas');
+        jetCanvas.width = 512;
+        jetCanvas.height = 512;
+        const jCtx = jetCanvas.getContext('2d');
+        jCtx.fillStyle = '#f8fafc';
+        jCtx.fillRect(0, 0, 512, 512);
+        jCtx.fillStyle = '#0284c7';
+        jCtx.fillRect(0, 180, 512, 42);
+        for (let x = 20; x < 500; x += 36) {
+            jCtx.fillStyle = '#0f172a';
+            jCtx.fillRect(x, 140, 16, 22);
+        }
+        const jetTex = new THREE.CanvasTexture(jetCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: runwayTex,
+            bumpMap: runwayTex,
+            bumpScale: 0.05,
+            roughness: 0.88
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const tarmacWallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+        const jetMat = new THREE.MeshStandardMaterial({ map: jetTex, roughness: 0.35, metalness: 0.75 });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.15, metalness: 0.85, transparent: true, opacity: 0.85 });
+        const whiteTankMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.45, metalness: 0.65 });
+
+        const half = this.mapSize / 2;
+        const wallH = 14.0;
+
+        // Perimeter
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 3, tarmacWallMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 3, tarmacWallMat, false, true);
+        this.addBlock(-half, 0, 0, 3, wallH, this.mapSize, tarmacWallMat, false, true);
+        this.addBlock(half, 0, 0, 3, wallH, this.mapSize, tarmacWallMat, false, true);
+
+        // Commercial Passenger Jetliner (Bombsite A: x: 38, z: 0)
+        this.addBlock(38, 1.2, 0, 7.5, 6.5, 60, jetMat);
+        this.addBlock(38, 3.2, 0, 48, 0.8, 14, jetMat);
+        this.addBlock(24, 1.4, 0, 3.8, 3.8, 7.5, tarmacWallMat);
+        this.addBlock(52, 1.4, 0, 3.8, 3.8, 7.5, tarmacWallMat);
+        this.addBlock(31, 0, -8, 5.0, 1.6, 5.0, tarmacWallMat);
+        this.addBlock(31, 1.6, -8, 5.0, 1.6, 3.5, tarmacWallMat);
+
+        // Terminal Concourse Building (West side: x: -62, z: -70 to 70)
+        this.addBlock(-62, 0, 0, 24, 16.0, 140, tarmacWallMat);
+        this.addBlock(-48, 0, 0, 4, 14.0, 120, glassMat);
+        this.addBlock(-42, 4.5, -28, 12, 3.8, 4.5, tarmacWallMat);
+        this.addBlock(-42, 4.5, 28, 12, 3.8, 4.5, tarmacWallMat);
+
+        // Air Traffic Control (ATC) Tower (Bombsite B: x: -50, z: 42)
+        this.addBlock(-50, 0, 42, 9.0, 24.0, 9.0, tarmacWallMat);
+        this.addBlock(-50, 24.0, 42, 14.0, 4.5, 14.0, glassMat);
+        this.addBlock(-36, 0, 42, 8.5, 7.5, 8.5, whiteTankMat);
+        this.addBlock(-36, 0, 54, 8.5, 7.5, 8.5, whiteTankMat);
+        this.addConcreteBarrier(-36, 32, 0);
+        this.addBarrelProp(-36, 62, 0xef4444, true);
+        this.addBarrelProp(-37.2, 62, 0xef4444, true);
+
+        // Luggage Cargo Carts & Barriers
+        this.addContainerProp(18, -25, 6.2, 2.6, 2.6, 0, 0x1e3a8a, 'BAGS-AER');
+        this.addContainerProp(18, 25, 6.2, 2.6, 2.6, 0, 0x991b1b, 'AIR-CARGO');
+        this.addConcreteBarrier(0, 55, 0);
+        this.addConcreteBarrier(0, -55, 0);
+
+        // Runway Guidance Light Towers
+        this.addStreetLamp(12, 65, 6.5);
+        this.addStreetLamp(-12, 65, 6.5);
+        this.addStreetLamp(12, -65, 6.5);
+        this.addStreetLamp(-12, -65, 6.5);
+    }
+
+    // =========================================================================
+    // MAP 11: CS_MANSION_MEGA (Luxury Estate & Giant Hedge Maze 175m)
+    // =========================================================================
+    buildMansionMega() {
+        this.buildSky('#1e1b4b', '#4338ca', '#f59e0b', 700, 160, 'rgba(254, 243, 199, 1.0)');
+        this.updateAtmosphericLighting(0x818cf8, 0x1e1b4b, 0xfef08a, 0xfef9c3, 1.45);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 75, yaw: 0 },
+                { x: -10, z: 76, yaw: 0 },
+                { x: 10, z: 76, yaw: 0 },
+                { x: -22, z: 72, yaw: 0 },
+                { x: 22, z: 72, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -75, yaw: Math.PI },
+                { x: -10, z: -76, yaw: Math.PI },
+                { x: 10, z: -76, yaw: Math.PI },
+                { x: -22, z: -72, yaw: Math.PI },
+                { x: 22, z: -72, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 14, z: -25, radius: 8.0, label: 'A' },
+            B: { x: -20, z: -35, radius: 7.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Front Gates & Roundabout (T Spawn)
+            { x: 0, z: 72 }, { x: -28, z: 68 }, { x: 28, z: 68 }, { x: 0, z: 48 },
+            // Hedge Maze Pathways (West)
+            { x: -45, z: 42 }, { x: -45, z: 22 }, { x: -32, z: 22 }, { x: -55, z: 12 }, { x: -38, z: 4 },
+            // Swimming Pool & Cabana (East)
+            { x: 45, z: 42 }, { x: 45, z: 22 }, { x: 32, z: 22 }, { x: 55, z: 12 },
+            // Central Driveway & Fountain
+            { x: 0, z: 24 }, { x: 0, z: 0 }, { x: -16, z: 0 }, { x: 16, z: 0 },
+            // Mansion Front Portico & Grand Balcony
+            { x: 0, z: -14 }, { x: -14, z: -14 }, { x: 14, z: -14 },
+            // Bombsite A: Master Suite & 2-Story Atrium
+            { x: 14, z: -25 }, { x: 24, z: -25 }, { x: 14, z: -38 },
+            // Bombsite B: Wine Cellar & Secure Vault
+            { x: -20, z: -35 }, { x: -20, z: -22 }, { x: -34, z: -30 },
+            // North Gardens & Helipad (CT Spawn)
+            { x: 0, z: -52 }, { x: -28, z: -58 }, { x: 28, z: -58 },
+            { x: 0, z: -72 }, { x: -22, z: -70 }, { x: 22, z: -70 }
+        ];
+
+        // Estate Marble Terrace & Lawn Texture
+        const lawnCanvas = document.createElement('canvas');
+        lawnCanvas.width = 512;
+        lawnCanvas.height = 512;
+        const lCtx = lawnCanvas.getContext('2d');
+        lCtx.fillStyle = '#14532d';
+        lCtx.fillRect(0, 0, 512, 512);
+        for (let i = 0; i < 24000; i++) {
+            lCtx.fillStyle = i % 2 === 0 ? 'rgba(5, 46, 22, 0.4)' : 'rgba(34, 197, 94, 0.2)';
+            lCtx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+        }
+        const lawnTex = new THREE.CanvasTexture(lawnCanvas);
+        lawnTex.wrapS = THREE.RepeatWrapping;
+        lawnTex.wrapT = THREE.RepeatWrapping;
+        lawnTex.repeat.set(22, 22);
+
+        // Italian Marble Mansion Facade Texture
+        const marbleCanvas = document.createElement('canvas');
+        marbleCanvas.width = 512;
+        marbleCanvas.height = 512;
+        const mCtx = marbleCanvas.getContext('2d');
+        mCtx.fillStyle = '#f8fafc';
+        mCtx.fillRect(0, 0, 512, 512);
+        for (let y = 0; y < 512; y += 64) {
+            mCtx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+            mCtx.lineWidth = 3;
+            mCtx.strokeRect(0, y, 512, 64);
+        }
+        const marbleTex = new THREE.CanvasTexture(marbleCanvas);
+
+        // Dense Green Hedge Texture
+        const hedgeCanvas = document.createElement('canvas');
+        hedgeCanvas.width = 256;
+        hedgeCanvas.height = 256;
+        const hCtx = hedgeCanvas.getContext('2d');
+        hCtx.fillStyle = '#166534';
+        hCtx.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 8000; i++) {
+            hCtx.fillStyle = i % 2 === 0 ? '#14532d' : '#15803d';
+            hCtx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+        }
+        const hedgeTex = new THREE.CanvasTexture(hedgeCanvas);
+
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floorMat = new THREE.MeshStandardMaterial({
+            map: lawnTex,
+            bumpMap: lawnTex,
+            bumpScale: 0.06,
+            roughness: 0.95
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+
+        const marbleMat = new THREE.MeshStandardMaterial({ map: marbleTex, roughness: 0.45 });
+        const hedgeMat = new THREE.MeshStandardMaterial({ map: hedgeTex, roughness: 0.92 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.65 });
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.15, metalness: 0.85 });
+
+        const half = this.mapSize / 2;
+        const wallH = 11.0;
+
+        // Perimeter Brick & Wrought Walls
+        this.addBlock(0, 0, -half, this.mapSize, wallH, 3, marbleMat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, 3, marbleMat, false, true);
+        this.addBlock(-half, 0, 0, 3, wallH, this.mapSize, marbleMat, false, true);
+        this.addBlock(half, 0, 0, 3, wallH, this.mapSize, marbleMat, false, true);
+
+        // Grand 2-Story Mansion (x: 0, z: -25, width 54m, height 14m, depth 36m)
+        this.addBlock(0, 0, -25, 54, 13.0, 36, marbleMat);
+        this.addBlock(0, 13.0, -25, 56, 3.5, 38, roofMat);
+
+        // Grand Front Balcony & Colonnade Portico
+        this.addBlock(0, 4.8, -6, 22, 0.6, 6, marbleMat);
+        this.addBlock(0, 5.4, -3.2, 22, 1.1, 0.4, marbleMat);
+        this.addBlock(-9, 0, -4, 1.8, 4.8, 1.8, marbleMat);
+        this.addBlock(-3, 0, -4, 1.8, 4.8, 1.8, marbleMat);
+        this.addBlock(3, 0, -4, 1.8, 4.8, 1.8, marbleMat);
+        this.addBlock(9, 0, -4, 1.8, 4.8, 1.8, marbleMat);
+
+        // Outdoor Hedge Maze (West Side: x: -45, z: 25, 42m x 42m)
+        const hzH = 3.4;
+        this.addBlock(-45, 0, 4, 38, hzH, 2.2, hedgeMat);
+        this.addBlock(-45, 0, 46, 38, hzH, 2.2, hedgeMat);
+        this.addBlock(-64, 0, 25, 2.2, hzH, 42, hedgeMat);
+        this.addBlock(-26, 0, 25, 2.2, hzH, 42, hedgeMat);
+        this.addBlock(-45, 0, 18, 24, hzH, 2.2, hedgeMat);
+        this.addBlock(-45, 0, 32, 24, hzH, 2.2, hedgeMat);
+        this.addBlock(-36, 0, 25, 2.2, hzH, 16, hedgeMat);
+        this.addBlock(-54, 0, 25, 2.2, hzH, 16, hedgeMat);
+
+        // Luxury Swimming Pool & Patio (East Side: x: 45, z: 25)
+        this.addBlock(45, 0, 25, 28, 0.2, 36, marbleMat);
+        this.addBlock(45, 0.1, 25, 18, 0.15, 26, waterMat);
+        this.addBlock(45, 0, 44, 20, 3.5, 6, marbleMat);
+
+        // Central Courtyard Fountain (x: 0, z: 25)
+        this.addBlock(0, 0, 25, 6.0, 1.4, 6.0, marbleMat);
+
+        // Street Lamps & Garden Lighting
+        this.addStreetLamp(-14, 12);
+        this.addStreetLamp(14, 12);
+        this.addStreetLamp(-14, 45);
+        this.addStreetLamp(14, 45);
+        this.addConcreteBarrier(-14, 55, 0);
+        this.addConcreteBarrier(14, 55, 0);
     }
 
     // =========================================================================

@@ -83,9 +83,8 @@
 
                     <div class="form-group">
                         <label>โหมดการเล่น (Game Mode)</label>
-                        <select id="game-mode-select" class="select-input">
-                            <option value="classic">💣 Classic Bomb Defusal (แบ่งรอบ วางระเบิด A/B + เงินเริ่มต้น $1,000)</option>
-                            <option value="tdm">💰 Rich Elimination Mode (แบ่งรอบ ตายดูเพื่อนรอจบรอบ + เงิน $50,000 ตลอดไม่ลด!)</option>
+                        <select id="game-mode-select" class="select-input" style="font-weight: 700; color: #34d399; border-color: rgba(16, 185, 129, 0.4);">
+                            <option value="tdm" selected>💰 Rich Elimination Mode (แบ่งรอบ ตายดูเพื่อนรอจบรอบ + เงิน $50,000 ตลอดไม่ลด!)</option>
                         </select>
                     </div>
 
@@ -93,7 +92,11 @@
                         <label>🗺️ เลือกด่านสมรภูมิ (Select Map)</label>
                         <select id="map-select" class="select-input" style="font-weight: 600; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
                             <option value="de_dust2" selected>🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
-                            <option value="de_megacity">🏙️ DE_MEGACITY — มหานครยุทธวิธีขนาดมหึมา 160m (Mega City - แผนที่ยักษ์แนวใหม่!)</option>
+                            <option value="de_megacity">🏙️ DE_MEGACITY — มหานครยุทธวิธีขนาดมหึมา 160m (Mega City - แผนที่ยักษ์!)</option>
+                            <option value="de_desert_storm">🏜️ DE_DESERT_STORM — มหาป้อมปราการทะเลทราย 180m (แผนที่ยักษ์!)</option>
+                            <option value="de_harbor_mega">⚓ DE_HARBOR_MEGA — ท่าเรือขนส่งสินค้าและเรือรบยักษ์ 185m (แผนที่ยักษ์!)</option>
+                            <option value="cs_airport">✈️ CS_AIRPORT — ท่าอากาศยานนานาชาติ & รันเวย์เครื่องบิน 190m (แผนที่ยักษ์!)</option>
+                            <option value="cs_mansion_mega">🏰 CS_MANSION_MEGA — มหาคฤหาสน์หรูและสวนวงกต 175m (แผนที่ยักษ์!)</option>
                             <option value="de_mirage">🕌 DE_MIRAGE — พระราชวังโมร็อกโก & ตลาดโบราณ (Mirage)</option>
                             <option value="cs_office">❄️ CS_OFFICE — สำนักงานหรูหรากลางพายุหิมะ (Office Winter)</option>
                             <option value="de_vertigo">🏗️ DE_VERTIGO — ดาดฟ้าตึกระฟ้า 50 ชั้น & ไซต์ก่อสร้าง (Vertigo Highrise)</option>
@@ -404,10 +407,10 @@
                         </div>
                         <span class="supply-price">$1000</span>
                     </button>
-                    <button id="btn-buy-nade-quick" class="ammo-supply-btn">
+                    <button id="btn-buy-nade-quick" class="ammo-supply-btn" style="border-color:rgba(239,68,68,0.55);background:rgba(239,68,68,0.14);">
                         <div>
-                            <div class="supply-name">💣 ระเบิดมือ M67 (+1 ลูก)</div>
-                            <div class="supply-sub">พกได้สูงสุด 5 ลูก</div>
+                            <div class="supply-name" style="color:#f87171;">💣 ชุดระเบิดมหาประลัย (+10 ลูก)</div>
+                            <div class="supply-sub">ซื้อ 1 ครั้งรับระเบิด 10 ลูก (ดาเมจ 280 HP รัศมีกว้างมาก)</div>
                         </div>
                         <span class="supply-price">$300</span>
                     </button>
@@ -512,6 +515,10 @@
                     <select id="ingame-map-select" class="select-input" style="border-color: rgba(251, 191, 36, 0.5); color: #fde68a;">
                         <option value="de_dust2">🏜️ DE_DUST2 — สมรภูมิทะเลทรายคลาสสิก (Dust II)</option>
                         <option value="de_megacity">🏙️ DE_MEGACITY — มหานครยุทธวิธีขนาดมหึมา 160m (Mega City)</option>
+                        <option value="de_desert_storm">🏜️ DE_DESERT_STORM — มหาป้อมปราการทะเลทราย 180m (แผนที่ยักษ์!)</option>
+                        <option value="de_harbor_mega">⚓ DE_HARBOR_MEGA — ท่าเรือขนส่งสินค้าและเรือรบยักษ์ 185m (แผนที่ยักษ์!)</option>
+                        <option value="cs_airport">✈️ CS_AIRPORT — ท่าอากาศยานนานาชาติ & รันเวย์เครื่องบิน 190m (แผนที่ยักษ์!)</option>
+                        <option value="cs_mansion_mega">🏰 CS_MANSION_MEGA — มหาคฤหาสน์หรูและสวนวงกต 175m (แผนที่ยักษ์!)</option>
                         <option value="de_mirage">🕌 DE_MIRAGE — พระราชวังโมร็อกโก & ตลาดโบราณ (Mirage)</option>
                         <option value="cs_office">❄️ CS_OFFICE — สำนักงานหรูหรากลางพายุหิมะ (Office Winter)</option>
                         <option value="de_vertigo">🏗️ DE_VERTIGO — ดาดฟ้าตึกระฟ้า 50 ชั้น & ไซต์ก่อสร้าง (Vertigo Highrise)</option>

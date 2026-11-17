@@ -10,7 +10,7 @@ class CSGame {
         this.scene.background = new THREE.Color(0x8a9ba8);
         this.scene.fog = new THREE.FogExp2(0xb5aa96, 0.0082);
 
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 450);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 550);
         this.scene.add(this.camera);
 
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
@@ -33,14 +33,14 @@ class CSGame {
         this.net = new NetworkManager(this);
 
         this.running = false;
-        this.gameMode = 'classic'; // 'classic' or 'tdm'
+        this.gameMode = 'tdm'; // Rich Elimination Mode ($50,000 always)
         this.botCount = 8;
         this.mobileMode = this.detectMobileDevice();
         this.autoFireMobile = false;
         this.lookSensitivity = 1.0;
 
         this.scores = { T: 0, CT: 0 };
-        this.roundTime = 115;
+        this.roundTime = 300;
         this.roundOver = false;
 
         this.bombState = {
@@ -66,7 +66,7 @@ class CSGame {
             pitch: 0,
             hp: 100,
             armor: 100,
-            money: 1600,
+            money: 50000,
             kills: 0,
             deaths: 0,
             crouching: false,
@@ -656,22 +656,40 @@ class CSGame {
         this.scene.remove(g.mesh);
         window.soundFX.playExplosion();
 
-        for (let i = 0; i < 28; i++) {
-            this.spawnImpactSparks(pos, i % 2 === 0 ? 0xf97316 : 0xfacc15, 7.0);
+        // 1. Massive fiery sparks and smoke burst
+        for (let i = 0; i < 48; i++) {
+            this.spawnImpactSparks(pos, i % 3 === 0 ? 0xef4444 : (i % 2 === 0 ? 0xf97316 : 0xfacc15), 10.0);
         }
 
-        const radius = 11.0;
+        // 2. Camera screen shake if local player is nearby
+        const distToPlayer = Math.hypot(this.player.x - pos.x, this.player.z - pos.z);
+        if (distToPlayer < 24.0) {
+            this.player.recoilPitch += Math.max(0.04, (1 - distToPlayer / 24.0) * 0.16);
+        }
+
+        // 3. Super high explosive power (radius 18.0m, direct blast 280 HP - instant lethal!)
+        const radius = 18.0;
+        const maxDamage = 280;
+
         for (const ent of this.entities) {
             if (ent.hp > 0 && ent.team !== this.player.team) {
                 const dist = Math.hypot(ent.x - pos.x, ent.z - pos.z);
                 if (dist < radius) {
-                    const dmg = Math.round(98 * (1 - dist / radius));
+                    const dmg = Math.round(maxDamage * Math.pow(1 - dist / radius, 1.2));
                     if (this.net.isClient) {
                         this.net.sendHitClaim(ent.id, dmg, 'hegrenade', false);
                     } else {
                         this.damageEntity(ent, dmg, this.player.name, 'hegrenade', false, this.player);
                     }
                 }
+            }
+        }
+
+        // Friendly or enemy blast hitting local player
+        if (this.player.hp > 0 && g.owner && g.owner !== this.player && g.owner.team !== this.player.team) {
+            if (distToPlayer < radius) {
+                const dmg = Math.round(maxDamage * Math.pow(1 - distToPlayer / radius, 1.2));
+                this.damageLocalPlayer(dmg, g.owner.name, 'hegrenade', false);
             }
         }
     }
@@ -1968,7 +1986,13 @@ class CSGame {
             const wId = this.player.slots[s];
             const label = btn.querySelector('.slot-name');
             if (label && wId && WEAPONS[wId]) {
-                label.textContent = WEAPONS[wId].id.toUpperCase();
+                if (wId === 'hegrenade') {
+                    const gAmmo = this.player.ammo.hegrenade;
+                    const totalG = gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0;
+                    label.textContent = `HE (${totalG})`;
+                } else {
+                    label.textContent = WEAPONS[wId].id.toUpperCase();
+                }
             }
         }
     }
@@ -2738,13 +2762,18 @@ class CSGame {
             this.showAnnouncement('🛡️ สวมเกราะหนักจู่โจมพิเศษ (150 AP)!', 1.6);
         });
 
-        // 6. Quick Buy HE Grenade (+1 grenade up to 5)
+        // 6. Quick Buy HE Grenade (+10 grenades pack)
         bindBtn('btn-buy-nade-quick', 300, () => {
             this.player.slots[4] = 'hegrenade';
             const gAmmo = this.player.ammo.hegrenade;
-            if (gAmmo.clip <= 0) gAmmo.clip = 1;
-            else gAmmo.reserve = Math.min(5, (gAmmo.reserve || 0) + 1);
-            this.showAnnouncement(`💣 ซื้อระเบิดมือ M67 เพิ่ม! (มี ${gAmmo.clip + gAmmo.reserve} ลูก)`, 1.6);
+            if (gAmmo.clip <= 0) {
+                gAmmo.clip = 1;
+                gAmmo.reserve = (gAmmo.reserve || 0) + 9;
+            } else {
+                gAmmo.reserve = (gAmmo.reserve || 0) + 10;
+            }
+            this.updateWeaponHUD();
+            this.showAnnouncement(`💣 ซื้อระเบิดมือชุดใหญ่ (+10 ลูก)! มีทั้งหมด ${gAmmo.clip + gAmmo.reserve} ลูก`, 1.8);
         });
 
         // 7. Quick HUD Buy Ammo Button (bottom-right HUD next to ammo counter)
@@ -2777,9 +2806,15 @@ class CSGame {
         } else if (item.id === 'hegrenade') {
             this.player.slots[4] = 'hegrenade';
             const gAmmo = this.player.ammo.hegrenade;
-            if (gAmmo.clip <= 0) gAmmo.clip = 1;
-            else gAmmo.reserve = Math.min(5, (gAmmo.reserve || 0) + 1);
+            if (gAmmo.clip <= 0) {
+                gAmmo.clip = 1;
+                gAmmo.reserve = (gAmmo.reserve || 0) + 9;
+            } else {
+                gAmmo.reserve = (gAmmo.reserve || 0) + 10;
+            }
             this.equipSlot(4);
+            this.updateWeaponHUD();
+            this.showAnnouncement(`💣 ซื้อระเบิดมือชุดใหญ่ (+10 ลูก)! มีทั้งหมด ${gAmmo.clip + gAmmo.reserve} ลูก`, 1.8);
         } else {
             const wep = WEAPONS[item.id];
             this.player.slots[wep.slot] = wep.id;
