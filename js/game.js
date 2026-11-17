@@ -172,7 +172,15 @@ class CSGame {
     equipSlot(slotNum) {
         const wepId = this.player.slots[slotNum];
         if (!wepId || !WEAPONS[wepId]) return;
-        if (slotNum === 4 && this.player.ammo.hegrenade.clip <= 0) return;
+        if (slotNum === 4) {
+            const gAmmo = this.player.ammo.hegrenade;
+            const totalG = gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0;
+            if (totalG <= 0) return;
+            if (gAmmo.clip <= 0 && gAmmo.reserve > 0) {
+                gAmmo.clip = 1;
+                gAmmo.reserve--;
+            }
+        }
 
         this.spectatedWepId = null;
         this.player.currentSlot = slotNum;
@@ -457,8 +465,20 @@ class CSGame {
         }
 
         for (const k of Object.keys(this.player.ammo)) {
-            this.player.ammo[k].clip = WEAPONS[k].clipSize;
-            this.player.ammo[k].reserve = Math.max(this.player.ammo[k].reserve || 0, WEAPONS[k].reserveMax);
+            if (k === 'hegrenade') {
+                const g = this.player.ammo[k];
+                const total = Math.min(10, Math.max((g.clip || 0) + (g.reserve || 0), WEAPONS[k].clipSize + WEAPONS[k].reserveMax));
+                if (total > 0) {
+                    g.clip = 1;
+                    g.reserve = total - 1;
+                } else {
+                    g.clip = 0;
+                    g.reserve = 0;
+                }
+            } else {
+                this.player.ammo[k].clip = WEAPONS[k].clipSize;
+                this.player.ammo[k].reserve = Math.max(this.player.ammo[k].reserve || 0, WEAPONS[k].reserveMax);
+            }
         }
         this.equipSlot(this.player.slots[1] ? 1 : 2);
         this.updateVitalsHUD();
@@ -2701,6 +2721,14 @@ class CSGame {
             const el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('click', () => {
+                if (id === 'btn-buy-nade-quick') {
+                    const gAmmo = this.player.ammo.hegrenade;
+                    const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
+                    if (curTotal >= 10) {
+                        this.showAnnouncement('⚠️ ระเบิดมือเต็มแล้ว! พกได้สูงสุด 10 ลูกเท่านั้น', 1.8);
+                        return;
+                    }
+                }
                 if (this.gameMode !== 'tdm') {
                     if (this.player.money < cost) {
                         this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อรายการนี้!', 1.5);
@@ -2762,24 +2790,22 @@ class CSGame {
             this.showAnnouncement('🛡️ สวมเกราะหนักจู่โจมพิเศษ (150 AP)!', 1.6);
         });
 
-        // 6. Quick Buy HE Grenade (+10 grenades pack)
+        // 6. Quick Buy HE Grenade (+10 grenades pack, max 10)
         bindBtn('btn-buy-nade-quick', 300, () => {
             this.player.slots[4] = 'hegrenade';
             const gAmmo = this.player.ammo.hegrenade;
-            if (gAmmo.clip <= 0) {
-                gAmmo.clip = 1;
-                gAmmo.reserve = (gAmmo.reserve || 0) + 9;
-            } else {
-                gAmmo.reserve = (gAmmo.reserve || 0) + 10;
-            }
+            const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
+            const newTotal = Math.min(10, curTotal + 10);
+            gAmmo.clip = 1;
+            gAmmo.reserve = newTotal - 1;
             this.updateWeaponHUD();
-            this.showAnnouncement(`💣 ซื้อระเบิดมือชุดใหญ่ (+10 ลูก)! มีทั้งหมด ${gAmmo.clip + gAmmo.reserve} ลูก`, 1.8);
+            this.showAnnouncement(`💣 ซื้อระเบิดมือ HE (+${newTotal - curTotal} ลูก)! มีทั้งหมด ${newTotal}/10 ลูก (เต็มความจุ)`, 1.8);
         });
 
         // 7. Quick HUD Buy Ammo Button (bottom-right HUD next to ammo counter)
         bindBtn('btn-hud-buy-ammo', 50, () => {
             const curId = this.player.weaponId;
-            if (curId && WEAPONS[curId] && curId !== 'knife') {
+            if (curId && WEAPONS[curId] && curId !== 'knife' && curId !== 'hegrenade') {
                 const w = WEAPONS[curId];
                 this.player.ammo[curId].clip = w.clipSize;
                 this.player.ammo[curId].reserve = Math.min(999, (this.player.ammo[curId].reserve || 0) + 120);
@@ -2789,6 +2815,15 @@ class CSGame {
     }
 
     buyItem(item) {
+        if (item.id === 'hegrenade') {
+            const gAmmo = this.player.ammo.hegrenade;
+            const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
+            if (curTotal >= 10) {
+                this.showAnnouncement('⚠️ ระเบิดมือเต็มแล้ว! พกได้สูงสุด 10 ลูกเท่านั้น', 1.8);
+                return;
+            }
+        }
+
         if (this.gameMode !== 'tdm') {
             if (this.player.money < item.price) {
                 this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อไอเทมนี้!', 1.5);
@@ -2806,15 +2841,13 @@ class CSGame {
         } else if (item.id === 'hegrenade') {
             this.player.slots[4] = 'hegrenade';
             const gAmmo = this.player.ammo.hegrenade;
-            if (gAmmo.clip <= 0) {
-                gAmmo.clip = 1;
-                gAmmo.reserve = (gAmmo.reserve || 0) + 9;
-            } else {
-                gAmmo.reserve = (gAmmo.reserve || 0) + 10;
-            }
+            const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
+            const newTotal = Math.min(10, curTotal + 10);
+            gAmmo.clip = 1;
+            gAmmo.reserve = newTotal - 1;
             this.equipSlot(4);
             this.updateWeaponHUD();
-            this.showAnnouncement(`💣 ซื้อระเบิดมือชุดใหญ่ (+10 ลูก)! มีทั้งหมด ${gAmmo.clip + gAmmo.reserve} ลูก`, 1.8);
+            this.showAnnouncement(`💣 ซื้อระเบิดมือ HE (+${newTotal - curTotal} ลูก)! มีทั้งหมด ${newTotal}/10 ลูก (เต็มความจุ)`, 1.8);
         } else {
             const wep = WEAPONS[item.id];
             this.player.slots[wep.slot] = wep.id;
