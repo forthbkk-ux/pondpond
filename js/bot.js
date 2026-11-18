@@ -562,6 +562,17 @@ class BotAI {
             } else {
                 this.game.damageEntity(target, dmg, bot.name, bot.weapon || 'ak47', isHeadshot, bot);
             }
+        } else {
+            // Tactical: supersonic near-miss whiz-by audio if bullet snaps close to player
+            if (target.isLocalPlayer && window.soundFX && window.soundFX.playNearMiss) {
+                const playerPos = new THREE.Vector3(target.x, target.y + 1.2, target.z);
+                const rayLine = new THREE.Line3(start, end);
+                const closestPoint = new THREE.Vector3();
+                rayLine.closestPointToPoint(playerPos, true, closestPoint);
+                if (closestPoint.distanceTo(playerPos) < 2.5) {
+                    window.soundFX.playNearMiss();
+                }
+            }
         }
     }
 

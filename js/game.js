@@ -95,6 +95,28 @@ class CSGame {
         this.grenades = [];
         this.particles = [];
         this.bulletDecals = [];
+        this.spentShells = [];
+        this.gunSmokePuffs = [];
+        this.bloodDecals = [];
+
+        // Real-Time Dynamic Muzzle Flash Light (illuminates walls, barrels & hands)
+        this.muzzleLight = new THREE.PointLight(0xffa726, 0, 16);
+        this.scene.add(this.muzzleLight);
+
+        // Tactical Viewmodel Sway, Weapon Bobbing & Recoil Physics
+        this.weaponBobTimer = 0;
+        this.weaponSwayX = 0;
+        this.weaponSwayY = 0;
+        this.targetSwayX = 0;
+        this.targetSwayY = 0;
+        this.weaponKickBack = 0;
+        this.weaponKickPitch = 0;
+        this.weaponKickRoll = 0;
+
+        // Visceral Camera Aim Punch & Trauma Flinch
+        this.cameraFlinchPitch = 0;
+        this.cameraFlinchYaw = 0;
+        this.cameraFlinchRoll = 0;
 
         this.keys = {};
         this.mouseDown = false;
@@ -540,25 +562,37 @@ class CSGame {
         window.soundFX.playShoot(wep.id, 1.0);
         this.updateWeaponHUD();
 
-        // Viewmodel recoil kick, Muzzle Flash + Dynamic Light + Ejecting Brass Shell
+        // Viewmodel recoil kick, Muzzle Flash + Dynamic Real-Time Light + Ejecting Brass Shell
         if (this.weaponMesh) {
-            this.weaponMesh.position.z += 0.065;
-            this.weaponMesh.rotation.x += 0.085;
+            this.weaponKickBack = Math.min(0.12, this.weaponKickBack + (wep.recoil * 5.5 + 0.045));
+            this.weaponKickPitch = Math.min(0.20, this.weaponKickPitch + (wep.recoil * 6.5 + 0.055));
+            this.weaponKickRoll = (Math.random() - 0.5) * 0.06;
+
             const flash = this.weaponMesh.getObjectByName('muzzleFlash');
             if (flash) {
                 flash.visible = true;
                 flash.rotation.z = Math.random() * Math.PI * 2;
                 clearTimeout(this.flashTimeout);
-                this.flashTimeout = setTimeout(() => { flash.visible = false; }, 50);
+                this.flashTimeout = setTimeout(() => { flash.visible = false; }, 40);
             }
         }
+
+        const eyeHeight = this.player.crouching ? 1.05 : 1.62;
+        const origin = new THREE.Vector3(this.player.x, this.player.y + eyeHeight, this.player.z);
+        const forwardVec = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch, this.player.yaw, 0, 'YXZ'));
+        const rightVec = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, this.player.yaw, 0));
+        const gunMuzzle = origin.clone().addScaledVector(forwardVec, 0.62).addScaledVector(rightVec, 0.18).add(new THREE.Vector3(0, -0.06, 0));
+
         if (wep.id !== 'knife') {
-            this.spawnShellCasing();
+            // Real-time Dynamic Muzzle Light flash in 3D world
+            this.muzzleLight.position.copy(gunMuzzle);
+            this.muzzleLight.intensity = 5.2;
+
+            this.spawnShellCasing(wep.id);
+            this.spawnGunSmoke(gunMuzzle);
         }
 
         const pellets = wep.pellets || 1;
-        const eyeHeight = this.player.crouching ? 1.05 : 1.62;
-        const origin = new THREE.Vector3(this.player.x, this.player.y + eyeHeight, this.player.z);
 
         for (let p = 0; p < pellets; p++) {
             let spreadAmount = wep.spread;
@@ -610,7 +644,7 @@ class CSGame {
                 else if (part === 'leg') dmg = Math.round(dmg * 0.75);
 
                 this.triggerHitmarker(isHeadshot);
-                this.spawnImpactSparks(hit.point, 0xdc2626, 3.4);
+                this.spawnImpactBlood(hit.point, dir, isHeadshot);
 
                 if (this.net.isClient) {
                     this.net.sendHitClaim(targetEnt.id, dmg, wep.id, isHeadshot);
@@ -618,14 +652,11 @@ class CSGame {
                     this.damageEntity(targetEnt, dmg, this.player.name, wep.id, isHeadshot, this.player);
                 }
             } else if (wallHits.length > 0 && wep.id !== 'knife') {
-                this.spawnImpactSparks(endPoint, 0xfbbf24, 2.6);
-                if (wallHits[0].face) {
-                    this.spawnBulletDecal(endPoint, wallHits[0].face.normal);
-                }
+                const norm = wallHits[0].face ? wallHits[0].face.normal : new THREE.Vector3(0, 1, 0);
+                this.spawnEnvironmentImpact(endPoint, norm, wep.id, wallHits[0].object);
             }
 
             if (wep.id !== 'knife') {
-                const gunMuzzle = origin.clone().add(new THREE.Vector3(0, -0.08, 0));
                 this.spawnBulletTracer(gunMuzzle, endPoint);
                 this.net.sendShoot(gunMuzzle, endPoint, wep.id);
             }
@@ -719,6 +750,15 @@ class CSGame {
         if (ent.hp <= 0 || (ent.invincibleTimer && ent.invincibleTimer > 0)) return;
         ent.hp = Math.max(0, ent.hp - dmg);
 
+        // Tactical: Spawn blood splatter and sound for bot-on-bot hits
+        if (attackerObj !== this.player && this.spawnImpactBlood && ent.mesh) {
+            const hitPos = new THREE.Vector3(ent.x, ent.y + (isHeadshot ? 1.6 : 1.1), ent.z);
+            const dir = attackerObj ? new THREE.Vector3(ent.x - attackerObj.x, 0, ent.z - attackerObj.z).normalize() : new THREE.Vector3(0, 0, 1);
+            this.spawnImpactBlood(hitPos, dir, isHeadshot);
+            const floorY = this.getFloorHeight(ent.x, ent.y, ent.z);
+            this.spawnBulletDecal(new THREE.Vector3(ent.x, floorY, ent.z), new THREE.Vector3(0, 1, 0), 'blood');
+        }
+
         // If target is a remote client connected to Host, send authoritative HP & damage flash
         if (this.net.isHost && !ent.isBot) {
             this.net.sendToPeer(ent.id, {
@@ -788,10 +828,14 @@ class CSGame {
         this.player.hp = Math.max(0, this.player.hp - actualDmg);
         this.updateVitalsHUD();
 
+        window.soundFX.playImpactFlesh(isHeadshot);
+        this.triggerAimPunch(actualDmg, attackerObj);
+        this.triggerThreatIndicator(attackerObj);
+
         const flash = document.getElementById('damage-flash');
         if (flash) {
             flash.style.opacity = '1';
-            setTimeout(() => { flash.style.opacity = '0'; }, 180);
+            setTimeout(() => { flash.style.opacity = '0'; }, 160);
         }
 
         if (this.player.hp <= 0) {
@@ -838,10 +882,13 @@ class CSGame {
         this.player.hp = Math.max(0, data.newHp !== undefined ? data.newHp : (this.player.hp - data.dmg));
         this.updateVitalsHUD();
 
+        this.triggerAimPunch(data.dmg || 25, null);
+        this.triggerThreatIndicator(null);
+
         const flash = document.getElementById('damage-flash');
         if (flash) {
             flash.style.opacity = '1';
-            setTimeout(() => { flash.style.opacity = '0'; }, 180);
+            setTimeout(() => { flash.style.opacity = '0'; }, 160);
         }
 
         if (this.player.hp <= 0) {
@@ -986,49 +1033,297 @@ class CSGame {
         document.getElementById('bomb-progress-box').classList.add('hidden');
     }
 
-    // ==================== REALISTIC VISUAL EFFECTS ====================
-    spawnBulletTracer(start, end) {
-        const mat = new THREE.LineBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.9 });
+    // ==================== REALISTIC TACTICAL & MILITARY VISUAL EFFECTS ====================
+    spawnBulletTracer(start, end, colorHex = 0xfef08a) {
+        const mat = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: 0.92 });
         const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
         const line = new THREE.Line(geo, mat);
         this.scene.add(line);
-        this.tracers.push({ line, timer: 0.065 });
+        this.tracers.push({ line, timer: 0.055 });
     }
 
-    spawnShellCasing() {
+    spawnShellCasing(weaponId) {
+        const isShotgun = (weaponId === 'nova' || weaponId === 'sawedoff' || weaponId === 'mag7' || weaponId === 'shotgun' || weaponId === 'spas12');
         const eyeH = this.player.crouching ? 1.05 : 1.62;
-        const pos = new THREE.Vector3(this.player.x, this.player.y + eyeH - 0.12, this.player.z);
-        const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, this.player.yaw, 0));
+        const origin = new THREE.Vector3(this.player.x, this.player.y + eyeH, this.player.z);
         const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch, this.player.yaw, 0, 'YXZ'));
+        const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, this.player.yaw, 0));
+        const up = new THREE.Vector3(0, 1, 0);
 
-        pos.addScaledVector(right, 0.22).addScaledVector(forward, 0.35);
+        const pos = origin.clone().addScaledVector(right, 0.22).addScaledVector(forward, 0.30).add(new THREE.Vector3(0, -0.06, 0));
 
-        const geo = new THREE.CylinderGeometry(0.008, 0.008, 0.032, 6);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.2 });
-        const shell = new THREE.Mesh(geo, mat);
-        shell.position.copy(pos);
-        shell.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-        this.scene.add(shell);
+        let mesh;
+        if (isShotgun) {
+            const shellGeo = new THREE.CylinderGeometry(0.011, 0.011, 0.046, 8);
+            const shellMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.35, metalness: 0.25 });
+            mesh = new THREE.Mesh(shellGeo, shellMat);
+        } else {
+            const brassGeo = new THREE.CylinderGeometry(0.007, 0.007, 0.032, 8);
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.22, metalness: 0.94 });
+            mesh = new THREE.Mesh(brassGeo, brassMat);
+        }
+        mesh.position.copy(pos);
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        this.scene.add(mesh);
 
-        this.particles.push({
-            mesh: shell,
-            vel: right.multiplyScalar(2.2 + Math.random()).add(new THREE.Vector3(0, 1.8 + Math.random(), 0)),
-            timer: 0.65
+        const vel = right.clone().multiplyScalar(2.6 + Math.random() * 1.0)
+            .add(up.clone().multiplyScalar(1.6 + Math.random() * 0.8))
+            .add(forward.clone().multiplyScalar(-(0.3 + Math.random() * 0.4)));
+
+        const rotVel = new THREE.Vector3(
+            (Math.random() - 0.5) * 32,
+            (Math.random() - 0.5) * 32,
+            (Math.random() - 0.5) * 32
+        );
+
+        this.spentShells.push({
+            mesh,
+            vel,
+            rotVel,
+            bounces: 0,
+            timer: 3.0
         });
+
+        if (this.spentShells.length > 35) {
+            const old = this.spentShells.shift();
+            this.scene.remove(old.mesh);
+        }
     }
 
-    spawnBulletDecal(point, normal) {
-        const geo = new THREE.CircleGeometry(0.055, 8);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x1c1917, transparent: true, opacity: 0.82, depthWrite: false });
+    spawnGunSmoke(muzzlePos) {
+        const geo = new THREE.SphereGeometry(0.065, 6, 6);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xd6d3d1, transparent: true, opacity: 0.38, depthWrite: false });
+        const smoke = new THREE.Mesh(geo, mat);
+        smoke.position.copy(muzzlePos);
+        this.scene.add(smoke);
+
+        this.gunSmokePuffs.push({
+            mesh: smoke,
+            vel: new THREE.Vector3((Math.random() - 0.5) * 0.25, 0.42 + Math.random() * 0.25, (Math.random() - 0.5) * 0.25),
+            timer: 1.1,
+            maxTimer: 1.1,
+            initialOpacity: 0.38
+        });
+
+        if (this.gunSmokePuffs.length > 25) {
+            const old = this.gunSmokePuffs.shift();
+            this.scene.remove(old.mesh);
+        }
+    }
+
+    getDecalTexture(type) {
+        if (!this._decalTexCache) this._decalTexCache = {};
+        if (this._decalTexCache[type]) return this._decalTexCache[type];
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        if (type === 'blood') {
+            ctx.fillStyle = '#880808';
+            ctx.beginPath();
+            ctx.arc(64, 64, 26, 0, Math.PI * 2);
+            ctx.fill();
+            for (let i = 0; i < 18; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 22 + Math.random() * 36;
+                const r = 3 + Math.random() * 8;
+                ctx.fillStyle = i % 2 === 0 ? '#6b0707' : '#991b1b';
+                ctx.beginPath();
+                ctx.arc(64 + Math.cos(angle) * dist, 64 + Math.sin(angle) * dist, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else if (type === 'metal') {
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(64, 64, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#1c1917';
+            ctx.beginPath();
+            ctx.arc(64, 64, 8, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Concrete crater with powder burn & cracked radial lines
+            ctx.fillStyle = 'rgba(28, 25, 23, 0.75)';
+            ctx.beginPath();
+            ctx.arc(64, 64, 24, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(64, 64, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 2.5;
+            for (let a = 0; a < 6; a++) {
+                const angle = a * Math.PI / 3 + (Math.random() - 0.5) * 0.4;
+                ctx.beginPath();
+                ctx.moveTo(64, 64);
+                ctx.lineTo(64 + Math.cos(angle) * 44, 64 + Math.sin(angle) * 44);
+                ctx.stroke();
+            }
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        this._decalTexCache[type] = tex;
+        return tex;
+    }
+
+    spawnBulletDecal(point, normal, type = 'concrete') {
+        const size = type === 'blood' ? 0.38 : (type === 'metal' ? 0.08 : 0.12);
+        const geo = new THREE.PlaneGeometry(size, size);
+        const mat = new THREE.MeshBasicMaterial({
+            map: this.getDecalTexture(type),
+            transparent: true,
+            opacity: type === 'blood' ? 0.88 : 0.85,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -4
+        });
         const decal = new THREE.Mesh(geo, mat);
         decal.position.copy(point).addScaledVector(normal, 0.015);
         decal.lookAt(point.clone().add(normal));
         this.scene.add(decal);
 
         this.bulletDecals.push(decal);
-        if (this.bulletDecals.length > 45) {
+        if (this.bulletDecals.length > 60) {
             const old = this.bulletDecals.shift();
             this.scene.remove(old);
+            if (old.geometry) old.geometry.dispose();
+            if (old.material) old.material.dispose();
+        }
+    }
+
+    spawnImpactBlood(point, bulletDir, isHeadshot = false) {
+        const count = isHeadshot ? 28 : 16;
+        const bloodColor = 0x880808;
+
+        // 1. High-velocity arterial blood droplet spray
+        for (let i = 0; i < count; i++) {
+            const dropGeo = new THREE.SphereGeometry(0.026 + Math.random() * 0.016, 5, 5);
+            const dropMat = new THREE.MeshBasicMaterial({ color: bloodColor });
+            const drop = new THREE.Mesh(dropGeo, dropMat);
+            drop.position.copy(point);
+            this.scene.add(drop);
+
+            const sprayDir = bulletDir.clone().negate().multiplyScalar(1.8 + Math.random() * 2.2)
+                .add(new THREE.Vector3((Math.random() - 0.5) * 2.8, (Math.random() - 0.3) * 2.8, (Math.random() - 0.5) * 2.8));
+
+            this.particles.push({
+                mesh: drop,
+                vel: sprayDir,
+                timer: 0.40 + Math.random() * 0.25,
+                isBlood: true
+            });
+        }
+
+        // 2. Atmospheric lingering blood mist cloud
+        for (let m = 0; m < (isHeadshot ? 3 : 2); m++) {
+            const mistGeo = new THREE.SphereGeometry(0.18, 6, 6);
+            const mistMat = new THREE.MeshBasicMaterial({ color: 0x7f1d1d, transparent: true, opacity: 0.58 });
+            const mist = new THREE.Mesh(mistGeo, mistMat);
+            mist.position.copy(point);
+            this.scene.add(mist);
+            this.particles.push({
+                mesh: mist,
+                vel: new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.25 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6),
+                timer: 0.45,
+                maxTimer: 0.45,
+                isDust: true
+            });
+        }
+
+        // 3. If headshot: spawn helmet ricochet sparks + helmet ping audio
+        if (isHeadshot) {
+            window.soundFX.playImpactFlesh(true);
+            for (let s = 0; s < 10; s++) {
+                const sGeo = new THREE.BoxGeometry(0.02, 0.02, 0.06);
+                const sMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+                const spk = new THREE.Mesh(sGeo, sMat);
+                spk.position.copy(point);
+                this.scene.add(spk);
+                this.particles.push({
+                    mesh: spk,
+                    vel: new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3 + 1, (Math.random() - 0.5) * 4),
+                    timer: 0.22 + Math.random() * 0.12,
+                    isSpark: true
+                });
+            }
+        } else {
+            window.soundFX.playImpactFlesh(false);
+        }
+
+        // 4. Project persistent blood puddle decal onto floor
+        const floorY = this.getFloorHeight(point.x, point.y, point.z);
+        if (point.y - floorY < 3.0) {
+            this.spawnBulletDecal(new THREE.Vector3(point.x + (Math.random() - 0.5) * 0.4, floorY, point.z + (Math.random() - 0.5) * 0.4), new THREE.Vector3(0, 1, 0), 'blood');
+        }
+    }
+
+    spawnEnvironmentImpact(point, normal, wepId, hitObject) {
+        let isMetal = false;
+        let isWood = false;
+
+        if (hitObject) {
+            if (hitObject.userData && hitObject.userData.isCrate) isWood = true;
+            if (hitObject.geometry && (hitObject.geometry.type === 'CylinderGeometry')) isMetal = true;
+        }
+
+        if (isMetal) {
+            window.soundFX.playImpactMetal();
+            for (let i = 0; i < 14; i++) {
+                const geo = new THREE.BoxGeometry(0.025, 0.025, 0.08);
+                const mat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xfef08a : 0xf97316 });
+                const spark = new THREE.Mesh(geo, mat);
+                spark.position.copy(point).addScaledVector(normal, 0.02);
+                this.scene.add(spark);
+                const spread = new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2.5 + 1.2, (Math.random() - 0.5) * 3);
+                const vel = normal.clone().multiplyScalar(3.5).add(spread);
+                this.particles.push({ mesh: spark, vel, timer: 0.28 + Math.random() * 0.15, isSpark: true });
+            }
+            this.spawnBulletDecal(point, normal, 'metal');
+        } else if (isWood) {
+            window.soundFX.playImpactConcrete();
+            for (let i = 0; i < 8; i++) {
+                const geo = new THREE.BoxGeometry(0.015, 0.015, 0.09);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+                const splinter = new THREE.Mesh(geo, mat);
+                splinter.position.copy(point).addScaledVector(normal, 0.02);
+                this.scene.add(splinter);
+                const vel = normal.clone().multiplyScalar(2.0).add(new THREE.Vector3((Math.random() - 0.5) * 2.5, Math.random() * 2.2, (Math.random() - 0.5) * 2.5));
+                this.particles.push({ mesh: splinter, vel, timer: 0.45 + Math.random() * 0.2 });
+            }
+            this.spawnBulletDecal(point, normal, 'wood');
+        } else {
+            // Concrete / Stone Wall
+            window.soundFX.playImpactConcrete();
+            for (let i = 0; i < 3; i++) {
+                const dustGeo = new THREE.SphereGeometry(0.12, 6, 6);
+                const dustMat = new THREE.MeshBasicMaterial({ color: 0xd1d5db, transparent: true, opacity: 0.65 });
+                const dust = new THREE.Mesh(dustGeo, dustMat);
+                dust.position.copy(point).addScaledVector(normal, 0.04);
+                this.scene.add(dust);
+                this.particles.push({
+                    mesh: dust,
+                    vel: normal.clone().multiplyScalar(1.2).add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * 0.9, (Math.random() - 0.5) * 0.8)),
+                    timer: 0.45,
+                    maxTimer: 0.45,
+                    isDust: true
+                });
+            }
+            for (let i = 0; i < 6; i++) {
+                const chipGeo = new THREE.BoxGeometry(0.035, 0.035, 0.035);
+                const chipMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.95 });
+                const chip = new THREE.Mesh(chipGeo, chipMat);
+                chip.position.copy(point).addScaledVector(normal, 0.02);
+                this.scene.add(chip);
+                this.particles.push({
+                    mesh: chip,
+                    vel: normal.clone().multiplyScalar(2.2).add(new THREE.Vector3((Math.random() - 0.5) * 2.0, Math.random() * 2.0, (Math.random() - 0.5) * 2.0)),
+                    timer: 0.4 + Math.random() * 0.2
+                });
+            }
+            this.spawnBulletDecal(point, normal, 'concrete');
         }
     }
 
@@ -1051,8 +1346,37 @@ class CSGame {
         }
     }
 
+    triggerAimPunch(dmg, attackerObj) {
+        const punchMag = Math.min(0.24, (dmg / 100) * 0.32 + 0.06);
+        this.cameraFlinchPitch = -punchMag * (0.85 + Math.random() * 0.4);
+        this.cameraFlinchRoll = (Math.random() - 0.5) * punchMag * 1.4;
+        this.cameraFlinchYaw = (Math.random() - 0.5) * punchMag * 0.8;
+
+        this.weaponKickBack = Math.min(0.14, this.weaponKickBack + punchMag * 0.45);
+        this.weaponKickRoll += (Math.random() - 0.5) * 0.12;
+    }
+
+    triggerThreatIndicator(attackerObj) {
+        const ind = document.getElementById('directional-damage-indicator');
+        if (!ind) return;
+
+        let targetAngle = 0;
+        if (attackerObj && attackerObj.x !== undefined) {
+            const dx = attackerObj.x - this.player.x;
+            const dz = attackerObj.z - this.player.z;
+            const worldAngle = Math.atan2(dx, dz);
+            targetAngle = (worldAngle - this.player.yaw) * 180 / Math.PI;
+        }
+
+        ind.style.transform = `rotate(${targetAngle}deg)`;
+        ind.style.opacity = '1';
+        clearTimeout(this.threatTimeout);
+        this.threatTimeout = setTimeout(() => {
+            ind.style.opacity = '0';
+        }, 450);
+    }
+
     triggerHitmarker(isHeadshot) {
-        window.soundFX.playHit(isHeadshot);
         const hm = document.getElementById('hitmarker');
         if (!hm) return;
         hm.classList.toggle('headshot', isHeadshot);
@@ -1206,20 +1530,47 @@ class CSGame {
             }
         }
 
+        // Visceral Camera Flinch & Aim Punch Recovery
+        this.cameraFlinchPitch = THREE.MathUtils.lerp(this.cameraFlinchPitch, 0, dt * 12);
+        this.cameraFlinchYaw = THREE.MathUtils.lerp(this.cameraFlinchYaw, 0, dt * 12);
+        this.cameraFlinchRoll = THREE.MathUtils.lerp(this.cameraFlinchRoll, 0, dt * 12);
+
         const eyeH = p.crouching ? 1.05 : 1.62;
         this.camera.position.set(p.x, p.y + eyeH, p.z);
         this.camera.rotation.order = 'YXZ';
-        this.camera.rotation.y = p.yaw;
-        this.camera.rotation.x = Math.max(-1.45, Math.min(1.45, p.pitch + p.recoilPitch));
-        this.camera.rotation.z = 0;
+        this.camera.rotation.y = p.yaw + this.cameraFlinchYaw;
+        this.camera.rotation.x = Math.max(-1.45, Math.min(1.45, p.pitch + p.recoilPitch + this.cameraFlinchPitch));
+        this.camera.rotation.z = this.cameraFlinchRoll;
+
+        // Tactical Weapon Viewmodel Physics (Breathing Sway, Walk Bobbing & Recoil Spring)
+        this.weaponKickBack = THREE.MathUtils.lerp(this.weaponKickBack, 0, dt * 16);
+        this.weaponKickPitch = THREE.MathUtils.lerp(this.weaponKickPitch, 0, dt * 14);
+        this.weaponKickRoll = THREE.MathUtils.lerp(this.weaponKickRoll, 0, dt * 14);
+
+        this.targetSwayX = THREE.MathUtils.lerp(this.targetSwayX, 0, dt * 10);
+        this.targetSwayY = THREE.MathUtils.lerp(this.targetSwayY, 0, dt * 10);
+        this.weaponSwayX = THREE.MathUtils.lerp(this.weaponSwayX, this.targetSwayX, dt * 14);
+        this.weaponSwayY = THREE.MathUtils.lerp(this.weaponSwayY, this.targetSwayY, dt * 14);
+
+        const isMoving = movingSpeed > 0.8 && p.onGround;
+        this.weaponBobTimer += dt * (isMoving ? 10.5 : 2.2);
+
+        const bobX = Math.sin(this.weaponBobTimer * 0.5) * (isMoving ? 0.016 : 0.0035);
+        const bobY = Math.abs(Math.sin(this.weaponBobTimer)) * (isMoving ? 0.015 : 0.003);
+        const bobRotZ = Math.sin(this.weaponBobTimer * 0.5) * (isMoving ? 0.035 : 0.006);
 
         if (this.weaponMesh && !p.reloading) {
-            const bobX = Math.cos(p.bobTimer) * 0.012;
-            const bobY = Math.abs(Math.sin(p.bobTimer)) * 0.012;
-            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, 0.21 + bobX, dt * 10);
-            this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, -0.21 - bobY, dt * 10);
-            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, -0.39, dt * 12);
-            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.02, dt * 12);
+            const baseX = p.isScoped ? 0 : 0.21;
+            const baseY = p.isScoped ? -0.15 : -0.21;
+            const baseZ = p.isScoped ? -0.25 : -0.39;
+
+            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, baseX + bobX + this.weaponSwayX, dt * 14);
+            this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, baseY - bobY + this.weaponSwayY, dt * 14);
+            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, baseZ + this.weaponKickBack, dt * 18);
+
+            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.02 + this.weaponKickPitch, dt * 16);
+            this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, 0.065 + this.weaponSwayX * 0.8, dt * 14);
+            this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, bobRotZ + this.weaponKickRoll, dt * 14);
         }
 
         this.updateCrosshair(movingSpeed);
@@ -1456,29 +1807,119 @@ class CSGame {
     }
 
     updateEffects(dt) {
+        // Decay dynamic real-time muzzle flash light
+        if (this.muzzleLight && this.muzzleLight.intensity > 0) {
+            this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 95);
+        }
+
+        // Low-HP Heartbeat & Visceral Screen Blood Splatter Pulse
+        const bloodOverlay = document.getElementById('blood-screen-overlay');
+        if (bloodOverlay) {
+            if (this.player.hp > 0 && this.player.hp <= 35) {
+                const intensity = (1 - (this.player.hp / 35)).toFixed(2);
+                bloodOverlay.style.opacity = Math.max(0.35, intensity);
+                bloodOverlay.classList.add('critical-hp');
+                window.soundFX.playHeartbeat();
+            } else {
+                bloodOverlay.style.opacity = '0';
+                bloodOverlay.classList.remove('critical-hp');
+            }
+        }
+
         for (const ent of this.entities) {
             if (ent.invincibleTimer > 0) {
                 ent.invincibleTimer = Math.max(0, ent.invincibleTimer - dt);
             }
         }
 
+        // Update Hypersonic Tracers
         for (let i = this.tracers.length - 1; i >= 0; i--) {
             const t = this.tracers[i];
             t.timer -= dt;
             if (t.timer <= 0) {
                 this.scene.remove(t.line);
+                if (t.line.geometry) t.line.geometry.dispose();
+                if (t.line.material) t.line.material.dispose();
                 this.tracers.splice(i, 1);
             }
         }
 
+        // Update Physical Spent Shell Casings (Gravity + Floor Bounces)
+        for (let i = this.spentShells.length - 1; i >= 0; i--) {
+            const sh = this.spentShells[i];
+            sh.timer -= dt;
+            sh.vel.y -= 14 * dt;
+            sh.mesh.position.addScaledVector(sh.vel, dt);
+            sh.mesh.rotation.x += sh.rotVel.x * dt;
+            sh.mesh.rotation.y += sh.rotVel.y * dt;
+            sh.mesh.rotation.z += sh.rotVel.z * dt;
+
+            const floorY = this.getFloorHeight(sh.mesh.position.x, sh.mesh.position.y, sh.mesh.position.z);
+            if (sh.mesh.position.y <= floorY + 0.012) {
+                sh.mesh.position.y = floorY + 0.012;
+                if (Math.abs(sh.vel.y) > 0.6 && sh.bounces < 3) {
+                    sh.vel.y = -sh.vel.y * 0.42;
+                    sh.vel.x *= 0.65;
+                    sh.vel.z *= 0.65;
+                    sh.rotVel.multiplyScalar(0.45);
+                    if (sh.bounces === 0) window.soundFX.playCasingBounce();
+                    sh.bounces++;
+                } else {
+                    sh.vel.set(0, 0, 0);
+                    sh.rotVel.set(0, 0, 0);
+                }
+            }
+            if (sh.timer <= 0) {
+                this.scene.remove(sh.mesh);
+                if (sh.mesh.geometry) sh.mesh.geometry.dispose();
+                if (sh.mesh.material) sh.mesh.material.dispose();
+                this.spentShells.splice(i, 1);
+            }
+        }
+
+        // Update Lingering Gunsmoke Wisps
+        for (let i = this.gunSmokePuffs.length - 1; i >= 0; i--) {
+            const sm = this.gunSmokePuffs[i];
+            sm.timer -= dt;
+            sm.mesh.position.addScaledVector(sm.vel, dt);
+            sm.mesh.scale.multiplyScalar(1 + dt * 1.6);
+            const progress = Math.max(0, sm.timer / sm.maxTimer);
+            sm.mesh.material.opacity = progress * sm.initialOpacity;
+            if (sm.timer <= 0) {
+                this.scene.remove(sm.mesh);
+                if (sm.mesh.geometry) sm.mesh.geometry.dispose();
+                if (sm.mesh.material) sm.mesh.material.dispose();
+                this.gunSmokePuffs.splice(i, 1);
+            }
+        }
+
+        // Update Debris, Blood Droplets, Sparks & Dust
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const pt = this.particles[i];
             pt.timer -= dt;
-            pt.vel.y -= 12 * dt;
+
+            if (pt.isBlood) {
+                pt.vel.y -= 15 * dt;
+                pt.vel.x *= (1 - dt * 1.5);
+                pt.vel.z *= (1 - dt * 1.5);
+            } else if (pt.isDust) {
+                pt.mesh.scale.multiplyScalar(1 + dt * 2.0);
+                if (pt.mesh.material) {
+                    pt.mesh.material.opacity = (pt.timer / (pt.maxTimer || 0.45)) * 0.6;
+                }
+            } else if (pt.isSpark) {
+                pt.vel.y -= 12 * dt;
+            } else {
+                pt.vel.y -= 12 * dt;
+            }
+
             pt.mesh.position.addScaledVector(pt.vel, dt);
-            pt.mesh.rotation.x += 5 * dt;
+            if (pt.mesh.rotation) pt.mesh.rotation.x += 6 * dt;
+
             if (pt.timer <= 0) {
                 this.scene.remove(pt.mesh);
+                if (pt.mesh.geometry) pt.mesh.geometry.dispose();
+                if (pt.mesh.material) pt.mesh.material.dispose();
                 this.particles.splice(i, 1);
             }
         }

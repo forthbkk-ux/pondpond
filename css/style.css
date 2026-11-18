@@ -587,7 +587,7 @@ html, body {
     background: rgba(0, 0, 0, 0.85);
 }
 
-/* Realistic Tactical Camera Vignette */
+/* Realistic Tactical Camera Vignette & Combat Post-FX */
 #realism-vignette {
     position: fixed;
     top: 0;
@@ -596,10 +596,11 @@ html, body {
     height: 100vh;
     z-index: 2;
     pointer-events: none;
-    background: radial-gradient(circle at center, transparent 58%, rgba(8, 10, 14, 0.52) 100%);
+    background: radial-gradient(circle at center, transparent 52%, rgba(5, 7, 10, 0.65) 100%);
+    box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.55);
 }
 
-/* Damage Vignette */
+/* Visceral Combat Red Damage Flash */
 #damage-flash {
     position: fixed;
     top: 0;
@@ -608,9 +609,60 @@ html, body {
     height: 100vh;
     z-index: 3;
     pointer-events: none;
-    box-shadow: inset 0 0 90px rgba(239, 68, 68, 0.85);
+    background: radial-gradient(circle at center, rgba(220, 38, 38, 0.12) 0%, rgba(185, 28, 28, 0.78) 100%);
+    box-shadow: inset 0 0 140px rgba(185, 28, 28, 0.95);
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.12s ease-out;
+}
+
+/* Persistent Low HP Blood Splatter Overlay */
+#blood-screen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: radial-gradient(circle at center, transparent 40%, rgba(153, 27, 27, 0.35) 80%, rgba(69, 10, 10, 0.85) 100%);
+}
+
+#blood-screen-overlay.critical-hp {
+    animation: pulse-heartbeat 1.0s infinite ease-in-out;
+}
+
+@keyframes pulse-heartbeat {
+    0% { opacity: 0.35; }
+    50% { opacity: 0.85; }
+    100% { opacity: 0.35; }
+}
+
+/* Directional Threat Damage Indicator (Combat Radar Ring) */
+#directional-damage-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 260px;
+    height: 260px;
+    margin-top: -130px;
+    margin-left: -130px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.22s ease-out;
+}
+
+#directional-damage-indicator .threat-arc {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 5px solid transparent;
+    border-top: 7px solid #ef4444;
+    filter: drop-shadow(0 0 10px #dc2626);
 }
 
 /* Center Banner (Round Winner / Bomb Planted / Headshot) */

@@ -687,11 +687,11 @@ function getWeaponTextures() {
     metalCanvas.width = 512;
     metalCanvas.height = 512;
     const mCtx = metalCanvas.getContext('2d');
-    mCtx.fillStyle = '#1d2125';
+    mCtx.fillStyle = '#171a1d';
     mCtx.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 4000; i++) {
-        mCtx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.22)';
-        mCtx.fillRect(Math.random() * 512, Math.random() * 512, 24 + Math.random() * 60, 1);
+    for (let i = 0; i < 4500; i++) {
+        mCtx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.28)';
+        mCtx.fillRect(Math.random() * 512, Math.random() * 512, 24 + Math.random() * 65, 1.2);
     }
     const metalTex = new THREE.CanvasTexture(metalCanvas);
 
@@ -700,14 +700,14 @@ function getWeaponTextures() {
     railCanvas.width = 256;
     railCanvas.height = 256;
     const rCtx = railCanvas.getContext('2d');
-    rCtx.fillStyle = '#202428';
+    rCtx.fillStyle = '#1c2024';
     rCtx.fillRect(0, 0, 256, 256);
-    for (let x = 8; x < 256; x += 24) {
-        rCtx.fillStyle = '#090b0d';
-        rCtx.fillRect(x, 30, 12, 55);
-        rCtx.fillRect(x, 150, 12, 55);
-        rCtx.fillStyle = '#363c42';
-        rCtx.fillRect(x, 0, 10, 18);
+    for (let x = 8; x < 256; x += 20) {
+        rCtx.fillStyle = '#0a0c0e';
+        rCtx.fillRect(x, 25, 10, 65);
+        rCtx.fillRect(x, 145, 10, 65);
+        rCtx.fillStyle = '#383e44';
+        rCtx.fillRect(x, 0, 8, 16);
     }
     const railTex = new THREE.CanvasTexture(railCanvas);
     railTex.wrapS = THREE.RepeatWrapping;
@@ -719,42 +719,103 @@ function getWeaponTextures() {
     woodCanvas.height = 512;
     const wCtx = woodCanvas.getContext('2d');
     const wGrad = wCtx.createLinearGradient(0, 0, 0, 512);
-    wGrad.addColorStop(0, '#5e2c12');
-    wGrad.addColorStop(0.5, '#733818');
-    wGrad.addColorStop(1, '#47200c');
+    wGrad.addColorStop(0, '#5a2810');
+    wGrad.addColorStop(0.5, '#703416');
+    wGrad.addColorStop(1, '#441d0a');
     wCtx.fillStyle = wGrad;
     wCtx.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 1600; i++) {
-        wCtx.fillStyle = i % 2 === 0 ? 'rgba(20, 8, 2, 0.28)' : 'rgba(165, 90, 42, 0.14)';
+        wCtx.fillStyle = i % 2 === 0 ? 'rgba(18, 6, 2, 0.32)' : 'rgba(165, 90, 42, 0.16)';
         wCtx.fillRect(0, Math.random() * 512, 512, 1 + Math.random() * 2.5);
     }
     const woodTex = new THREE.CanvasTexture(woodCanvas);
 
-    // 4. Tactical Kevlar / Cordura Glove Weave Texture
+    // 4. Tactical Cordura / Multicam Glove Fabric Texture
     const fabricCanvas = document.createElement('canvas');
     fabricCanvas.width = 256;
     fabricCanvas.height = 256;
     const fCtx = fabricCanvas.getContext('2d');
-    fCtx.fillStyle = '#222521';
+    fCtx.fillStyle = '#1e221d';
     fCtx.fillRect(0, 0, 256, 256);
     for (let y = 0; y < 256; y += 3) {
         for (let x = 0; x < 256; x += 3) {
             if ((x + y) % 6 === 0) {
-                fCtx.fillStyle = 'rgba(255,255,255,0.06)';
+                fCtx.fillStyle = 'rgba(255,255,255,0.07)';
                 fCtx.fillRect(x, y, 1.5, 1.5);
             }
         }
     }
     const fabricTex = new THREE.CanvasTexture(fabricCanvas);
 
-    _cachedWeaponTextures = { metalTex, railTex, woodTex, fabricTex };
+    // 5. Tactical Polymer Stipple Grip Texture (Magpul-style stippling)
+    const stippleCanvas = document.createElement('canvas');
+    stippleCanvas.width = 128;
+    stippleCanvas.height = 128;
+    const sCtx = stippleCanvas.getContext('2d');
+    sCtx.fillStyle = '#141618';
+    sCtx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 1800; i++) {
+        sCtx.fillStyle = i % 2 === 0 ? '#262a2e' : '#0a0b0d';
+        sCtx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    const stippleTex = new THREE.CanvasTexture(stippleCanvas);
+    stippleTex.wrapS = THREE.RepeatWrapping;
+    stippleTex.wrapT = THREE.RepeatWrapping;
+
+    // 6. Carbon Fiber Knuckle Armor Texture
+    const carbonCanvas = document.createElement('canvas');
+    carbonCanvas.width = 64;
+    carbonCanvas.height = 64;
+    const cCtx = carbonCanvas.getContext('2d');
+    cCtx.fillStyle = '#111315';
+    cCtx.fillRect(0, 0, 64, 64);
+    for (let y = 0; y < 64; y += 4) {
+        for (let x = 0; x < 64; x += 4) {
+            cCtx.fillStyle = (x + y) % 8 === 0 ? '#2a2f35' : '#14171a';
+            cCtx.fillRect(x, y, 3, 3);
+        }
+    }
+    const carbonTex = new THREE.CanvasTexture(carbonCanvas);
+    carbonTex.wrapS = THREE.RepeatWrapping;
+    carbonTex.wrapT = THREE.RepeatWrapping;
+
+    // 7. Holographic Sight Lens Reticle (EOTech 68-MOA Ring & 1-MOA Aiming Dot)
+    const holoCanvas = document.createElement('canvas');
+    holoCanvas.width = 256;
+    holoCanvas.height = 256;
+    const hCtx = holoCanvas.getContext('2d');
+    hCtx.clearRect(0, 0, 256, 256);
+    // Outer illuminated holographic circle
+    hCtx.strokeStyle = 'rgba(239, 68, 68, 0.95)';
+    hCtx.lineWidth = 4;
+    hCtx.beginPath();
+    hCtx.arc(128, 128, 70, 0, Math.PI * 2);
+    hCtx.stroke();
+    // Center bright dot
+    hCtx.fillStyle = '#ffffff';
+    hCtx.beginPath();
+    hCtx.arc(128, 128, 5, 0, Math.PI * 2);
+    hCtx.fill();
+    hCtx.fillStyle = 'rgba(239, 68, 68, 0.95)';
+    hCtx.beginPath();
+    hCtx.arc(128, 128, 8, 0, Math.PI * 2);
+    hCtx.fill();
+    // 4 range notches
+    hCtx.fillStyle = 'rgba(239, 68, 68, 0.95)';
+    hCtx.fillRect(126, 46, 4, 16);
+    hCtx.fillRect(126, 194, 4, 16);
+    hCtx.fillRect(46, 126, 16, 4);
+    hCtx.fillRect(194, 126, 16, 4);
+    const holoLensTex = new THREE.CanvasTexture(holoCanvas);
+
+    _cachedWeaponTextures = { metalTex, railTex, woodTex, fabricTex, stippleTex, carbonTex, holoLensTex };
     return _cachedWeaponTextures;
 }
 
 function createWeaponViewModel(weaponId) {
     const group = new THREE.Group();
     const wep = WEAPONS[weaponId] || WEAPONS.ak47;
-    const { metalTex, railTex, woodTex, fabricTex } = getWeaponTextures();
+    const { metalTex, railTex, woodTex, fabricTex, stippleTex, carbonTex, holoLensTex } = getWeaponTextures();
 
     // High-Realism PBR Materials
     const gunMetal = new THREE.MeshStandardMaterial({
@@ -805,18 +866,29 @@ function createWeaponViewModel(weaponId) {
         map: fabricTex, bumpMap: fabricTex, bumpScale: 0.022,
         color: 0x30362d, roughness: 0.86, metalness: 0.05
     });
+    const carbonMat = new THREE.MeshStandardMaterial({
+        map: carbonTex, bumpMap: carbonTex, bumpScale: 0.022,
+        color: 0x181a1d, roughness: 0.32, metalness: 0.75
+    });
+    const stippleGripMat = new THREE.MeshStandardMaterial({
+        map: stippleTex, bumpMap: stippleTex, bumpScale: 0.03,
+        color: 0x181b1e, roughness: 0.88, metalness: 0.12
+    });
+    const holoGlassMat = new THREE.MeshBasicMaterial({
+        map: holoLensTex, transparent: true, opacity: 0.92, side: THREE.DoubleSide
+    });
     const tritiumGlowMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     const opticLensMat = new THREE.MeshStandardMaterial({
         color: 0x0284c7, roughness: 0.05, metalness: 0.95, transparent: true, opacity: 0.85
     });
 
-    // Helper: Build articulated gloved hand + fingers + forearm
+    // Helper: Build articulated tactical combat gloved hand + fingers + forearm
     const buildHandAndArm = (isRight = true, pos = [0, -0.05, 0.08], armRot = [Math.PI / 2 + 0.22, 0, 0.12]) => {
         const hGroup = new THREE.Group();
         const palm = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.062, 0.095), gloveMat);
-        const knucklePlate = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.018, 0.048), darkReceiverMat);
+        const knucklePlate = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.018, 0.048), carbonMat);
         knucklePlate.position.set(0, 0.026, -0.01);
-        // Wrapped fingers
+        // Wrapped tactical fingers with joints
         for (let f = 0; f < 4; f++) {
             const finger = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.008, 0.055, 8), gloveMat);
             finger.rotation.z = Math.PI / 2;
@@ -1322,14 +1394,33 @@ function createWeaponViewModel(weaponId) {
 
 function attachMuzzleEffects(group, zPos) {
     const flashGroup = new THREE.Group();
-    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffe699, transparent: true, opacity: 0.88 });
-    const core = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.18, 8), flashMat);
-    core.rotation.x = -Math.PI / 2;
-    const star1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 0.015), flashMat);
-    const star2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.015), flashMat);
-    flashGroup.add(core, star1, star2);
 
-    const light = new THREE.PointLight(0xffd27d, 2.6, 10);
+    // 1. Blinding incandescent white-hot inner cone
+    const whiteCoreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+    const core = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.22, 10), whiteCoreMat);
+    core.rotation.x = -Math.PI / 2;
+
+    // 2. High-energy fiery orange 4-petal expansion star
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.85 });
+    const star1 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.022, 0.02), flameMat);
+    const star2 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.24, 0.02), flameMat);
+
+    // 3. 45-degree diagonal golden yellow flash fins
+    const yellowMat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.75 });
+    const diag1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.016, 0.02), yellowMat);
+    diag1.rotation.z = Math.PI / 4;
+    const diag2 = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.18, 0.02), yellowMat);
+    diag2.rotation.z = Math.PI / 4;
+
+    // 4. Outer gaseous halo ring
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xea580c, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.14, 12), ringMat);
+
+    flashGroup.add(core, star1, star2, diag1, diag2, halo);
+
+    // High-intensity real-time point light that illuminates weapon, hands, and nearby walls
+    const light = new THREE.PointLight(0xffa726, 4.8, 14);
+    light.name = 'flashLight';
     flashGroup.add(light);
 
     flashGroup.position.set(0, 0.02, zPos);
