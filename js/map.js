@@ -156,6 +156,7 @@ class GameMap {
     load(mapId = 'de_dust2') {
         if (!MAP_METADATA[mapId]) mapId = 'de_dust2';
         this.clear();
+        this._radarBgKey = null;
         this.currentMapId = mapId;
         const meta = MAP_METADATA[mapId];
         this.mapSize = meta.mapSize;
@@ -2877,39 +2878,53 @@ class GameMap {
     }
 
     drawRadar(ctx, width, height, localPlayer, entities, bombState) {
-        ctx.clearRect(0, 0, width, height);
+        const bgKey = `${this.currentMapId}_${width}x${height}_${this.colliders.length}`;
+        if (!this._radarBgCanvas || this._radarBgKey !== bgKey) {
+            if (!this._radarBgCanvas) {
+                this._radarBgCanvas = document.createElement('canvas');
+            }
+            this._radarBgCanvas.width = width;
+            this._radarBgCanvas.height = height;
+            const bctx = this._radarBgCanvas.getContext('2d');
+            bctx.clearRect(0, 0, width, height);
+            bctx.fillStyle = 'rgba(10, 14, 20, 0.94)';
+            bctx.fillRect(0, 0, width, height);
 
-        ctx.fillStyle = 'rgba(10, 14, 20, 0.94)';
-        ctx.fillRect(0, 0, width, height);
+            const scale = width / this.mapSize;
+            const toX = (wx) => (wx + this.mapSize / 2) * scale;
+            const toY = (wz) => (wz + this.mapSize / 2) * scale;
+
+            bctx.fillStyle = 'rgba(148, 163, 184, 0.38)';
+            for (const c of this.colliders) {
+                const rx = toX(c.minX);
+                const ry = toY(c.minZ);
+                const rw = (c.maxX - c.minX) * scale;
+                const rh = (c.maxZ - c.minZ) * scale;
+                bctx.fillRect(rx, ry, rw, rh);
+            }
+
+            for (const key of ['A', 'B']) {
+                const site = this.bombsites[key];
+                if (!site) continue;
+                const sx = toX(site.x);
+                const sy = toY(site.z);
+                bctx.strokeStyle = '#ef4444';
+                bctx.lineWidth = 1.5;
+                bctx.strokeRect(sx - 8, sy - 8, 16, 16);
+                bctx.fillStyle = '#fca5a5';
+                bctx.font = 'bold 10px sans-serif';
+                bctx.textAlign = 'center';
+                bctx.fillText(key, sx, sy + 3.5);
+            }
+            this._radarBgKey = bgKey;
+        }
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(this._radarBgCanvas, 0, 0);
 
         const scale = width / this.mapSize;
         const toRadarX = (wx) => (wx + this.mapSize / 2) * scale;
         const toRadarY = (wz) => (wz + this.mapSize / 2) * scale;
-
-        // Draw Map Geometry Walls & Colliders
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.38)';
-        for (const c of this.colliders) {
-            const rx = toRadarX(c.minX);
-            const ry = toRadarY(c.minZ);
-            const rw = (c.maxX - c.minX) * scale;
-            const rh = (c.maxZ - c.minZ) * scale;
-            ctx.fillRect(rx, ry, rw, rh);
-        }
-
-        // Draw Bombsites A & B
-        for (const key of ['A', 'B']) {
-            const site = this.bombsites[key];
-            if (!site) continue;
-            const sx = toRadarX(site.x);
-            const sy = toRadarY(site.z);
-            ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(sx - 8, sy - 8, 16, 16);
-            ctx.fillStyle = '#fca5a5';
-            ctx.font = 'bold 10px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(key, sx, sy + 3.5);
-        }
 
         // Draw Active Planted C4
         if (bombState && bombState.planted) {
@@ -2921,19 +2936,23 @@ class GameMap {
             ctx.fill();
         }
 
-        // Draw Bots and Remote Players
-        for (const ent of entities) {
-            if (ent.hp <= 0) continue;
-            const isAlly = ent.team === localPlayer.team;
-            if (!isAlly && !ent.radarVisible && !ent.isRemotePlayer) continue;
+        // Draw Teammates Only (Strictly Same Team as Local Player)
+        if (localPlayer) {
+            const seenTeammates = new Set();
+            for (const ent of entities) {
+                if (ent.hp <= 0) continue;
+                if (ent.team !== localPlayer.team) continue;
+                if (ent.name === localPlayer.name || seenTeammates.has(ent.name)) continue;
+                seenTeammates.add(ent.name);
 
-            const ex = toRadarX(ent.x);
-            const ey = toRadarY(ent.z);
-            ctx.fillStyle = isAlly ? (ent.team === 'T' ? '#fbbf24' : '#38bdf8') : '#ef4444';
+                const ex = toRadarX(ent.x);
+                const ey = toRadarY(ent.z);
+                ctx.fillStyle = ent.team === 'T' ? '#fbbf24' : '#38bdf8';
 
-            ctx.beginPath();
-            ctx.arc(ex, ey, 3.4, 0, Math.PI * 2);
-            ctx.fill();
+                ctx.beginPath();
+                ctx.arc(ex, ey, 3.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         // Draw Local Player with Vision Cone

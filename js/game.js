@@ -13,6 +13,11 @@ class CSGame {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 550);
         this.scene.add(this.camera);
 
+        // Dedicated crisp First-Person Viewmodel Scene & Camera (prevents wall clipping, removes 75deg FOV stretching & eliminates scene shader recompiles)
+        this.vmScene = new THREE.Scene();
+        this.vmCamera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.03, 5);
+        this.vmScene.add(this.vmCamera);
+
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -144,13 +149,13 @@ class CSGame {
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
 
-        // Background tab heartbeat so Host/Bots/Timers never freeze when tab is unfocused
+        // Background tab heartbeat so Host/Bots/Timers keep ticking only when tab is actually backgrounded
         setInterval(() => {
-            if (this.running && (document.hidden || performance.now() - this.lastTime > 200)) {
+            if (this.running && document.hidden && performance.now() - this.lastTime > 250) {
                 this.lastTime = performance.now();
                 this.stepSimulation(0.1);
             }
-        }, 100);
+        }, 120);
     }
 
     setupLights() {
@@ -179,6 +184,54 @@ class CSGame {
         sun.shadow.camera.bottom = -d;
         this.scene.add(sun);
         this.sunLight = sun;
+
+        // Permanent High-Contrast 3-Point Studio Lighting + Obsidian PMREM Reflection Environment on Viewmodel Scene
+        const vmHemi = new THREE.HemisphereLight(0xd4e2f0, 0x262018, 0.42);
+        const vmKey = new THREE.DirectionalLight(0xfff6e5, 1.85);
+        vmKey.position.set(-1.6, 2.4, 1.1);
+        const vmRim = new THREE.DirectionalLight(0x93c5fd, 1.35);
+        vmRim.position.set(1.6, 1.4, -2.0);
+        const vmFill = new THREE.DirectionalLight(0xfde68a, 0.24);
+        vmFill.position.set(-1.8, -0.5, -0.4);
+        this.vmScene.add(vmHemi, vmKey, vmRim, vmFill);
+
+        if (THREE.PMREMGenerator) {
+            try {
+                const pmrem = new THREE.PMREMGenerator(this.renderer);
+                pmrem.compileEquirectangularShader();
+                const envScene = new THREE.Scene();
+                // Dark studio ambient prevents chalky washed-out black/olive while narrow light strips create razor-sharp metallic edge streaks
+                envScene.background = new THREE.Color(0x161d26);
+                const topPanel = new THREE.Mesh(
+                    new THREE.PlaneGeometry(10, 14),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+                );
+                topPanel.position.set(-2, 10, 2);
+                topPanel.lookAt(0, 0, 0);
+                const warmPanel = new THREE.Mesh(
+                    new THREE.PlaneGeometry(9, 6),
+                    new THREE.MeshBasicMaterial({ color: 0xffe4b8, side: THREE.DoubleSide })
+                );
+                warmPanel.position.set(10, 4, -4);
+                warmPanel.lookAt(0, 0, 0);
+                const coolPanel = new THREE.Mesh(
+                    new THREE.PlaneGeometry(9, 6),
+                    new THREE.MeshBasicMaterial({ color: 0x93c5fd, side: THREE.DoubleSide })
+                );
+                coolPanel.position.set(-10, 5, -7);
+                coolPanel.lookAt(0, 0, 0);
+                const floorPanel = new THREE.Mesh(
+                    new THREE.PlaneGeometry(24, 24),
+                    new THREE.MeshBasicMaterial({ color: 0x1a1612, side: THREE.DoubleSide })
+                );
+                floorPanel.position.set(0, -8, 0);
+                floorPanel.rotation.x = -Math.PI / 2;
+                envScene.add(topPanel, warmPanel, coolPanel, floorPanel);
+                const envRT = pmrem.fromScene(envScene, 0.025);
+                this.vmScene.environment = envRT.texture;
+                pmrem.dispose();
+            } catch (e) {}
+        }
     }
 
     initAmmoForAll() {
@@ -211,10 +264,10 @@ class CSGame {
         this.setScope(false);
 
         if (this.weaponMesh) {
-            this.camera.remove(this.weaponMesh);
+            this.vmCamera.remove(this.weaponMesh);
         }
         this.weaponMesh = createWeaponViewModel(wepId);
-        this.camera.add(this.weaponMesh);
+        this.vmCamera.add(this.weaponMesh);
 
         this.updateWeaponHUD();
     }
@@ -1433,6 +1486,12 @@ class CSGame {
         }
 
         this.renderer.render(this.scene, this.camera);
+        if (this.vmScene && this.vmCamera && this.weaponMesh && this.weaponMesh.visible) {
+            this.renderer.autoClear = false;
+            this.renderer.clearDepth();
+            this.renderer.render(this.vmScene, this.vmCamera);
+            this.renderer.autoClear = true;
+        }
         requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -1560,16 +1619,16 @@ class CSGame {
         const bobRotZ = Math.sin(this.weaponBobTimer * 0.5) * (isMoving ? 0.035 : 0.006);
 
         if (this.weaponMesh && !p.reloading) {
-            const baseX = p.isScoped ? 0 : 0.21;
-            const baseY = p.isScoped ? -0.15 : -0.21;
-            const baseZ = p.isScoped ? -0.25 : -0.39;
+            const baseX = p.isScoped ? 0 : 0.24;
+            const baseY = p.isScoped ? -0.14 : -0.19;
+            const baseZ = p.isScoped ? -0.25 : -0.52;
 
             this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, baseX + bobX + this.weaponSwayX, dt * 14);
             this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, baseY - bobY + this.weaponSwayY, dt * 14);
             this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, baseZ + this.weaponKickBack, dt * 18);
 
-            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.02 + this.weaponKickPitch, dt * 16);
-            this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, 0.065 + this.weaponSwayX * 0.8, dt * 14);
+            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.025 + this.weaponKickPitch, dt * 16);
+            this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, 0.115 + this.weaponSwayX * 0.8, dt * 14);
             this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, bobRotZ + this.weaponKickRoll, dt * 14);
         }
 
@@ -1648,9 +1707,9 @@ class CSGame {
             const tWepId = target.weapon || 'ak47';
             if (this.spectatedWepId !== tWepId) {
                 this.spectatedWepId = tWepId;
-                if (this.weaponMesh) this.camera.remove(this.weaponMesh);
+                if (this.weaponMesh) this.vmCamera.remove(this.weaponMesh);
                 this.weaponMesh = createWeaponViewModel(tWepId);
-                this.camera.add(this.weaponMesh);
+                this.vmCamera.add(this.weaponMesh);
             }
             if (this.weaponMesh) this.weaponMesh.visible = true;
 
@@ -2432,6 +2491,17 @@ class CSGame {
         const ammoObj = this.player.ammo[wep.id];
 
         document.getElementById('hud-weapon-name').textContent = this.player.reloading ? `${wep.name} (กำลังรีโหลด...)` : wep.name;
+        const hudImg = document.getElementById('hud-weapon-img');
+        if (hudImg) {
+            const imgSrc = (window.WEAPON_IMAGES && window.WEAPON_IMAGES[wep.id]) ? window.WEAPON_IMAGES[wep.id] : '';
+            if (imgSrc) {
+                hudImg.src = imgSrc;
+                hudImg.alt = wep.name;
+                hudImg.classList.remove('hidden');
+            } else {
+                hudImg.classList.add('hidden');
+            }
+        }
         if (wep.id === 'knife') {
             document.getElementById('ammo-clip').textContent = '∞';
             document.getElementById('ammo-reserve').textContent = '';
@@ -2578,6 +2648,10 @@ class CSGame {
         const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
+        if (this.vmCamera) {
+            this.vmCamera.aspect = w / h;
+            this.vmCamera.updateProjectionMatrix();
+        }
         this.renderer.setSize(w, h);
         this.checkOrientationWarning();
     }
@@ -3143,14 +3217,22 @@ class CSGame {
                 statsHtml = `<div class="buy-card-stats">⚔️ ดาเมจ: ${item.damage}${pelletsInfo} &nbsp;|&nbsp; 📦 กระสุน: ${item.clipSize} / ${item.reserveMax}</div>`;
             }
 
+            const imgSrc = (window.WEAPON_IMAGES && window.WEAPON_IMAGES[item.id]) ? window.WEAPON_IMAGES[item.id] : '';
+            const imgHtml = imgSrc
+                ? `<div class="buy-card-img-wrap"><img src="${imgSrc}" alt="${item.name}" class="buy-card-img" /></div>`
+                : '';
+
             card.innerHTML = `
                 <div>
-                    <span class="buy-card-cat-badge">${badgeText}</span>
+                    <div class="buy-card-top-row">
+                        <span class="buy-card-cat-badge">${badgeText}</span>
+                        <span class="buy-card-price">$${item.price}</span>
+                    </div>
+                    ${imgHtml}
                     <div class="buy-card-title">${item.name}</div>
                     <div class="buy-card-type">${item.type}</div>
                 </div>
                 ${statsHtml}
-                <div class="buy-card-price">$${item.price}</div>
             `;
             card.addEventListener('click', () => this.buyItem(item));
             grid.appendChild(card);

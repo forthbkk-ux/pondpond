@@ -295,7 +295,10 @@
             </div>
 
             <div class="ammo-box hud-interactive">
-                <div id="hud-weapon-name" class="weapon-name-hud">CV-47 (AK-47)</div>
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:2px;">
+                    <img id="hud-weapon-img" class="hud-weapon-preview hidden" src="" alt="" />
+                    <div id="hud-weapon-name" class="weapon-name-hud">CV-47 (AK-47)</div>
+                </div>
                 <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
                     <button id="btn-hud-buy-ammo" class="hud-mini-btn" style="background:rgba(16,185,129,0.25);border-color:#10b981;color:#34d399;padding:4px 8px;">➕ ซื้อกระสุน ($50)</button>
                     <div>
@@ -546,6 +549,7 @@
 
     <!-- Game Scripts -->
     <script src="js/audio.js"></script>
+    <script src="js/weapon_images.js"></script>
     <script src="js/weapons.js"></script>
     <script src="js/map.js"></script>
     <script src="js/bot.js"></script>
