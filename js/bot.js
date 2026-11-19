@@ -275,6 +275,10 @@ function getCharacterMaterials() {
         skinMat: new THREE.MeshStandardMaterial({ color: srgb(0xdfa582), roughness: 0.54, metalness: 0.04 }),
         gunMat: new THREE.MeshStandardMaterial({ color: srgb(0x22272e), roughness: 0.32, metalness: 0.45 }),
         gunWoodMat: new THREE.MeshStandardMaterial({ color: srgb(0x7c3618), roughness: 0.42, metalness: 0.08 }),
+        awpOliveMat: new THREE.MeshStandardMaterial({ color: srgb(0x556b38), roughness: 0.48, metalness: 0.14 }),
+        awpMetalMat: new THREE.MeshStandardMaterial({ color: srgb(0x1f242b), roughness: 0.28, metalness: 0.65 }),
+        awpScopeMat: new THREE.MeshStandardMaterial({ color: srgb(0x121519), roughness: 0.36, metalness: 0.45 }),
+        awpLensMat: new THREE.MeshStandardMaterial({ color: srgb(0x38bdf8), roughness: 0.08, metalness: 0.85 }),
         t: {
             balaclavaHeadMat: new THREE.MeshStandardMaterial({ map: tx.tHeadTex, roughness: 0.78, metalness: 0.04 }),
             balaclavaPlainMat: new THREE.MeshStandardMaterial({ color: srgb(0x3a2c24), roughness: 0.80, metalness: 0.04 }),
@@ -305,11 +309,109 @@ function getCharacterMaterials() {
     return _cachedCharMaterials;
 }
 
-function createCharacterMesh(team, name, isAlly = false) {
+function createCharacterMesh(team, name, isAlly = false, weaponId = '') {
     const group = new THREE.Group();
     const isT = team === 'T';
+    group.userData.weaponId = weaponId || (isT ? 'ak47' : 'm4a1');
     const mats = getCharacterMaterials();
-    const { skinMat, gunMat, gunWoodMat } = mats;
+    const {
+        skinMat, gunMat, gunWoodMat,
+        awpOliveMat, awpMetalMat, awpScopeMat, awpLensMat
+    } = mats;
+
+    const buildThirdPersonGun = (wepId, isTerrorist) => {
+        const g = new THREE.Group();
+        g.name = 'thirdPersonGun';
+        if (wepId === 'awp') {
+            g.userData.weaponType = 'awp';
+            // Long Arctic Warfare olive-drab chassis + thumbhole rear stock
+            const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.072, 0.50), awpOliveMat);
+            chassis.castShadow = true;
+            chassis.userData = { part: 'body' };
+            const rearStock = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.082, 0.22), awpOliveMat);
+            rearStock.position.set(0, -0.018, 0.30);
+            rearStock.userData = { part: 'body' };
+            const cheekRest = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.025, 0.11), awpMetalMat);
+            cheekRest.position.set(0, 0.032, 0.29);
+            cheekRest.userData = { part: 'body' };
+
+            // Long heavy fluted sniper barrel + rectangular AWP muzzle brake
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.54, 10), awpMetalMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.018, -0.49);
+            barrel.userData = { part: 'body' };
+            const muzzleBrake = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.028, 0.075), awpMetalMat);
+            muzzleBrake.position.set(0, 0.018, -0.77);
+            muzzleBrake.userData = { part: 'body' };
+
+            // Box magazine + bolt handle
+            const mag = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.076, 0.082), awpMetalMat);
+            mag.position.set(0, -0.068, -0.10);
+            mag.userData = { part: 'body' };
+            const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.052, 8), awpMetalMat);
+            bolt.rotation.z = Math.PI / 2;
+            bolt.position.set(0.034, 0.020, 0.05);
+            bolt.userData = { part: 'body' };
+
+            // Top sniper telescopic scope + flared lens bells + mount rings
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.018, 0.24), awpMetalMat);
+            rail.position.set(0, 0.042, -0.04);
+            const scopeTube = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.018, 0.30, 12), awpScopeMat);
+            scopeTube.rotation.x = Math.PI / 2;
+            scopeTube.position.set(0, 0.070, -0.04);
+            scopeTube.userData = { part: 'body' };
+            const objBell = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.020, 0.075, 12), awpScopeMat);
+            objBell.rotation.x = Math.PI / 2;
+            objBell.position.set(0, 0.070, -0.21);
+            const objLens = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.008, 12), awpLensMat);
+            objLens.rotation.x = Math.PI / 2;
+            objLens.position.set(0, 0.070, -0.248);
+            const rearBell = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.019, 0.060, 12), awpScopeMat);
+            rearBell.rotation.x = Math.PI / 2;
+            rearBell.position.set(0, 0.070, 0.12);
+
+            g.add(chassis, rearStock, cheekRest, barrel, muzzleBrake, mag, bolt, rail, scopeTube, objBell, objLens, rearBell);
+            return g;
+        }
+
+        if (isTerrorist) {
+            g.userData.weaponType = 'ak47';
+            const gunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.074, 0.36), gunMat);
+            gunReceiver.castShadow = true;
+            gunReceiver.userData = { part: 'body' };
+            const gunStock = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.068, 0.19), gunWoodMat);
+            gunStock.position.set(0, -0.018, 0.24);
+            gunStock.rotation.x = -0.12;
+            gunStock.userData = { part: 'body' };
+            const gunHandguard = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.056, 0.19), gunWoodMat);
+            gunHandguard.position.set(0, 0.0, -0.24);
+            gunHandguard.userData = { part: 'body' };
+            const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.30, 10), gunMat);
+            gunBarrel.rotation.x = Math.PI / 2;
+            gunBarrel.position.set(0, 0.016, -0.41);
+            gunBarrel.userData = { part: 'body' };
+            const gunMag = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.15, 0.054), gunMat);
+            gunMag.position.set(0, -0.105, -0.07);
+            gunMag.rotation.x = 0.28;
+            gunMag.userData = { part: 'body' };
+            g.add(gunReceiver, gunStock, gunHandguard, gunBarrel, gunMag);
+        } else {
+            g.userData.weaponType = 'm4a1';
+            const gunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.076, 0.34), gunMat);
+            gunReceiver.castShadow = true;
+            gunReceiver.userData = { part: 'body' };
+            const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 10), gunMat);
+            gunBarrel.rotation.x = Math.PI / 2;
+            gunBarrel.position.set(0, 0.016, -0.34);
+            gunBarrel.userData = { part: 'body' };
+            const gunMag = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.145, 0.054), mats.ct.pouchGrayMat);
+            gunMag.position.set(0, -0.095, -0.06);
+            gunMag.rotation.x = 0.22;
+            gunMag.userData = { part: 'body' };
+            g.add(gunReceiver, gunBarrel, gunMag);
+        }
+        return g;
+    };
 
     const buildConnectedLimb = (p1, p2, rTop, rBot, mat, addEndSphere = true) => {
         const limbGroup = new THREE.Group();
@@ -490,27 +592,8 @@ function createCharacterMesh(team, name, isAlly = false) {
         rightHand.position.set(...haR);
         rightHand.userData = { part: 'body' };
 
-        // 5. Detailed Third-Person AK-47 Rifle
-        const gunGroup = new THREE.Group();
-        const gunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.074, 0.36), gunMat);
-        gunReceiver.castShadow = true;
-        gunReceiver.userData = { part: 'body' };
-        const gunStock = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.068, 0.19), gunWoodMat);
-        gunStock.position.set(0, -0.018, 0.24);
-        gunStock.rotation.x = -0.12;
-        gunStock.userData = { part: 'body' };
-        const gunHandguard = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.056, 0.19), gunWoodMat);
-        gunHandguard.position.set(0, 0.0, -0.24);
-        gunHandguard.userData = { part: 'body' };
-        const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.30, 10), gunMat);
-        gunBarrel.rotation.x = Math.PI / 2;
-        gunBarrel.position.set(0, 0.016, -0.41);
-        gunBarrel.userData = { part: 'body' };
-        const gunMag = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.15, 0.054), gunMat);
-        gunMag.position.set(0, -0.105, -0.07);
-        gunMag.rotation.x = 0.28;
-        gunMag.userData = { part: 'body' };
-        gunGroup.add(gunReceiver, gunStock, gunHandguard, gunBarrel, gunMag);
+        // 5. Third-Person Weapon (AWP Sniper in awp_only or when equipped, otherwise AK-47)
+        const gunGroup = buildThirdPersonGun(weaponId || 'ak47', true);
         gunGroup.position.set(0.06, 1.17, -0.34);
         gunGroup.rotation.y = 0.22;
 
@@ -759,20 +842,8 @@ function createCharacterMesh(team, name, isAlly = false) {
         rightHand.position.set(...haR);
         rightHand.userData = { part: 'body' };
 
-        // 5. Third-Person M4A1-S Silenced Carbine
-        const gunGroup = new THREE.Group();
-        const gunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.076, 0.34), gunMat);
-        gunReceiver.castShadow = true;
-        gunReceiver.userData = { part: 'body' };
-        const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 10), gunMat);
-        gunBarrel.rotation.x = Math.PI / 2;
-        gunBarrel.position.set(0, 0.016, -0.34);
-        gunBarrel.userData = { part: 'body' };
-        const gunMag = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.145, 0.054), pouchGrayMat);
-        gunMag.position.set(0, -0.095, -0.06);
-        gunMag.rotation.x = 0.22;
-        gunMag.userData = { part: 'body' };
-        gunGroup.add(gunReceiver, gunBarrel, gunMag);
+        // 5. Third-Person Weapon (AWP Sniper in awp_only or when equipped, otherwise M4A1-S)
+        const gunGroup = buildThirdPersonGun(weaponId || 'm4a1', false);
         gunGroup.position.set(0.06, 1.14, -0.33);
         gunGroup.rotation.y = 0.22;
 
@@ -924,9 +995,14 @@ class BotAI {
                 bot.reactionDelay -= dt;
                 bot.fireCooldown = (bot.fireCooldown || 0) - dt;
 
+                if (this.game.isAwpOnly && this.game.isAwpOnly() && bot.weapon !== 'awp') {
+                    bot.weapon = 'awp';
+                }
                 if (bot.reactionDelay <= 0 && bot.fireCooldown <= 0) {
                     this.botShoot(bot, enemy, cfg);
-                    bot.fireCooldown = cfg.fireInterval * (0.85 + Math.random() * 0.35);
+                    const isAwp = (bot.weapon === 'awp');
+                    const baseInterval = isAwp ? Math.max(1.25, cfg.fireInterval * 3.8) : cfg.fireInterval;
+                    bot.fireCooldown = baseInterval * (0.85 + Math.random() * 0.35);
                 }
             } else {
                 bot.reactionDelay = cfg.reactionTime * (0.85 + Math.random() * 0.3);
@@ -1034,7 +1110,9 @@ class BotAI {
 
         const dist = Math.hypot(target.x - bot.x, target.z - bot.z);
         const vol = Math.max(0.08, 1 - dist / 55);
-        window.soundFX.playShoot(bot.weapon || 'ak47', vol * 0.45);
+        const wepId = (this.game.isAwpOnly && this.game.isAwpOnly()) ? 'awp' : (bot.weapon || 'ak47');
+        bot.weapon = wepId;
+        window.soundFX.playShoot(wepId, vol * (wepId === 'awp' ? 0.60 : 0.45));
 
         const spreadVisual = Math.max(0.15, 1.0 - cfg.baseAccuracy);
         const start = new THREE.Vector3(bot.x, bot.y + 1.38, bot.z);
@@ -1049,13 +1127,16 @@ class BotAI {
         const hitChance = Math.max(0.08, cfg.baseAccuracy - dist * 0.006);
         if (Math.random() < hitChance) {
             const isHeadshot = Math.random() < cfg.headshotChance;
-            const baseDmg = isHeadshot ? 34 : (12 + Math.floor(Math.random() * 7));
-            const dmg = Math.max(5, Math.round(baseDmg * cfg.damageScale));
+            const baseDmg = wepId === 'awp'
+                ? (isHeadshot ? 115 : 58)
+                : (isHeadshot ? 34 : (12 + Math.floor(Math.random() * 7)));
+            const dmgScale = wepId === 'awp' ? Math.min(1.15, cfg.damageScale) : cfg.damageScale;
+            const dmg = Math.max(5, Math.round(baseDmg * dmgScale));
 
             if (target.isLocalPlayer) {
-                this.game.damageLocalPlayer(dmg, bot.name, bot.weapon || 'ak47', isHeadshot, bot);
+                this.game.damageLocalPlayer(dmg, bot.name, wepId, isHeadshot, bot);
             } else {
-                this.game.damageEntity(target, dmg, bot.name, bot.weapon || 'ak47', isHeadshot, bot);
+                this.game.damageEntity(target, dmg, bot.name, wepId, isHeadshot, bot);
             }
         } else {
             // Tactical: supersonic near-miss whiz-by audio if bullet snaps close to player

@@ -167,6 +167,12 @@ class NetworkManager {
 
         if (data.type === 'welcome') {
             this.game.gameMode = data.mode;
+            const modeSel = document.getElementById('game-mode-select');
+            if (modeSel && data.mode) modeSel.value = data.mode;
+            if (this.game.applyGameModeLoadout) {
+                this.game.applyGameModeLoadout();
+                this.game.equipSlot(1);
+            }
             if (data.mapId && this.game.mapId !== data.mapId) {
                 this.game.loadMap(data.mapId);
             }

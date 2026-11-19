@@ -637,22 +637,22 @@ const WEAPONS = {
     // ==================== 7. MELEE & GRENADES (SLOT 3 & 4) ====================
     knife: {
         id: 'knife',
-        name: 'M9 Bayonet / Combat Knife',
+        name: 'Samurai Katana (ดาบซามูไร)',
         category: 'melee',
-        type: 'มีดปลายปืนจู่โจมระยะประชิด (วิ่งเร็วสุด)',
+        type: 'ดาบซามูไรคาตานะ (คอมโบ ฟัน 2 ครั้ง + แทง 1 ครั้ง วิ่งเร็วสุด)',
         slot: 3,
         price: 0,
-        damage: 55,
-        headshotMult: 1.8,
-        fireRate: 0.4,
+        damage: 62,
+        headshotMult: 1.85,
+        fireRate: 0.34,
         auto: true,
         clipSize: 1,
         reserveMax: 1,
         reloadTime: 0,
         recoil: 0,
         spread: 0,
-        range: 3.4,
-        moveSpeed: 1.15,
+        range: 3.8,
+        moveSpeed: 1.18,
         canScope: false
     },
     hegrenade: {
@@ -1326,39 +1326,131 @@ function createWeaponViewModel(weaponId) {
         parent.add(sGroup);
     };
 
-    // ==================== 1. MELEE: M9 BAYONET COMBAT KNIFE ====================
+    // ==================== 1. MELEE: SAMURAI KATANA (ดาบซามูไรคาตานะ) ====================
     if (weaponId === 'knife') {
-        group.add(buildGripHand(true, [0, -0.05, 0.06], false));
-        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.13, 14), polymerOliveMat);
-        handle.rotation.x = Math.PI / 2;
-        for (let r = -2; r <= 2; r++) {
-            const groove = new THREE.Mesh(new THREE.TorusGeometry(0.020, 0.002, 6, 14), darkReceiverMat);
-            groove.position.set(0, 0, r * 0.02);
-            group.add(groove);
+        const tsubaGoldMat = new THREE.MeshStandardMaterial({
+            color: srgb(0xd4a238),
+            metalness: 0.90,
+            roughness: 0.22
+        });
+        const tsukaWrapMat = new THREE.MeshStandardMaterial({
+            color: srgb(0x161920),
+            metalness: 0.06,
+            roughness: 0.88
+        });
+        const crimsonSameMat = new THREE.MeshStandardMaterial({
+            color: srgb(0x881322),
+            metalness: 0.08,
+            roughness: 0.72
+        });
+        const spineMat = new THREE.MeshStandardMaterial({
+            color: srgb(0x7c8694),
+            metalness: 0.94,
+            roughness: 0.20
+        });
+        const katanaEdgeMat = new THREE.MeshStandardMaterial({
+            color: srgb(0xf4f7fb),
+            metalness: 0.98,
+            roughness: 0.07
+        });
+
+        // Right gloved hand gripping the Katana tsuka
+        group.add(buildGripHand(true, [0, -0.036, 0.02], false));
+
+        // 1. Curved Tsuka (handle wrapped in black ito over crimson samegawa)
+        const handleLen = 0.25;
+        const handleCore = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.0155, handleLen, 14), crimsonSameMat);
+        handleCore.rotation.x = Math.PI / 2;
+        handleCore.scale.set(0.76, 1.0, 1.18);
+        handleCore.position.set(0, 0, 0.035);
+        group.add(handleCore);
+
+        // Diamond-braided Tsuka-ito handle bands
+        for (let r = 0; r < 9; r++) {
+            const zPos = -0.075 + r * 0.024;
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0148, 0.0032, 6, 14), tsukaWrapMat);
+            ring.scale.set(0.78, 1.22, 1.0);
+            ring.position.set(0, 0, zPos);
+            group.add(ring);
         }
-        const pommel = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.021, 0.016, 12), gunMetal);
-        pommel.rotation.x = Math.PI / 2;
-        pommel.position.set(0, 0, 0.072);
 
-        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.082, 0.012), gunMetal);
-        guard.position.set(0, 0.006, -0.068);
-        const barrelRing = new THREE.Mesh(new THREE.TorusGeometry(0.013, 0.0035, 8, 14), gunMetal);
-        barrelRing.position.set(0, 0.034, -0.068);
+        // Menuki dragon gold ornament on handle side
+        const menuki = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.011, 0.028), tsubaGoldMat);
+        menuki.position.set(-0.012, 0.002, 0.025);
+        group.add(menuki);
 
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.038, 0.24), chromeMat);
-        blade.position.set(0, 0.005, -0.19);
-        const bladeTip = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.062, 4), chromeMat);
-        bladeTip.rotation.x = -Math.PI / 2;
-        bladeTip.rotation.z = Math.PI / 4;
-        bladeTip.scale.set(0.28, 1, 1);
-        bladeTip.position.set(0, 0.005, -0.34);
+        // Kashira (gold pommel cap) & Fuchi (collar ring before tsuba)
+        const kashira = new THREE.Mesh(new THREE.CylinderGeometry(0.0165, 0.0145, 0.022, 14), tsubaGoldMat);
+        kashira.rotation.x = Math.PI / 2;
+        kashira.scale.set(0.78, 1.0, 1.18);
+        kashira.position.set(0, 0, 0.165);
+        const fuchi = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.018, 14), tsubaGoldMat);
+        fuchi.rotation.x = Math.PI / 2;
+        fuchi.scale.set(0.78, 1.0, 1.20);
+        fuchi.position.set(0, 0, -0.092);
+        group.add(kashira, fuchi);
 
-        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.008, 0.16), steelBarrelMat);
-        fuller.position.set(0, 0.011, -0.16);
+        // 2. Circular Ornate Gold Tsuba (handguard) + Habaki blade collar
+        const tsubaDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.044, 0.0085, 24), tsubaGoldMat);
+        tsubaDisc.rotation.x = Math.PI / 2;
+        tsubaDisc.position.set(0, 0.004, -0.104);
+        const tsubaRim = new THREE.Mesh(new THREE.TorusGeometry(0.043, 0.0035, 8, 24), tsubaGoldMat);
+        tsubaRim.position.set(0, 0.004, -0.104);
+        const seppa = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.013, 14), brassMat);
+        seppa.rotation.x = Math.PI / 2;
+        seppa.position.set(0, 0.004, -0.105);
+        const habaki = new THREE.Mesh(new THREE.BoxGeometry(0.013, 0.032, 0.034), tsubaGoldMat);
+        habaki.position.set(0, 0.005, -0.126);
+        group.add(tsubaDisc, tsubaRim, seppa, habaki);
 
-        group.add(handle, pommel, guard, barrelRing, blade, bladeTip, fuller);
-        group.rotation.set(0.14, 0.20, -0.10);
-        group.position.set(0.21, -0.20, -0.36);
+        // 3. Curved Samurai Katana Nagasa Blade (extruded profile along X = forward(-Z), Y = up)
+        // Profile in 2D shape coordinates: x = distance forward from habaki (0 -> 0.56), y = blade vertical height
+        const bladeShape = new THREE.Shape();
+        bladeShape.moveTo(0.00, -0.011);
+        bladeShape.quadraticCurveTo(0.26, -0.005, 0.50, 0.014);
+        bladeShape.quadraticCurveTo(0.54, 0.020, 0.575, 0.042); // Razor-sharp kissaki tip
+        bladeShape.quadraticCurveTo(0.53, 0.039, 0.49, 0.036);  // Mune top spine curve (sori)
+        bladeShape.quadraticCurveTo(0.25, 0.019, 0.00, 0.016);
+        bladeShape.closePath();
+
+        const bladeGeo = new THREE.ExtrudeGeometry(bladeShape, {
+            depth: 0.0045,
+            bevelEnabled: true,
+            bevelSegments: 2,
+            steps: 1,
+            bevelSize: 0.0022,
+            bevelThickness: 0.0022,
+            curveSegments: 18
+        });
+        normalizeExtrudeUVs(bladeGeo);
+        // Extruded plane lies in X(+forward)-Y(+up) with thickness in Z. Rotate +90deg around Y so +X -> -Z!
+        bladeGeo.translate(0, 0, -0.00225);
+        const bladeMesh = new THREE.Mesh(bladeGeo, katanaEdgeMat);
+        bladeMesh.rotation.y = Math.PI / 2;
+        bladeMesh.position.set(0, 0.002, -0.132);
+        group.add(bladeMesh);
+
+        // Satin Mune dark steel spine strip & fuller groove along the curved blade back
+        const spineShape = new THREE.Shape();
+        spineShape.moveTo(0.00, 0.008);
+        spineShape.quadraticCurveTo(0.25, 0.011, 0.49, 0.028);
+        spineShape.lineTo(0.49, 0.0365);
+        spineShape.quadraticCurveTo(0.25, 0.0195, 0.00, 0.0165);
+        spineShape.closePath();
+        const spineGeo = new THREE.ExtrudeGeometry(spineShape, {
+            depth: 0.0072,
+            bevelEnabled: false,
+            curveSegments: 16
+        });
+        normalizeExtrudeUVs(spineGeo);
+        spineGeo.translate(0, 0, -0.0036);
+        const spineMesh = new THREE.Mesh(spineGeo, spineMat);
+        spineMesh.rotation.y = Math.PI / 2;
+        spineMesh.position.set(0, 0.002, -0.132);
+        group.add(spineMesh);
+
+        group.rotation.set(0.24, 0.16, -0.22);
+        group.position.set(0.24, -0.22, -0.44);
         return group;
     }
 

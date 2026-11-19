@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>CS:WEB Verification Harness</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  iframe { width: 1280px; height: 720px; border: 0; display: block; }
+  #report { position: fixed; top: 8px; right: 8px; background: rgba(15,23,42,0.92); color: #34d399; font: 12px/1.4 monospace; padding: 8px 12px; border: 1px solid #10b981; border-radius: 6px; z-index: 9999; max-width: 460px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<iframe id="gameFrame" src="index.html"></iframe>
+<div id="report">RUNNING...</div>
+<script>
+const viewMode = (location.hash || '').replace('#', '') || 'verify_katana';
+const frame = document.getElementById('gameFrame');
+const reportEl = document.getElementById('report');
+
+const errs = [];
+window.onerror = (msg, src, line) => errs.push(`top:${msg}@${line}`);
+
+frame.addEventListener('load', () => {
+  const win = frame.contentWindow;
+  const doc = win.document;
+  win.addEventListener('error', e => errs.push(`win:${e.message}`));
+  win.addEventListener('unhandledrejection', e => errs.push(`rej:${e.reason}`));
+
+  const waitReady = () => {
+    const g = win.csGame;
+    const startBtn = doc.getElementById('btn-start-play');
+    const nameInput = doc.getElementById('player-name-input');
+    if (!g || !startBtn || !nameInput) {
+      setTimeout(waitReady, 50);
+      return;
+    }
+
+    const pauseRafAndRender = () => {
+      win.requestAnimationFrame = () => 0;
+      g.renderer.clear();
+      g.renderer.render(g.scene, g.camera);
+      g.renderer.clearDepth();
+      g.renderer.render(g.vmScene, g.vmCamera);
+    };
+
+    const startWithMode = (mode) => {
+      nameInput.value = 'ProTester';
+      nameInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+      const sel = doc.getElementById('game-mode-select');
+      sel.value = mode;
+      sel.dispatchEvent(new win.Event('change', { bubbles: true }));
+      startBtn.click();
+    };
+
+    try {
+      if (viewMode === 'verify_katana') {
+        const results = {};
+
+        // 1. Test awp_only bot loadout & 3rd-person AWP mesh & BotAI AWP cadence
+        startWithMode('awp_only');
+        const awpBots = g.entities.filter(e => e.isBot);
+        const nonAwpBots = awpBots.filter(b => b.weapon !== 'awp' || !b.mesh || b.mesh.userData.weaponId !== 'awp' || !b.mesh.getObjectByName('thirdPersonGun') || b.mesh.getObjectByName('thirdPersonGun').userData.weaponType !== 'awp');
+        results.gameRunningAwp = doc.getElementById('lobby-overlay')?.classList.contains('hidden') || false;
+        results.awpOnlyBotCount = awpBots.length;
+        results.allBotsAwp = (awpBots.length >= 4 && nonAwpBots.length === 0);
+
+        // Verify BotAI forces AWP cooldown & AWP sound/damage
+        if (awpBots.length > 0 && g.botAI) {
+          const b = awpBots[0];
+          b.reactionDelay = 0;
+          b.fireCooldown = 0;
+          const enemy = g.entities.find(e => e.team !== b.team && e.hp > 0) || { x: b.x + 5, y: 0, z: b.z + 5, isLocalPlayer: true };
+          let playedWep = null;
+          const origPlay = win.soundFX.playShoot.bind(win.soundFX);
+          win.soundFX.playShoot = (id, v) => { playedWep = id; return origPlay(id, v); };
+          g.botAI.botShoot(b, enemy, win.BOT_DIFFICULTIES[g.botDifficulty || 'normal']);
+          win.soundFX.playShoot = origPlay;
+          results.botShootPlayedWep = playedWep;
+        }
+
+        // Test auto-reload on AWP (clip 1 -> 0 -> reloading true)
+        g.equipSlot(1);
+        g.player.reloading = false;
+        g.player.fireCooldown = 0;
+        g.player.ammo.awp.clip = 1;
+        g.player.ammo.awp.reserve = 50;
+        g.shoot();
+        results.awpAutoReloadClip = g.player.ammo.awp.clip;
+        results.awpAutoReloading = g.player.reloading;
+        results.awpReloadTimer = Number((g.player.reloadTimer || 0).toFixed(2));
+
+        // 2. Test TDM mode: AK47 auto-reload + zero-reserve guard
+        startWithMode('tdm');
+        g.player.reloading = false;
+        g.player.fireCooldown = 0;
+        g.player.slots[1] = 'ak47';
+        g.player.ammo.ak47 = { clip: 1, reserve: 30 };
+        g.equipSlot(1);
+        g.shoot();
+        results.akAutoReloadClip = g.player.ammo.ak47.clip;
+        results.akAutoReloading = g.player.reloading;
+
+        g.player.reloading = false;
+        g.player.fireCooldown = 0;
+        g.player.ammo.ak47 = { clip: 1, reserve: 0 };
+        g.shoot();
+        results.noReserveDoesNotReload = (!g.player.reloading && g.player.ammo.ak47.clip === 0);
+
+        // 3. Test Samurai Katana metadata, icon, slot text, 3-hit cycling VFX
+        g.equipSlot(3);
+        const slot3Text = (doc.getElementById('slot-btn-3')?.textContent || '').replace(/\s+/g, ' ').trim();
+        const hudImgSrc = doc.getElementById('hud-weapon-img')?.getAttribute('src') || '';
+        results.katanaWeaponName = win.WEAPONS.knife.name;
+        results.slot3Label = slot3Text;
+        results.katanaIconSet = hudImgSrc.startsWith('data:image/svg+xml');
+        results.katanaSlotActive = doc.getElementById('slot-btn-3')?.classList.contains('active') || false;
+
+        const comboExecuted = [];
+        const effectKinds = [];
+        const knifeAnimSteps = [];
+        for (let k = 0; k < 6; k++) {
+          comboExecuted.push(g.knifeComboStep);
+          g.player.fireCooldown = 0;
+          g.shoot();
+          knifeAnimSteps.push(g.knifeAnim ? g.knifeAnim.step : -1);
+          const latestFx = g.katanaEffects[g.katanaEffects.length - 1];
+          effectKinds.push(latestFx && latestFx.group ? latestFx.group.userData.effectKind : 'missing');
+          g.updatePlayer(0.05);
+          g.updateEffects(0.05);
+        }
+        while (g.katanaEffects.length > 0) g.updateEffects(0.2);
+        g.knifeAnim = null;
+        g.knifeComboStep = 0;
+        for (let i = 0; i < 20; i++) g.updatePlayer(0.05);
+
+        results.comboExecuted = comboExecuted;
+        results.knifeAnimSteps = knifeAnimSteps;
+        results.effectKinds = effectKinds;
+        results.errors = errs;
+        results.allPassed = (
+          results.gameRunningAwp === true &&
+          results.allBotsAwp &&
+          results.botShootPlayedWep === 'awp' &&
+          results.awpAutoReloadClip === 0 && results.awpAutoReloading === true &&
+          results.akAutoReloadClip === 0 && results.akAutoReloading === true &&
+          results.noReserveDoesNotReload &&
+          results.slot3Label.includes('KATANA') &&
+          results.katanaIconSet &&
+          JSON.stringify(comboExecuted) === '[0,1,2,0,1,2]' &&
+          JSON.stringify(effectKinds) === '["slash1","slash2","stab3","slash1","slash2","stab3"]' &&
+          errs.length === 0
+        );
+
+        reportEl.textContent = JSON.stringify(results, null, 2);
+        pauseRafAndRender();
+      } else if (viewMode === 'slash1' || viewMode === 'stab3') {
+        startWithMode('tdm');
+        g.equipSlot(3);
+        g.player.x = 0; g.player.y = 0; g.player.z = 8;
+        g.player.yaw = 0; g.player.pitch = 0;
+        g.camera.position.set(0, 1.62, 8);
+        g.camera.rotation.set(0, 0, 0, 'YXZ');
+        const bot = g.entities.find(e => e.team !== g.player.team);
+        if (bot) {
+          bot.x = 0; bot.y = 0; bot.z = 4.6; bot.yaw = Math.PI;
+          bot.mesh.position.set(bot.x, bot.y, bot.z);
+          bot.mesh.rotation.y = Math.PI;
+        }
+        g.knifeComboStep = (viewMode === 'slash1') ? 0 : 2;
+        g.player.fireCooldown = 0;
+        g.shoot();
+        for (let s = 0; s < 4; s++) {
+          g.updatePlayer(0.032);
+          g.updateEffects(0.028);
+        }
+        reportEl.style.display = 'none';
+        pauseRafAndRender();
+      } else if (viewMode === 'awp_bots') {
+        startWithMode('awp_only');
+        g.player.x = 0; g.player.y = 0; g.player.z = 10;
+        g.player.yaw = 0; g.player.pitch = -0.04;
+        g.camera.position.set(0, 1.62, 10);
+        g.camera.rotation.set(-0.04, 0, 0, 'YXZ');
+        const tBot = g.entities.find(e => e.isBot && e.team === 'T');
+        const ctBot = g.entities.find(e => e.isBot && e.team === 'CT');
+        if (tBot) {
+          tBot.x = -1.2; tBot.y = 0; tBot.z = 5.8;
+          tBot.mesh.position.set(-1.2, 0, 5.8);
+          tBot.mesh.rotation.y = -2.1;
+        }
+        if (ctBot) {
+          ctBot.x = 1.2; ctBot.y = 0; ctBot.z = 5.8;
+          ctBot.mesh.position.set(1.2, 0, 5.8);
+          ctBot.mesh.rotation.y = 2.1;
+        }
+        reportEl.style.display = 'none';
+        pauseRafAndRender();
+      }
+    } catch (e) {
+      errs.push(e.stack || e.message);
+      reportEl.textContent = 'ERROR: ' + errs.join('\n');
+    }
+  };
+  setTimeout(waitReady, 150);
+});
+</script>
+</body>
+</html>

@@ -40,23 +40,65 @@ class SoundSystem {
         const now = this.ctx.currentTime;
         const vol = Math.min(1.0, Math.max(0.05, volumeScale));
 
-        if (weaponId === 'knife') {
-            // Knife tactical combat slice
+        if (weaponId === 'knife' || weaponId === 'knife_slash' || weaponId === 'knife_stab') {
+            if (weaponId === 'knife_stab') {
+                // Katana 3rd hit: sharp forward lunging thrust + piercing sub-thump
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.createNoiseBuffer(0.18);
+                const bp = this.ctx.createBiquadFilter();
+                bp.type = 'bandpass';
+                bp.frequency.setValueAtTime(2400, now);
+                bp.frequency.exponentialRampToValueAtTime(520, now + 0.17);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.48 * vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+                noise.connect(bp);
+                bp.connect(gain);
+                gain.connect(this.masterGain);
+                noise.start(now);
+
+                const osc = this.ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(340, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.14);
+                const oGain = this.ctx.createGain();
+                oGain.gain.setValueAtTime(0.32 * vol, now);
+                oGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc.connect(oGain);
+                oGain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.15);
+                return;
+            }
+
+            // Katana slashes (Hit 1 & Hit 2): fast air whoosh + crisp metallic blade ring
             const noise = this.ctx.createBufferSource();
-            noise.buffer = this.createNoiseBuffer(0.14);
+            noise.buffer = this.createNoiseBuffer(0.15);
             const filter = this.ctx.createBiquadFilter();
             filter.type = 'bandpass';
-            filter.frequency.setValueAtTime(1400, now);
-            filter.frequency.exponentialRampToValueAtTime(380, now + 0.13);
+            filter.frequency.setValueAtTime(1900, now);
+            filter.frequency.exponentialRampToValueAtTime(480, now + 0.14);
 
             const gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(0.40 * vol, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-
+            gain.gain.setValueAtTime(0.42 * vol, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
             noise.connect(filter);
             filter.connect(gain);
             gain.connect(this.masterGain);
             noise.start(now);
+
+            const shing = this.ctx.createOscillator();
+            shing.type = 'sine';
+            shing.frequency.setValueAtTime(3100, now);
+            shing.frequency.exponentialRampToValueAtTime(1650, now + 0.12);
+            const sGain = this.ctx.createGain();
+            sGain.gain.setValueAtTime(0.11 * vol, now);
+            sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            shing.connect(sGain);
+            sGain.connect(this.masterGain);
+            shing.start(now);
+            shing.stop(now + 0.13);
             return;
         }
 

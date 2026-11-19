@@ -99,6 +99,9 @@ class CSGame {
         this.tracers = [];
         this.grenades = [];
         this.particles = [];
+        this.katanaEffects = [];
+        this.knifeComboStep = 0;
+        this.knifeAnim = null;
         this.bulletDecals = [];
         this.spentShells = [];
         this.gunSmokePuffs = [];
@@ -244,9 +247,48 @@ class CSGame {
         }
     }
 
+    isAwpOnly() {
+        return this.gameMode === 'awp_only';
+    }
+
+    isRichMode() {
+        return this.gameMode === 'tdm' || this.gameMode === 'awp_only';
+    }
+
+    applyGameModeLoadout() {
+        if (this.isAwpOnly()) {
+            this.player.slots[1] = 'awp';
+            this.player.slots[2] = null;
+            this.player.slots[3] = null;
+            this.player.slots[4] = null;
+            if (this.player.ammo && this.player.ammo.hegrenade) {
+                this.player.ammo.hegrenade.clip = 0;
+                this.player.ammo.hegrenade.reserve = 0;
+            }
+            if (this.player.ammo && this.player.ammo.awp && WEAPONS.awp) {
+                this.player.ammo.awp.clip = WEAPONS.awp.clipSize;
+                this.player.ammo.awp.reserve = Math.max(this.player.ammo.awp.reserve || 0, WEAPONS.awp.reserveMax);
+            }
+        } else {
+            this.player.slots[1] = this.player.team === 'T' ? 'ak47' : 'm4a1';
+            this.player.slots[2] = 'pistol';
+            this.player.slots[3] = 'knife';
+            this.player.slots[4] = 'hegrenade';
+        }
+        this.populateBuyMenu('all');
+    }
+
     equipSlot(slotNum) {
+        if (this.isAwpOnly() && slotNum !== 1) {
+            this.showAnnouncement('🔭 โหมด AWP Only: ใช้ได้เฉพาะปืน AWP เท่านั้น (ปืนพก/มีด/ระเบิด ปิดใช้งาน)!', 1.5);
+            return;
+        }
         const wepId = this.player.slots[slotNum];
         if (!wepId || !WEAPONS[wepId]) return;
+        if (slotNum === 3) {
+            this.knifeComboStep = 0;
+            this.knifeAnim = null;
+        }
         if (slotNum === 4) {
             const gAmmo = this.player.ammo.hegrenade;
             const totalG = gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0;
@@ -315,9 +357,9 @@ class CSGame {
         this.scores = { T: 0, CT: 0 };
         this.player.kills = 0;
         this.player.deaths = 0;
-        this.player.money = this.gameMode === 'tdm' ? 50000 : 1000;
-        this.player.slots[1] = this.player.team === 'T' ? 'ak47' : 'm4a1';
+        this.player.money = this.isRichMode() ? 50000 : 1000;
         this.initAmmoForAll();
+        this.applyGameModeLoadout();
 
         if (!this.net.isClient) {
             this.setupBots();
@@ -331,7 +373,8 @@ class CSGame {
         }
 
         window.soundFX.init();
-        this.addChatMessage(`🎮 ยินดีต้อนรับสู่ Counter-Strike Online! (${this.gameMode === 'tdm' ? 'Rich Mode' : 'Classic'}) — สมรภูมิ: ${this.getMapName(this.mapId)}`, '#fbbf24');
+        const modeLabel = this.isAwpOnly() ? '🔭 AWP Only Mode (เฉพาะ AWP เท่านั้น)' : '💰 Rich Elimination Mode';
+        this.addChatMessage(`🎮 ยินดีต้อนรับสู่ Counter-Strike Online! (${modeLabel}) — สมรภูมิ: ${this.getMapName(this.mapId)}`, '#fbbf24');
     }
 
     loadMap(mapId) {
@@ -420,9 +463,9 @@ class CSGame {
             const namePool = team === 'T' ? tNames : ctNames;
             const botName = namePool[i % namePool.length];
             const wepPool = team === 'T' ? tLoadouts : ctLoadouts;
-            const botWep = wepPool[i % wepPool.length];
+            const botWep = this.isAwpOnly() ? 'awp' : wepPool[i % wepPool.length];
 
-            const mesh = createCharacterMesh(team, botName, team === this.player.team);
+            const mesh = createCharacterMesh(team, botName, team === this.player.team, botWep);
             mesh.position.set(sp.x, 0, sp.z);
             this.scene.add(mesh);
 
@@ -462,7 +505,7 @@ class CSGame {
         this.roundOver = false;
         this.roundRestartTimer = 0;
         this.clearRespawnTimeouts();
-        this.roundTime = this.gameMode === 'tdm' ? 300 : 115;
+        this.roundTime = this.isRichMode() ? 300 : 115;
         this.clearPlantedBomb();
 
         this.respawnLocalPlayer();
@@ -518,7 +561,7 @@ class CSGame {
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
         const won = this.player.team === data.winnerTeam;
-        this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
+        this.player.money = this.isRichMode() ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
         this.updateVitalsHUD();
         window.soundFX.playRoundEnd(won);
         this.showAnnouncement(data.reasonText, 3.2);
@@ -546,25 +589,36 @@ class CSGame {
         this.player.armor = 100;
         this.player.invincibleTimer = 2.0; // 2-Second Spawn Protection Invincibility!
         this.player.reloading = false;
-        if (this.gameMode === 'tdm') {
+        if (this.isRichMode()) {
             this.player.money = 50000;
         }
 
         for (const k of Object.keys(this.player.ammo)) {
             if (k === 'hegrenade') {
                 const g = this.player.ammo[k];
-                const total = Math.min(10, Math.max((g.clip || 0) + (g.reserve || 0), WEAPONS[k].clipSize + WEAPONS[k].reserveMax));
-                if (total > 0) {
-                    g.clip = 1;
-                    g.reserve = total - 1;
-                } else {
+                if (this.isAwpOnly()) {
                     g.clip = 0;
                     g.reserve = 0;
+                } else {
+                    const total = Math.min(10, Math.max((g.clip || 0) + (g.reserve || 0), WEAPONS[k].clipSize + WEAPONS[k].reserveMax));
+                    if (total > 0) {
+                        g.clip = 1;
+                        g.reserve = total - 1;
+                    } else {
+                        g.clip = 0;
+                        g.reserve = 0;
+                    }
                 }
             } else {
                 this.player.ammo[k].clip = WEAPONS[k].clipSize;
                 this.player.ammo[k].reserve = Math.max(this.player.ammo[k].reserve || 0, WEAPONS[k].reserveMax);
             }
+        }
+        if (this.isAwpOnly()) {
+            this.player.slots[1] = 'awp';
+            this.player.slots[2] = null;
+            this.player.slots[3] = null;
+            this.player.slots[4] = null;
         }
         this.equipSlot(this.player.slots[1] ? 1 : 2);
         this.updateVitalsHUD();
@@ -591,6 +645,10 @@ class CSGame {
     shoot() {
         if (!this.running || this.player.hp <= 0 || this.player.reloading) return;
         if (this.player.fireCooldown > 0) return;
+        if (this.isAwpOnly() && this.player.weaponId !== 'awp') {
+            this.equipSlot(1);
+            return;
+        }
 
         const wep = WEAPONS[this.player.weaponId];
         const ammoObj = this.player.ammo[wep.id];
@@ -614,20 +672,32 @@ class CSGame {
             return;
         }
 
-        if (wep.id !== 'knife') {
+        let meleeStep = 0;
+        const isKatana = (wep.id === 'knife');
+        if (!isKatana) {
             if (ammoObj.clip <= 0) {
                 this.reload();
                 return;
             }
             ammoObj.clip--;
+        } else {
+            meleeStep = this.knifeComboStep || 0;
+            this.knifeComboStep = (meleeStep + 1) % 3;
         }
+        const isKatanaStab = isKatana && meleeStep === 2;
 
-        this.player.fireCooldown = wep.fireRate;
-        window.soundFX.playShoot(wep.id, 1.0);
+        this.player.fireCooldown = isKatana ? (isKatanaStab ? 0.42 : 0.30) : wep.fireRate;
+        window.soundFX.playShoot(isKatana ? (isKatanaStab ? 'knife_stab' : 'knife_slash') : wep.id, 1.0);
         this.updateWeaponHUD();
 
-        // Viewmodel recoil kick, Muzzle Flash + Dynamic Real-Time Light + Ejecting Brass Shell
-        if (this.weaponMesh) {
+        // Viewmodel recoil kick / Katana 3-hit combo animation + Muzzle Flash
+        if (isKatana) {
+            this.knifeAnim = {
+                step: meleeStep,
+                elapsed: 0,
+                duration: isKatanaStab ? 0.36 : 0.28
+            };
+        } else if (this.weaponMesh) {
             this.weaponKickBack = Math.min(0.12, this.weaponKickBack + (wep.recoil * 5.5 + 0.045));
             this.weaponKickPitch = Math.min(0.20, this.weaponKickPitch + (wep.recoil * 6.5 + 0.055));
             this.weaponKickRoll = (Math.random() - 0.5) * 0.06;
@@ -647,16 +717,19 @@ class CSGame {
         const rightVec = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, this.player.yaw, 0));
         const gunMuzzle = origin.clone().addScaledVector(forwardVec, 0.62).addScaledVector(rightVec, 0.18).add(new THREE.Vector3(0, -0.06, 0));
 
-        if (wep.id !== 'knife') {
+        if (!isKatana) {
             // Real-time Dynamic Muzzle Light flash in 3D world
             this.muzzleLight.position.copy(gunMuzzle);
             this.muzzleLight.intensity = 5.2;
 
             this.spawnShellCasing(wep.id);
             this.spawnGunSmoke(gunMuzzle);
+        } else {
+            this.spawnKatanaEffect(meleeStep, origin, forwardVec, rightVec);
         }
 
         const pellets = wep.pellets || 1;
+        const effectiveRange = isKatanaStab ? (wep.range + 0.75) : wep.range;
 
         for (let p = 0; p < pellets; p++) {
             let spreadAmount = wep.spread;
@@ -672,11 +745,11 @@ class CSGame {
             ));
             dir.normalize();
 
-            const ray = new THREE.Raycaster(origin, dir, 0.1, wep.range);
+            const ray = new THREE.Raycaster(origin, dir, 0.1, effectiveRange);
 
             const wallHits = ray.intersectObjects(this.map.shootableMeshes, false);
-            let maxDist = wep.range;
-            let endPoint = origin.clone().add(dir.clone().multiplyScalar(wep.range));
+            let maxDist = effectiveRange;
+            let endPoint = origin.clone().add(dir.clone().multiplyScalar(effectiveRange));
 
             if (wallHits.length > 0) {
                 maxDist = wallHits[0].distance;
@@ -704,6 +777,7 @@ class CSGame {
                 const isHeadshot = part === 'head';
 
                 let dmg = wep.damage;
+                if (isKatanaStab) dmg = Math.round(dmg * 1.45);
                 if (isHeadshot) dmg = Math.round(dmg * wep.headshotMult);
                 else if (part === 'leg') dmg = Math.round(dmg * 0.75);
 
@@ -715,12 +789,12 @@ class CSGame {
                 } else {
                     this.damageEntity(targetEnt, dmg, this.player.name, wep.id, isHeadshot, this.player);
                 }
-            } else if (wallHits.length > 0 && wep.id !== 'knife') {
+            } else if (wallHits.length > 0 && !isKatana) {
                 const norm = wallHits[0].face ? wallHits[0].face.normal : new THREE.Vector3(0, 1, 0);
                 this.spawnEnvironmentImpact(endPoint, norm, wep.id, wallHits[0].object);
             }
 
-            if (wep.id !== 'knife') {
+            if (!isKatana) {
                 this.spawnBulletTracer(gunMuzzle, endPoint);
                 this.net.sendShoot(gunMuzzle, endPoint, wep.id);
             }
@@ -730,6 +804,9 @@ class CSGame {
 
         if (wep.id === 'awp' && this.player.isScoped) {
             this.setScope(false);
+        }
+        if (!isKatana && wep.id !== 'hegrenade' && ammoObj.clip <= 0 && ammoObj.reserve > 0 && !this.player.reloading) {
+            this.reload();
         }
     }
 
@@ -847,7 +924,7 @@ class CSGame {
                 killerTeam = attackerObj.team || killerTeam;
                 if (attackerObj === this.player) {
                     killerId = 'HOST';
-                    this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + 300);
+                    this.player.money = this.isRichMode() ? 50000 : Math.min(50000, this.player.money + 300);
                     this.updateVitalsHUD();
                 } else {
                     killerId = attackerObj.id;
@@ -969,7 +1046,7 @@ class CSGame {
         if (data.killerId === myId) {
             if (data.killerKills !== undefined) this.player.kills = data.killerKills;
             else this.player.kills++;
-            this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + 300);
+            this.player.money = this.isRichMode() ? 50000 : Math.min(50000, this.player.money + 300);
             this.updateVitalsHUD();
         } else {
             const kEnt = this.entities.find(e => e.id === data.killerId);
@@ -1028,7 +1105,7 @@ class CSGame {
         this.refreshScoreboardIfOpen();
 
         const won = this.player.team === winnerTeam;
-        this.player.money = this.gameMode === 'tdm' ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
+        this.player.money = this.isRichMode() ? 50000 : Math.min(50000, this.player.money + (won ? 3250 : 1900));
         this.updateVitalsHUD();
 
         window.soundFX.playRoundEnd(won);
@@ -1629,18 +1706,94 @@ class CSGame {
         const bobY = Math.abs(Math.sin(this.weaponBobTimer)) * (isMoving ? 0.015 : 0.003);
         const bobRotZ = Math.sin(this.weaponBobTimer * 0.5) * (isMoving ? 0.035 : 0.006);
 
+        if (this.knifeAnim) {
+            this.knifeAnim.elapsed += dt;
+            if (this.knifeAnim.elapsed >= this.knifeAnim.duration || p.weaponId !== 'knife') {
+                this.knifeAnim = null;
+            }
+        }
+
         if (this.weaponMesh && !p.reloading) {
-            const baseX = p.isScoped ? 0 : 0.24;
-            const baseY = p.isScoped ? -0.14 : -0.19;
-            const baseZ = p.isScoped ? -0.25 : -0.52;
+            if (p.weaponId === 'knife') {
+                let targetX = 0.24 + bobX + this.weaponSwayX;
+                let targetY = -0.22 - bobY + this.weaponSwayY;
+                let targetZ = -0.44;
+                let targetRx = 0.24;
+                let targetRy = 0.16 + this.weaponSwayX * 0.8;
+                let targetRz = -0.22 + bobRotZ;
 
-            this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, baseX + bobX + this.weaponSwayX, dt * 14);
-            this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, baseY - bobY + this.weaponSwayY, dt * 14);
-            this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, baseZ + this.weaponKickBack, dt * 18);
+                if (this.knifeAnim) {
+                    const t = Math.min(1, this.knifeAnim.elapsed / this.knifeAnim.duration);
+                    const step = this.knifeAnim.step;
+                    if (step === 0) {
+                        // Hit 1: High-right wind-up -> Sweeping diagonal slash right-to-left
+                        if (t < 0.25) {
+                            const k = t / 0.25;
+                            targetX += 0.12 * k; targetY += 0.11 * k; targetZ += 0.04 * k;
+                            targetRx += 0.16 * k; targetRy -= 0.34 * k; targetRz -= 0.45 * k;
+                        } else if (t < 0.65) {
+                            const k = (t - 0.25) / 0.40;
+                            targetX += 0.12 - 0.56 * k; targetY += 0.11 - 0.20 * k; targetZ += 0.04 - 0.10 * k;
+                            targetRx += 0.16 - 0.38 * k; targetRy += -0.34 + 1.24 * k; targetRz += -0.45 + 1.52 * k;
+                        } else {
+                            const k = 1 - (t - 0.65) / 0.35;
+                            targetX -= 0.44 * k; targetY -= 0.09 * k; targetZ -= 0.06 * k;
+                            targetRx -= 0.22 * k; targetRy += 0.90 * k; targetRz += 1.07 * k;
+                        }
+                    } else if (step === 1) {
+                        // Hit 2: Left backhand wind-up -> Sweeping reverse slash left-to-right
+                        if (t < 0.25) {
+                            const k = t / 0.25;
+                            targetX -= 0.44 * k; targetY -= 0.05 * k; targetZ += 0.04 * k;
+                            targetRx -= 0.14 * k; targetRy += 0.78 * k; targetRz += 1.15 * k;
+                        } else if (t < 0.65) {
+                            const k = (t - 0.25) / 0.40;
+                            targetX += -0.44 + 0.58 * k; targetY += -0.05 + 0.16 * k; targetZ += 0.04 - 0.08 * k;
+                            targetRx += -0.14 + 0.34 * k; targetRy += 0.78 - 1.38 * k; targetRz += 1.15 - 1.78 * k;
+                        } else {
+                            const k = 1 - (t - 0.65) / 0.35;
+                            targetX += 0.14 * k; targetY += 0.11 * k; targetZ -= 0.04 * k;
+                            targetRx += 0.20 * k; targetRy -= 0.60 * k; targetRz -= 0.63 * k;
+                        }
+                    } else {
+                        // Hit 3: Level blade forward along -Z -> Explosive forward thrust / stab
+                        if (t < 0.22) {
+                            const k = t / 0.22;
+                            targetX -= 0.10 * k; targetY += 0.05 * k; targetZ += 0.18 * k;
+                            targetRx -= 0.20 * k; targetRy -= 0.08 * k; targetRz += 0.16 * k;
+                        } else if (t < 0.56) {
+                            const k = (t - 0.22) / 0.34;
+                            targetX -= 0.10 + 0.08 * k; targetY += 0.05 + 0.03 * k; targetZ += 0.18 - 0.38 * k;
+                            targetRx -= 0.20 + 0.02 * k; targetRy -= 0.08 + 0.04 * k; targetRz += 0.16;
+                        } else {
+                            const k = 1 - (t - 0.56) / 0.44;
+                            targetX -= 0.18 * k; targetY += 0.08 * k; targetZ -= 0.20 * k;
+                            targetRx -= 0.22 * k; targetRy -= 0.12 * k; targetRz += 0.16 * k;
+                        }
+                    }
+                    this.weaponMesh.position.set(targetX, targetY, targetZ);
+                    this.weaponMesh.rotation.set(targetRx, targetRy, targetRz);
+                } else {
+                    this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, targetX, dt * 16);
+                    this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, targetY, dt * 16);
+                    this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, targetZ, dt * 16);
+                    this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, targetRx, dt * 16);
+                    this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, targetRy, dt * 16);
+                    this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, targetRz, dt * 16);
+                }
+            } else {
+                const baseX = p.isScoped ? 0 : 0.24;
+                const baseY = p.isScoped ? -0.14 : -0.19;
+                const baseZ = p.isScoped ? -0.25 : -0.52;
 
-            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.025 + this.weaponKickPitch, dt * 16);
-            this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, 0.115 + this.weaponSwayX * 0.8, dt * 14);
-            this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, bobRotZ + this.weaponKickRoll, dt * 14);
+                this.weaponMesh.position.x = THREE.MathUtils.lerp(this.weaponMesh.position.x, baseX + bobX + this.weaponSwayX, dt * 14);
+                this.weaponMesh.position.y = THREE.MathUtils.lerp(this.weaponMesh.position.y, baseY - bobY + this.weaponSwayY, dt * 14);
+                this.weaponMesh.position.z = THREE.MathUtils.lerp(this.weaponMesh.position.z, baseZ + this.weaponKickBack, dt * 18);
+
+                this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.weaponMesh.rotation.x, 0.025 + this.weaponKickPitch, dt * 16);
+                this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, 0.115 + this.weaponSwayX * 0.8, dt * 14);
+                this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, bobRotZ + this.weaponKickRoll, dt * 14);
+            }
         }
 
         this.updateCrosshair(movingSpeed);
@@ -1865,7 +2018,7 @@ class CSGame {
             this.roundTime -= dt;
             if (this.roundTime <= 0) {
                 this.roundTime = 0;
-                if (this.gameMode === 'tdm') {
+                if (this.isRichMode()) {
                     this.startNewRound();
                 } else {
                     this.endRound('CT', '⏱️ หมดเวลา! COUNTER-TERRORISTS WIN!');
@@ -1876,10 +2029,185 @@ class CSGame {
         this.updateTimerDisplay();
     }
 
+    spawnKatanaEffect(step, origin, forwardVec, rightVec) {
+        if (!this.scene) return;
+        const fwd = forwardVec.clone().normalize();
+        const isStab = (step === 2);
+
+        const fxGroup = new THREE.Group();
+        const spawnDist = isStab ? 1.65 : 1.42;
+        const pos = origin.clone().addScaledVector(fwd, spawnDist).add(new THREE.Vector3(0, isStab ? -0.09 : -0.14, 0));
+        fxGroup.position.copy(pos);
+
+        // Right-handed basis where local -Z = fwd, +X = right, +Y = up (invariant at all yaws/pitches)
+        const zAxis = fwd.clone().negate();
+        const xAxis = rightVec.clone().normalize();
+        const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+        fxGroup.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+
+        const disposeFns = [];
+        const trackedMeshes = [];
+
+        if (!isStab) {
+            // Hits 1 & 2: Curved Katana Crescent Slash Ribbon + Bright Edge Tube (pitched so clearly visible in 1P!)
+            const tiltZ = (step === 0) ? -0.52 : 0.52;
+            const swingDir = (step === 0) ? -1 : 1;
+            const outerColor = (step === 0) ? 0x38bdf8 : 0x60a5fa;
+            const coreColor = 0xf8fafc;
+
+            const tiltGroup = new THREE.Group();
+            tiltGroup.rotation.z = tiltZ;
+            tiltGroup.rotation.x = 0.36; // Pitch downward slightly so camera sees full glowing crescent face
+            const sweepPivot = new THREE.Group();
+            sweepPivot.rotation.y = -swingDir * 0.45;
+
+            const outerGeo = new THREE.RingGeometry(0.34, 0.92, 28, 1, Math.PI * 0.14, Math.PI * 0.72);
+            const outerMat = new THREE.MeshBasicMaterial({
+                color: outerColor,
+                transparent: true,
+                opacity: 0.88,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const outerArc = new THREE.Mesh(outerGeo, outerMat);
+            outerArc.rotation.x = -Math.PI / 2;
+
+            const rimGeo = new THREE.TorusGeometry(0.88, 0.028, 8, 28, Math.PI * 0.70);
+            const rimMat = new THREE.MeshBasicMaterial({
+                color: coreColor,
+                transparent: true,
+                opacity: 0.98,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const rimArc = new THREE.Mesh(rimGeo, rimMat);
+            rimArc.rotation.x = -Math.PI / 2;
+            rimArc.rotation.z = Math.PI * 0.15;
+
+            sweepPivot.add(outerArc, rimArc);
+            tiltGroup.add(sweepPivot);
+            fxGroup.add(tiltGroup);
+
+            trackedMeshes.push({ mat: outerMat, initOp: 0.88 }, { mat: rimMat, initOp: 0.98 });
+            disposeFns.push(() => { outerGeo.dispose(); outerMat.dispose(); rimGeo.dispose(); rimMat.dispose(); });
+
+            fxGroup.userData.effectKind = (step === 0) ? 'slash1' : 'slash2';
+            this.scene.add(fxGroup);
+            this.katanaEffects.push({
+                group: fxGroup,
+                sweepPivot,
+                swingDir,
+                isStab: false,
+                fwd,
+                timer: 0.25,
+                maxTimer: 0.25,
+                trackedMeshes,
+                dispose: () => disposeFns.forEach(fn => fn())
+            });
+        } else {
+            // Hit 3: Piercing Forward Katana Thrust (Golden-White Thrust Cone + Sonic Rings + Piercing Lance Streak)
+            const coneGeo = new THREE.ConeGeometry(0.24, 1.75, 16, 1, true);
+            const coneMat = new THREE.MeshBasicMaterial({
+                color: 0xfacc15,
+                transparent: true,
+                opacity: 0.86,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const cone = new THREE.Mesh(coneGeo, coneMat);
+            cone.rotation.x = -Math.PI / 2;
+            cone.position.z = -0.35;
+
+            const innerGeo = new THREE.ConeGeometry(0.085, 1.95, 12, 1, true);
+            const innerMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.96,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const innerCone = new THREE.Mesh(innerGeo, innerMat);
+            innerCone.rotation.x = -Math.PI / 2;
+            innerCone.position.z = -0.45;
+
+            const ringGeo = new THREE.TorusGeometry(0.26, 0.024, 8, 24);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xfef08a,
+                transparent: true,
+                opacity: 0.95,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const ring1 = new THREE.Mesh(ringGeo, ringMat);
+            ring1.position.z = 0.20;
+            const ring2 = new THREE.Mesh(ringGeo, ringMat);
+            ring2.scale.setScalar(0.65);
+            ring2.position.z = -0.25;
+
+            fxGroup.add(cone, innerCone, ring1, ring2);
+            trackedMeshes.push(
+                { mat: coneMat, initOp: 0.86 },
+                { mat: innerMat, initOp: 0.96 },
+                { mat: ringMat, initOp: 0.95 }
+            );
+            disposeFns.push(() => {
+                coneGeo.dispose(); coneMat.dispose();
+                innerGeo.dispose(); innerMat.dispose();
+                ringGeo.dispose(); ringMat.dispose();
+            });
+
+            fxGroup.userData.effectKind = 'stab3';
+            this.scene.add(fxGroup);
+            this.katanaEffects.push({
+                group: fxGroup,
+                ring1,
+                ring2,
+                isStab: true,
+                fwd,
+                timer: 0.30,
+                maxTimer: 0.30,
+                trackedMeshes,
+                dispose: () => disposeFns.forEach(fn => fn())
+            });
+        }
+    }
+
     updateEffects(dt) {
         // Decay dynamic real-time muzzle flash light
         if (this.muzzleLight && this.muzzleLight.intensity > 0) {
             this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 95);
+        }
+
+        // Animate Katana 3-hit combo slash arcs & forward thrust shockwaves
+        for (let i = this.katanaEffects.length - 1; i >= 0; i--) {
+            const kf = this.katanaEffects[i];
+            kf.timer -= dt;
+            const life = Math.max(0, kf.timer / kf.maxTimer);
+            const prog = 1 - life;
+
+            if (!kf.isStab) {
+                if (kf.sweepPivot) {
+                    kf.sweepPivot.rotation.y = kf.swingDir * (-0.52 + prog * 1.18);
+                }
+                kf.group.scale.setScalar(0.85 + prog * 0.42);
+            } else {
+                kf.group.position.addScaledVector(kf.fwd, dt * 3.8);
+                if (kf.ring1) kf.ring1.scale.setScalar(1 + prog * 1.45);
+                if (kf.ring2) kf.ring2.scale.setScalar(0.68 + prog * 1.85);
+            }
+
+            for (const tm of kf.trackedMeshes) {
+                tm.mat.opacity = life * tm.initOp;
+            }
+
+            if (kf.timer <= 0) {
+                this.scene.remove(kf.group);
+                if (kf.dispose) kf.dispose();
+                this.katanaEffects.splice(i, 1);
+            }
         }
 
         // Low-HP Heartbeat & Visceral Screen Blood Splatter Pulse
@@ -2136,8 +2464,12 @@ class CSGame {
             teamBadge.style.background = newTeam === 'T' ? 'rgba(245,158,11,0.2)' : 'rgba(56,189,248,0.2)';
         }
 
-        // 3. Switch default rifle loadout for the team
-        this.player.slots[1] = newTeam === 'T' ? 'ak47' : 'm4a1';
+        // 3. Switch default rifle loadout for the team (or lock AWP in AWP-Only mode)
+        if (this.isAwpOnly()) {
+            this.applyGameModeLoadout();
+        } else {
+            this.player.slots[1] = newTeam === 'T' ? 'ak47' : 'm4a1';
+        }
         this.equipSlot(1);
 
         // 4. PURGE any existing entity / ghost matching local player name from entities list & scene!
@@ -2205,7 +2537,8 @@ class CSGame {
 
         const spList = this.map.spawns[team] || this.map.spawns.T;
         const sp = spList[0];
-        const mesh = createCharacterMesh(team, name, team === this.player.team);
+        const remWep = this.resolveEntityWeapon(weapon, team);
+        const mesh = createCharacterMesh(team, name, team === this.player.team, remWep);
         mesh.position.set(sp.x, 0, sp.z);
         this.scene.add(mesh);
 
@@ -2220,13 +2553,18 @@ class CSGame {
             z: sp.z,
             yaw: sp.yaw,
             hp: 100,
-            weapon: weapon || (team === 'T' ? 'ak47' : 'm4a1'),
+            weapon: remWep,
             kills: 0,
             deaths: 0,
             mesh
         });
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
+    }
+
+    resolveEntityWeapon(wep, team) {
+        if (this.isAwpOnly && this.isAwpOnly()) return 'awp';
+        return wep || (team === 'T' ? 'ak47' : 'm4a1');
     }
 
     onRemotePlayerTeamChanged(peerId, data) {
@@ -2249,7 +2587,8 @@ class CSGame {
         // 2. Add player exclusively to newTeam with correct model skin
         const spList = this.map.spawns[newTeam] || this.map.spawns.T;
         const sp = spList[Math.floor(Math.random() * spList.length)];
-        const mesh = createCharacterMesh(newTeam, playerName, newTeam === this.player.team);
+        const remWep = this.resolveEntityWeapon(data.weapon, newTeam);
+        const mesh = createCharacterMesh(newTeam, playerName, newTeam === this.player.team, remWep);
         mesh.position.set(sp.x, 0, sp.z);
         this.scene.add(mesh);
 
@@ -2264,7 +2603,7 @@ class CSGame {
             z: sp.z,
             yaw: sp.yaw,
             hp: 100,
-            weapon: data.weapon || (newTeam === 'T' ? 'ak47' : 'm4a1'),
+            weapon: remWep,
             kills: oldKills,
             deaths: oldDeaths,
             mesh
@@ -2301,7 +2640,8 @@ class CSGame {
         // Recreate on newTeam
         const spList = this.map.spawns[data.newTeam] || this.map.spawns.T;
         const sp = spList[0];
-        const mesh = createCharacterMesh(data.newTeam, data.name, data.newTeam === this.player.team);
+        const remWep = this.resolveEntityWeapon(data.weapon, data.newTeam);
+        const mesh = createCharacterMesh(data.newTeam, data.name, data.newTeam === this.player.team, remWep);
         mesh.position.set(sp.x, 0, sp.z);
         this.scene.add(mesh);
 
@@ -2350,9 +2690,10 @@ class CSGame {
             if (data.team && ent.team !== data.team) {
                 // Team changed! Cleanly remove from old team and update to new team
                 ent.team = data.team;
+                const remWep = this.resolveEntityWeapon(data.weapon, ent.team);
                 if (ent.mesh) {
                     this.scene.remove(ent.mesh);
-                    ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team);
+                    ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team, remWep);
                     this.scene.add(ent.mesh);
                 }
                 this.purgePlayerGhost(ent.name, ent.id);
@@ -2404,8 +2745,9 @@ class CSGame {
             seenIds.add(a.id);
 
             let ent = this.entities.find(e => e.id === a.id || (a.name && e.name === a.name));
+            const snapWep = this.resolveEntityWeapon(a.weapon, a.team);
             if (!ent) {
-                const mesh = createCharacterMesh(a.team, a.name, a.team === this.player.team);
+                const mesh = createCharacterMesh(a.team, a.name, a.team === this.player.team, snapWep);
                 this.scene.add(mesh);
                 ent = {
                     id: a.id,
@@ -2418,7 +2760,7 @@ class CSGame {
                     z: a.z,
                     yaw: a.yaw,
                     hp: a.hp,
-                    weapon: a.weapon,
+                    weapon: snapWep,
                     kills: a.kills || 0,
                     deaths: a.deaths || 0,
                     mesh
@@ -2426,11 +2768,12 @@ class CSGame {
                 this.entities.push(ent);
                 this.refreshScoreboardIfOpen();
             } else {
-                if (a.team && ent.team !== a.team) {
-                    ent.team = a.team;
+                const needAwpRebuild = (this.isAwpOnly() && ent.mesh && (!ent.mesh.userData || ent.mesh.userData.weaponId !== 'awp'));
+                if ((a.team && ent.team !== a.team) || needAwpRebuild) {
+                    if (a.team) ent.team = a.team;
                     if (ent.mesh) {
                         this.scene.remove(ent.mesh);
-                        ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team);
+                        ent.mesh = createCharacterMesh(ent.team, ent.name, ent.team === this.player.team, snapWep);
                         this.scene.add(ent.mesh);
                     }
                 }
@@ -2487,7 +2830,7 @@ class CSGame {
 
     // ==================== HUD & UI UPDATES ====================
     updateVitalsHUD() {
-        if (this.gameMode === 'tdm') {
+        if (this.isRichMode()) {
             this.player.money = 50000;
         }
         document.getElementById('hp-val').textContent = this.player.hp;
@@ -2521,19 +2864,30 @@ class CSGame {
             document.getElementById('ammo-reserve').textContent = `/ ${ammoObj.reserve}`;
         }
 
+        const awpLocked = this.isAwpOnly();
         for (let s = 1; s <= 4; s++) {
             const btn = document.getElementById(`slot-btn-${s}`);
             if (!btn) continue;
-            btn.classList.toggle('active', this.player.currentSlot === s);
+            const lockedSlot = awpLocked && s !== 1;
+            btn.disabled = lockedSlot;
+            btn.style.opacity = lockedSlot ? '0.32' : '';
+            btn.style.filter = lockedSlot ? 'grayscale(1)' : '';
+            btn.classList.toggle('active', !lockedSlot && this.player.currentSlot === s);
             const wId = this.player.slots[s];
             const label = btn.querySelector('.slot-name');
-            if (label && wId && WEAPONS[wId]) {
-                if (wId === 'hegrenade') {
-                    const gAmmo = this.player.ammo.hegrenade;
-                    const totalG = gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0;
-                    label.textContent = `HE (${totalG})`;
-                } else {
-                    label.textContent = WEAPONS[wId].id.toUpperCase();
+            if (label) {
+                if (lockedSlot) {
+                    label.textContent = '🔒 ปิดใช้งาน';
+                } else if (wId && WEAPONS[wId]) {
+                    if (wId === 'hegrenade') {
+                        const gAmmo = this.player.ammo.hegrenade;
+                        const totalG = gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0;
+                        label.textContent = `HE (${totalG})`;
+                    } else if (wId === 'knife') {
+                        label.textContent = 'KATANA';
+                    } else {
+                        label.textContent = WEAPONS[wId].id.toUpperCase();
+                    }
                 }
             }
         }
@@ -3184,10 +3538,19 @@ class CSGame {
         const grid = document.getElementById('buy-items-grid');
         if (!grid) return;
 
+        const awpOnly = this.isAwpOnly();
+        const quickPistolBtn = document.getElementById('btn-buy-ammo-pistol');
+        const quickNadeBtn = document.getElementById('btn-buy-nade-quick');
+        if (quickPistolBtn) quickPistolBtn.classList.toggle('hidden', awpOnly);
+        if (quickNadeBtn) quickNadeBtn.classList.toggle('hidden', awpOnly);
+
         // Build Category Filter Tabs
         if (tabsBar && window.WEAPON_CATEGORIES) {
             tabsBar.innerHTML = '';
-            for (const cat of window.WEAPON_CATEGORIES) {
+            const cats = awpOnly
+                ? [{ id: 'all', name: '🔭 โหมด AWP Only (ใช้ได้เฉพาะ AWP เท่านั้น)' }]
+                : window.WEAPON_CATEGORIES;
+            for (const cat of cats) {
                 const btn = document.createElement('button');
                 btn.className = 'buy-tab-btn' + (cat.id === selectedCat ? ' active' : '');
                 btn.textContent = cat.name;
@@ -3214,9 +3577,9 @@ class CSGame {
             { id: 'heavyarmor', category: 'equip', name: 'Heavy Tactical Armor (150 AP)', type: 'เกราะจู่โจมหนาพิเศษ 150 AP', price: 1000, isEquipment: true }
         ];
 
-        const filtered = selectedCat === 'all'
-            ? allItems
-            : allItems.filter(item => item.category === selectedCat);
+        const filtered = awpOnly
+            ? allItems.filter(item => item.id === 'awp' || item.isEquipment)
+            : (selectedCat === 'all' ? allItems : allItems.filter(item => item.category === selectedCat));
 
         for (const item of filtered) {
             const card = document.createElement('div');
@@ -3255,6 +3618,10 @@ class CSGame {
             const el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('click', () => {
+                if (this.isAwpOnly() && (id === 'btn-buy-ammo-pistol' || id === 'btn-buy-nade-quick')) {
+                    this.showAnnouncement('🔭 โหมด AWP Only: ห้ามใช้ปืนพก/มีด/ระเบิด!', 1.8);
+                    return;
+                }
                 if (id === 'btn-buy-nade-quick') {
                     const gAmmo = this.player.ammo.hegrenade;
                     const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
@@ -3263,7 +3630,7 @@ class CSGame {
                         return;
                     }
                 }
-                if (this.gameMode !== 'tdm') {
+                if (!this.isRichMode()) {
                     if (this.player.money < cost) {
                         this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อรายการนี้!', 1.5);
                         return;
@@ -3349,6 +3716,10 @@ class CSGame {
     }
 
     buyItem(item) {
+        if (this.isAwpOnly() && !item.isEquipment && item.id !== 'awp') {
+            this.showAnnouncement('🔭 โหมด AWP Only ใช้ได้เฉพาะ AWP เท่านั้น (ปืนพก/มีด/ระเบิด ซื้อไม่ได้)!', 1.8);
+            return;
+        }
         if (item.id === 'hegrenade') {
             const gAmmo = this.player.ammo.hegrenade;
             const curTotal = (gAmmo ? ((gAmmo.clip || 0) + (gAmmo.reserve || 0)) : 0);
@@ -3358,7 +3729,7 @@ class CSGame {
             }
         }
 
-        if (this.gameMode !== 'tdm') {
+        if (!this.isRichMode()) {
             if (this.player.money < item.price) {
                 this.showAnnouncement('❌ เงินไม่พอสำหรับซื้อไอเทมนี้!', 1.5);
                 return;
@@ -3400,6 +3771,7 @@ class CSGame {
         const show = forceState !== undefined ? forceState : modal.classList.contains('hidden');
         modal.classList.toggle('hidden', !show);
         if (show) {
+            this.populateBuyMenu('all');
             this.updateVitalsHUD();
             if (document.pointerLockElement) document.exitPointerLock();
         } else if (!this.mobileMode && this.running) {
