@@ -479,6 +479,7 @@ class CSGame {
                 z: sp.z,
                 yaw: sp.yaw,
                 hp: 100,
+                armor: 100,
                 weapon: botWep,
                 kills: 0,
                 deaths: 0,
@@ -519,6 +520,7 @@ class CSGame {
             ent.z = sp.z + (Math.random() - 0.5) * 1.2;
             ent.yaw = sp.yaw;
             ent.hp = 100;
+            ent.armor = 100;
             ent.invincibleTimer = 2.0;
             ent.ignoreStateUntil = nowMs + 500;
             ent.targetWP = null;
@@ -586,7 +588,7 @@ class CSGame {
         this.player.yaw = sp.yaw;
         this.player.pitch = 0;
         this.player.hp = 100;
-        this.player.armor = 100;
+        this.equipArmor(100, false);
         this.player.invincibleTimer = 2.0; // 2-Second Spawn Protection Invincibility!
         this.player.reloading = false;
         if (this.isRichMode()) {
@@ -887,9 +889,22 @@ class CSGame {
     }
 
     // ==================== HOST-AUTHORITATIVE DAMAGE & KILL TRACKING ====================
+    /** Absorb 35% of incoming damage using armor for both local player and entities. */
+    absorbDamageWithArmor(targetObj, dmg) {
+        let actualDmg = dmg;
+        const curArmor = typeof targetObj.armor === 'number' ? targetObj.armor : 0;
+        if (curArmor > 0) {
+            const absorbed = Math.min(curArmor, Math.round(dmg * 0.35));
+            targetObj.armor = Math.max(0, curArmor - absorbed);
+            actualDmg = Math.max(0, dmg - absorbed);
+        }
+        return actualDmg;
+    }
+
     damageEntity(ent, dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
         if (ent.hp <= 0 || (ent.invincibleTimer && ent.invincibleTimer > 0)) return;
-        ent.hp = Math.max(0, ent.hp - dmg);
+        const actualDmg = this.absorbDamageWithArmor(ent, dmg);
+        ent.hp = Math.max(0, ent.hp - actualDmg);
 
         // Tactical: Spawn blood splatter and sound for bot-on-bot hits
         if (attackerObj !== this.player && this.spawnImpactBlood && ent.mesh) {
@@ -900,12 +915,13 @@ class CSGame {
             this.spawnBulletDecal(new THREE.Vector3(ent.x, floorY, ent.z), new THREE.Vector3(0, 1, 0), 'blood');
         }
 
-        // If target is a remote client connected to Host, send authoritative HP & damage flash
+        // If target is a remote client connected to Host, send authoritative HP, Armor & damage flash
         if (this.net.isHost && !ent.isBot) {
             this.net.sendToPeer(ent.id, {
                 type: 'damage_you',
-                dmg,
+                dmg: actualDmg,
                 newHp: ent.hp,
+                newArmor: ent.armor,
                 attacker: attackerName,
                 weapon: weaponId,
                 isHeadshot
@@ -959,13 +975,7 @@ class CSGame {
     damageLocalPlayer(dmg, attackerName, weaponId, isHeadshot, attackerObj = null) {
         if (this.player.hp <= 0 || (this.player.invincibleTimer && this.player.invincibleTimer > 0)) return;
 
-        let actualDmg = dmg;
-        if (this.player.armor > 0) {
-            const absorbed = Math.min(this.player.armor, Math.round(dmg * 0.35));
-            this.player.armor -= absorbed;
-            actualDmg = dmg - absorbed;
-        }
-
+        const actualDmg = this.absorbDamageWithArmor(this.player, dmg);
         this.player.hp = Math.max(0, this.player.hp - actualDmg);
         this.updateVitalsHUD();
 
@@ -1021,6 +1031,9 @@ class CSGame {
     onClientDamagedByHost(data) {
         if (this.player.hp <= 0 || (this.player.invincibleTimer && this.player.invincibleTimer > 0)) return;
         this.player.hp = Math.max(0, data.newHp !== undefined ? data.newHp : (this.player.hp - data.dmg));
+        if (data.newArmor !== undefined) {
+            this.player.armor = Math.max(0, data.newArmor);
+        }
         this.updateVitalsHUD();
 
         this.triggerAimPunch(data.dmg || 25, null);
@@ -2553,6 +2566,7 @@ class CSGame {
             z: sp.z,
             yaw: sp.yaw,
             hp: 100,
+            armor: 100,
             weapon: remWep,
             kills: 0,
             deaths: 0,
@@ -2560,6 +2574,13 @@ class CSGame {
         });
         this.updateScoreHUD();
         this.refreshScoreboardIfOpen();
+    }
+
+    onRemotePlayerArmorSync(peerId, armor) {
+        const ent = this.entities.find(e => e.id === peerId);
+        if (ent && ent.hp > 0) {
+            ent.armor = Math.min(150, Math.max(0, Number(armor) || 0));
+        }
     }
 
     resolveEntityWeapon(wep, team) {
@@ -2603,6 +2624,7 @@ class CSGame {
             z: sp.z,
             yaw: sp.yaw,
             hp: 100,
+            armor: 100,
             weapon: remWep,
             kills: oldKills,
             deaths: oldDeaths,
@@ -2656,6 +2678,7 @@ class CSGame {
             z: sp.z,
             yaw: sp.yaw,
             hp: 100,
+            armor: 100,
             weapon: data.weapon || (data.newTeam === 'T' ? 'ak47' : 'm4a1'),
             kills: oldKills,
             deaths: oldDeaths,
@@ -2760,6 +2783,7 @@ class CSGame {
                     z: a.z,
                     yaw: a.yaw,
                     hp: a.hp,
+                    armor: a.armor !== undefined ? a.armor : 100,
                     weapon: snapWep,
                     kills: a.kills || 0,
                     deaths: a.deaths || 0,
@@ -2785,6 +2809,7 @@ class CSGame {
                 ent.yaw = a.yaw;
                 ent.pitch = a.pitch || 0;
                 ent.hp = a.hp;
+                if (a.armor !== undefined) ent.armor = a.armor;
                 ent.kills = a.kills || 0;
                 ent.deaths = a.deaths || 0;
                 if (ent.mesh) {
@@ -3681,13 +3706,13 @@ class CSGame {
 
         // 4. Standard Kevlar + Helmet (100 AP)
         bindBtn('btn-buy-armor-std', 650, () => {
-            this.player.armor = Math.max(this.player.armor, 100);
+            this.equipArmor(100, true);
             this.showAnnouncement('🛡️ สวมเกราะ Kevlar + หมวกเหล็ก (100 AP)!', 1.6);
         });
 
         // 5. Heavy Tactical Armor (150 AP)
         bindBtn('btn-buy-armor-heavy', 1000, () => {
-            this.player.armor = 150;
+            this.equipArmor(150, false);
             this.showAnnouncement('🛡️ สวมเกราะหนักจู่โจมพิเศษ (150 AP)!', 1.6);
         });
 
@@ -3715,6 +3740,13 @@ class CSGame {
         });
     }
 
+    equipArmor(ap, isMin = false) {
+        this.player.armor = isMin ? Math.max(this.player.armor, ap) : ap;
+        if (this.net && this.net.sendArmorSync) {
+            this.net.sendArmorSync(this.player.armor);
+        }
+    }
+
     buyItem(item) {
         if (this.isAwpOnly() && !item.isEquipment && item.id !== 'awp') {
             this.showAnnouncement('🔭 โหมด AWP Only ใช้ได้เฉพาะ AWP เท่านั้น (ปืนพก/มีด/ระเบิด ซื้อไม่ได้)!', 1.8);
@@ -3740,9 +3772,9 @@ class CSGame {
         }
 
         if (item.id === 'armor') {
-            this.player.armor = Math.max(this.player.armor, 100);
+            this.equipArmor(100, true);
         } else if (item.id === 'heavyarmor') {
-            this.player.armor = 150;
+            this.equipArmor(150, false);
         } else if (item.id === 'hegrenade') {
             this.player.slots[4] = 'hegrenade';
             const gAmmo = this.player.ammo.hegrenade;

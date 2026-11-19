@@ -153,6 +153,10 @@ class NetworkManager {
             } else if (data.type === 'team_change') {
                 this.game.onRemotePlayerTeamChanged(conn.peer, data);
                 this.broadcastExcept(conn.peer, data);
+            } else if (data.type === 'armor_sync') {
+                if (this.game.onRemotePlayerArmorSync) {
+                    this.game.onRemotePlayerArmorSync(conn.peer, data.armor);
+                }
             }
         });
 
@@ -237,6 +241,7 @@ class NetworkManager {
                     yaw: p.yaw,
                     pitch: p.pitch,
                     hp: p.hp,
+                    armor: p.armor,
                     weapon: p.weaponId,
                     kills: p.kills,
                     deaths: p.deaths,
@@ -255,6 +260,7 @@ class NetworkManager {
                     yaw: ent.yaw,
                     pitch: ent.pitch || 0,
                     hp: ent.hp,
+                    armor: ent.armor !== undefined ? ent.armor : 100,
                     weapon: ent.weapon,
                     kills: ent.kills || 0,
                     deaths: ent.deaths || 0,
@@ -319,6 +325,15 @@ class NetworkManager {
                 attacker: this.game.player.name,
                 weapon: weaponId,
                 isHeadshot
+            });
+        }
+    }
+
+    sendArmorSync(armor) {
+        if (this.isClient && this.hostConn && this.hostConn.open) {
+            this.hostConn.send({
+                type: 'armor_sync',
+                armor
             });
         }
     }
