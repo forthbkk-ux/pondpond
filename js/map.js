@@ -9,6 +9,41 @@ const MAP_METADATA = {
         description: 'สมรภูมิทะเลทรายยอดนิยมตลอดกาล ทางแยก Long A, อุโมงค์ B Tunnels และประตูกลาง Mid Double Doors',
         mapSize: 90
     },
+    de_jungle_bunker: {
+        id: 'de_jungle_bunker',
+        name: '🌴 DE_JUNGLE_BUNKER (New)',
+        subtitle: 'ป่าดงดิบ & บังเกอร์ซุ่มยิงขนาดยักษ์ 185m (New)',
+        description: 'แผนที่ยักษ์ป่าทึบและฐานบังเกอร์ลับ (New) เต็มไปด้วยที่แอบ: บังเกอร์หิน 6 หลังเข้าได้หลายทาง ดงต้นสนพรางตัว ซากวิหาร ร่องคูดิน และลังซุ่มโจมตีทั่วแมพ',
+        mapSize: 185
+    },
+    cs_suburb_maze: {
+        id: 'cs_suburb_maze',
+        name: '🏘️ CS_SUBURB_MAZE (New)',
+        subtitle: 'หมู่บ้านเขาวงกต & ตรอกซอกซอยซุ่มยิง 180m (New)',
+        description: 'แผนที่ยักษ์หมู่บ้านชานเมือง (New) ซอกซอยและที่แอบเยอะมาก! บ้าน 8 หลังเข้าแอบได้ทุกหลัง มีซอกห้องด้านใน รั้วสวน รถบรรทุก และมุมกำแพงดักซุ่ม',
+        mapSize: 180
+    },
+    de_oil_rig: {
+        id: 'de_oil_rig',
+        name: '🛢️ DE_OIL_RIG (New)',
+        subtitle: 'แท่นขุดเจาะน้ำมันกลางทะเลขนาดมหึมา 190m (New)',
+        description: 'แผนที่ยักษ์แท่นขุดเจาะน้ำมันกลางสมุทร (New) เต็มไปด้วยเขาวงกตตู้คอนเทนเนอร์ ถังน้ำมันยักษ์ ท่อส่งก๊าซ หอขุดเจาะ และห้องเครื่องจักรให้แอบซุ่ม',
+        mapSize: 190
+    },
+    de_underground_lab: {
+        id: 'de_underground_lab',
+        name: '🧪 DE_UNDERGROUND_LAB (New)',
+        subtitle: 'ศูนย์วิจัยลับใต้ดิน & เขาวงกตนิรภัย 175m (New)',
+        description: 'แผนที่ยักษ์ห้องแล็บใต้ดินเขาวงกต (New) ซอกแอบเพียบ! ห้องทดลองหลายโซน แคปซูลชีวภาพ แถวตู้เซิร์ฟเวอร์ซ้อน เสาคอนกรีตหนา และห้องนิรภัยประตูคู่',
+        mapSize: 175
+    },
+    de_ruin_canyon: {
+        id: 'de_ruin_canyon',
+        name: '🏔️ DE_RUIN_CANYON (New)',
+        subtitle: 'หุบเขาซากเมืองร้าง & ช่องเขาซุ่มยิงยักษ์ 200m (New)',
+        description: 'แผนที่ใหญ่ที่สุด 200 เมตร! (New) หุบเขาหินสูงและซากโบราณสถาน ห้องหินร้าง 7 หลัง ร่องคูสนามเพลาะยาว และโขดหินซุ่มยิงนับไม่ถ้วน',
+        mapSize: 200
+    },
     de_megacity: {
         id: 'de_megacity',
         name: '🏙️ DE_MEGACITY',
@@ -162,6 +197,21 @@ class GameMap {
         this.mapSize = meta.mapSize;
 
         switch (mapId) {
+            case 'de_jungle_bunker':
+                this.buildJungleBunker();
+                break;
+            case 'cs_suburb_maze':
+                this.buildSuburbMaze();
+                break;
+            case 'de_oil_rig':
+                this.buildOilRig();
+                break;
+            case 'de_underground_lab':
+                this.buildUndergroundLab();
+                break;
+            case 'de_ruin_canyon':
+                this.buildRuinCanyon();
+                break;
             case 'de_megacity':
                 this.buildMegaCity();
                 break;
@@ -414,7 +464,7 @@ class GameMap {
         });
     }
 
-    addPineTree(x, z, h = 5.2) {
+    addPineTree(x, z, h = 5.2, isSnowy = true) {
         const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2714, roughness: 0.95 });
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 2.0, 8), trunkMat);
         trunk.position.set(x, 1.0, z);
@@ -423,8 +473,8 @@ class GameMap {
         this.mapObjects.push(trunk);
         this.shootableMeshes.push(trunk);
 
-        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1e3a29, roughness: 0.85 });
-        const snowMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.95 });
+        const foliageMat = new THREE.MeshStandardMaterial({ color: isSnowy ? 0x1e3a29 : 0x1f4d28, roughness: 0.85 });
+        const snowMat = isSnowy ? new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.95 }) : null;
 
         for (let i = 0; i < 3; i++) {
             const rad = 1.8 - i * 0.45;
@@ -437,11 +487,12 @@ class GameMap {
             this.mapObjects.push(cone);
             this.shootableMeshes.push(cone);
 
-            // Snow cap on pine branch tier
-            const cap = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.96, 0.4, 8), snowMat);
-            cap.position.set(x, cy + coneH * 0.38, z);
-            this.scene.add(cap);
-            this.mapObjects.push(cap);
+            if (isSnowy && snowMat) {
+                const cap = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.96, 0.4, 8), snowMat);
+                cap.position.set(x, cy + coneH * 0.38, z);
+                this.scene.add(cap);
+                this.mapObjects.push(cap);
+            }
         }
 
         this.colliders.push({
@@ -478,6 +529,141 @@ class GameMap {
         mesh.position.set(x, 0.04, z);
         this.scene.add(mesh);
         this.mapObjects.push(mesh);
+    }
+
+    // ==================== SHARED LARGE-MAP & HIDING-SPOT BUILDERS ====================
+    makeTexMat(bgColor, drawFn, repeat = 1, opts = {}) {
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 512;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, 512, 512);
+        if (drawFn) drawFn(ctx);
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(repeat, repeat);
+        return new THREE.MeshStandardMaterial({
+            map: tex,
+            bumpMap: tex,
+            bumpScale: opts.bumpScale !== undefined ? opts.bumpScale : 0.05,
+            roughness: opts.roughness !== undefined ? opts.roughness : 0.88,
+            metalness: opts.metalness || 0.0
+        });
+    }
+
+    buildCanvasFloor(bgColor, drawFn, repeat = 24, bumpScale = 0.08, roughness = 0.90) {
+        const floorMat = this.makeTexMat(bgColor, drawFn, repeat, { bumpScale, roughness });
+        this.groundTex = floorMat.map;
+        const floorGeo = new THREE.PlaneGeometry(this.mapSize, this.mapSize);
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.scene.add(floor);
+        this.mapObjects.push(floor);
+        this.shootableMeshes.push(floor);
+        this.createBombsiteZone(this.bombsites.A.x, this.bombsites.A.z, 'A');
+        this.createBombsiteZone(this.bombsites.B.x, this.bombsites.B.z, 'B');
+        return floorMat;
+    }
+
+    buildPerimeterWalls(wallH, thick, mat) {
+        const half = this.mapSize / 2;
+        this.addBlock(0, 0, -half, this.mapSize, wallH, thick, mat, false, true);
+        this.addBlock(0, 0, half, this.mapSize, wallH, thick, mat, false, true);
+        this.addBlock(-half, 0, 0, thick, wallH, this.mapSize, mat, false, true);
+        this.addBlock(half, 0, 0, thick, wallH, this.mapSize, mat, false, true);
+    }
+
+    setupLargeMapSpawns(half, siteAx = 58, siteAz = -12, siteBx = -58, siteBz = 12) {
+        const tz = half - 11;
+        this.spawns = {
+            T: [
+                { x: 0, z: tz, yaw: 0 },
+                { x: -10, z: tz + 1, yaw: 0 },
+                { x: 10, z: tz + 1, yaw: 0 },
+                { x: -20, z: tz - 1, yaw: 0 },
+                { x: 20, z: tz - 1, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -tz, yaw: Math.PI },
+                { x: -10, z: -tz - 1, yaw: Math.PI },
+                { x: 10, z: -tz - 1, yaw: Math.PI },
+                { x: -20, z: -tz + 1, yaw: Math.PI },
+                { x: 20, z: -tz + 1, yaw: Math.PI }
+            ]
+        };
+        this.bombsites = {
+            A: { x: siteAx, z: siteAz, radius: 8.5, label: 'A' },
+            B: { x: siteBx, z: siteBz, radius: 8.5, label: 'B' }
+        };
+    }
+
+    // Enterable multi-doorway bunker / house / chamber with blind ambush corners & interior cover crates
+    buildHideoutRoom(x, z, w, d, h, wallMat, roofMat, crateMat, openSides = ['N', 'S', 'E', 'W'], addRoof = true) {
+        const t = 0.8;
+        const doorW = 3.8;
+        const has = (side) => openSides.includes(side);
+
+        // North & South Walls
+        for (const [side, wz] of [['N', z - d / 2], ['S', z + d / 2]]) {
+            if (has(side)) {
+                const segW = Math.max(1.2, (w - doorW) / 2);
+                this.addBlock(x - w / 2 + segW / 2, 0, wz, segW, h, t, wallMat);
+                this.addBlock(x + w / 2 - segW / 2, 0, wz, segW, h, t, wallMat);
+            } else {
+                this.addBlock(x, 0, wz, w, h, t, wallMat);
+            }
+        }
+        // West & East Walls (trimmed between N/S)
+        for (const [side, wx] of [['W', x - w / 2], ['E', x + w / 2]]) {
+            if (has(side)) {
+                const segD = Math.max(1.2, (d - t - doorW) / 2);
+                this.addBlock(wx, 0, z - d / 2 + t / 2 + segD / 2, t, h, segD, wallMat);
+                this.addBlock(wx, 0, z + d / 2 - t / 2 - segD / 2, t, h, segD, wallMat);
+            } else {
+                this.addBlock(wx, 0, z, t, h, d - t, wallMat);
+            }
+        }
+
+        if (addRoof) {
+            this.addBlock(x, h, z, w + 0.6, 0.7, d + 0.6, roofMat, false, false);
+        }
+        // Interior asymmetric cover crates tucked off center so players can crouch-ambush without blocking doorways
+        this.addBlock(x - w * 0.25, 0, z - d * 0.22, 1.8, 1.55, 1.8, crateMat, true);
+        this.addBlock(x + w * 0.25, 0, z + d * 0.22, 1.9, 2.25, 1.9, crateMat, true);
+    }
+
+    buildHideCluster(x, z, wallMat, crateMat, colorHex = 0x1e3a8a, label = 'HID-01', variant = 0) {
+        if (variant === 0) {
+            this.addContainerProp(x, z, 6.2, 2.7, 2.6, 0, colorHex, label);
+            this.addBlock(x - 2.6, 0, z + 3.0, 2.0, 2.1, 2.0, crateMat, true);
+            this.addBlock(x + 2.4, 0, z - 2.9, 1.8, 1.35, 1.8, crateMat, true);
+            this.addBarrelProp(x + 3.9, z + 0.4, colorHex);
+            this.addBarrelProp(x + 3.9, z - 0.9, colorHex);
+        } else if (variant === 1) {
+            this.addContainerProp(x, z, 6.2, 2.7, 2.6, Math.PI / 2, colorHex, label);
+            this.addConcreteBarrier(x - 3.4, z + 2.4, 0);
+            this.addConcreteBarrier(x + 3.4, z - 2.4, Math.PI / 2);
+            this.addBlock(x + 2.6, 0, z + 2.6, 2.1, 2.3, 2.1, crateMat, true);
+        } else {
+            this.addBlock(x - 1.8, 0, z - 1.5, 2.1, 2.3, 2.1, crateMat, true);
+            this.addBlock(x + 1.9, 0, z + 1.6, 2.0, 1.4, 2.0, crateMat, true);
+            this.addBlock(x + 1.9, 0, z - 1.8, 1.8, 1.9, 1.8, wallMat, true);
+            this.addConcreteBarrier(x - 2.2, z + 2.2, 0);
+        }
+    }
+
+    buildTrenchZigZag(x, z, count, step, vertical, mat) {
+        for (let i = 0; i < count; i++) {
+            const offset = (i % 2 === 0 ? -2.4 : 2.4);
+            const posAlong = (i - (count - 1) / 2) * step;
+            if (vertical) {
+                this.addBlock(x + offset, 0, z + posAlong, 0.9, 1.55, 4.2, mat, true);
+            } else {
+                this.addBlock(x + posAlong, 0, z + offset, 4.2, 1.55, 0.9, mat, true);
+            }
+        }
     }
 
     buildSky(topColor, midColor, botColor, sunX = 720, sunY = 145, sunColor = 'rgba(255, 245, 210, 1.0)') {
@@ -2864,6 +3050,394 @@ class GameMap {
         this.addBlock(-26, 0, 22, 6.5, 3.2, 3.8, concWallMat, true); // HVAC Chiller 2
         this.addConcreteBarrier(-26, 10, Math.PI / 2);
         this.addContainerProp(-34, 14, 6.2, 2.6, 2.6, Math.PI / 2, 0x1e3a8a, 'HVAC-GEN4');
+    }
+
+    // =========================================================================
+    // NEW MAP 1 (185m): 🌴 DE_JUNGLE_BUNKER (New) — Dense Jungle & Secret Bunkers
+    // =========================================================================
+    buildJungleBunker() {
+        this.buildSky('#133325', '#2d6a4f', '#95d5b2', 710, 150, 'rgba(254, 249, 195, 1.0)');
+        this.updateAtmosphericLighting(0x74c69d, 0x1f2e18, 0xd8f3dc, 0xfef3c7, 1.38);
+        this.setupLargeMapSpawns(92.5, 58, -12, -58, 12);
+
+        this.waypoints = [
+            { x: 0, z: 76 }, { x: -28, z: 72 }, { x: 28, z: 72 },
+            { x: -42, z: 52 }, { x: 42, z: 52 }, { x: 0, z: 48 },
+            { x: -58, z: 12 }, { x: -26, z: -16 }, { x: 0, z: 10 }, { x: 0, z: -10 }, { x: 26, z: 16 }, { x: 58, z: -12 },
+            { x: -64, z: -36 }, { x: 64, z: 36 },
+            { x: -42, z: -52 }, { x: 42, z: -52 }, { x: 0, z: -48 },
+            { x: 0, z: -76 }, { x: -28, z: -72 }, { x: 28, z: -72 }
+        ];
+
+        this.buildCanvasFloor('#283b1e', (ctx) => {
+            for (let i = 0; i < 900; i++) {
+                ctx.fillStyle = (i % 3 === 0) ? '#1f2e17' : (i % 2 === 0 ? '#364d26' : '#4a3d28');
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 8 + Math.random() * 14, 8 + Math.random() * 14);
+            }
+            ctx.fillStyle = 'rgba(74, 58, 36, 0.45)';
+            ctx.fillRect(210, 0, 92, 512);
+        }, 22, 0.12, 0.94);
+
+        const mossBunkerMat = this.makeTexMat('#3f4a3c', (ctx) => {
+            for (let y = 0; y < 512; y += 32) {
+                ctx.fillStyle = y % 64 === 0 ? '#313b2e' : '#475442';
+                ctx.fillRect(0, y, 512, 30);
+                ctx.fillStyle = 'rgba(34, 84, 48, 0.35)';
+                ctx.fillRect((y * 5) % 440, y, 70, 26);
+            }
+        }, 1, { roughness: 0.92 });
+        const roofMat = this.makeTexMat('#273026', null, 1, { roughness: 0.94 });
+        const milCrateMat = this.makeTexMat('#3d4b2c', (ctx) => {
+            ctx.strokeStyle = '#1d2415'; ctx.lineWidth = 18; ctx.strokeRect(10, 10, 492, 492);
+            ctx.beginPath(); ctx.moveTo(14, 14); ctx.lineTo(498, 498); ctx.stroke();
+        }, 1, { roughness: 0.85 });
+        const foliageMat = this.makeTexMat('#1d4428', (ctx) => {
+            for (let i = 0; i < 400; i++) {
+                ctx.fillStyle = i % 2 === 0 ? '#14331d' : '#285936';
+                ctx.beginPath(); ctx.arc(Math.random() * 512, Math.random() * 512, 14, 0, Math.PI * 2); ctx.fill();
+            }
+        }, 1, { roughness: 0.95 });
+
+        this.buildPerimeterWalls(14, 3.5, mossBunkerMat);
+
+        // 6 Enterable Multi-Doorway Jungle Bunkers + Interior Cover Crates
+        this.buildHideoutRoom(-42, 52, 16, 15, 5.2, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(42, 52, 16, 15, 5.2, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'W']);
+        this.buildHideoutRoom(-42, -52, 16, 15, 5.2, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(42, -52, 16, 15, 5.2, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'W']);
+        this.buildHideoutRoom(-26, -16, 14, 13, 5.0, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(26, 16, 14, 13, 5.0, mossBunkerMat, roofMat, milCrateMat, ['N', 'S', 'E', 'W']);
+
+        // Central Ancient Jungle Shrine Pillbox (4 open walk-through corners + stealth center pillar)
+        this.addBlock(0, 0, 0, 4.4, 7.5, 4.4, mossBunkerMat);
+        this.buildTrenchZigZag(0, 32, 4, 7.5, true, mossBunkerMat);
+        this.buildTrenchZigZag(0, -32, 4, 7.5, true, mossBunkerMat);
+
+        // Abundant Jungle Hiding Clusters & Bombsite Flanking Nooks
+        const clusters = [
+            [-42, -2, 0], [-74, 24, 1], [-44, 28, 2],
+            [42, 2, 0], [74, -24, 1], [44, -28, 2],
+            [-64, -20, 1], [64, 20, 1], [-18, 22, 2], [18, -22, 2],
+            [-74, -64, 0], [74, 64, 0], [-74, 64, 2], [74, -64, 2]
+        ];
+        clusters.forEach(([cx, cz, v], idx) => {
+            this.buildHideCluster(cx, cz, mossBunkerMat, milCrateMat, idx % 2 === 0 ? 0x2d4a22 : 0x3b4238, `JNG-${idx + 1}`, v);
+        });
+
+        // Dense Camouflage Pine/Jungle Trees & Shrubs for Corner Hiding
+        const treeCoords = [
+            [-28, 34], [28, 34], [-28, -34], [28, -34],
+            [-54, 40], [54, -40], [-78, 42], [78, -42],
+            [-14, 58], [14, 58], [-14, -58], [14, -58],
+            [-72, -10], [72, 10], [-42, 74], [42, 74], [-42, -74], [42, -74],
+            [-14, -12], [14, 12], [-56, -70], [56, 70]
+        ];
+        for (const [tx, tz] of treeCoords) {
+            this.addPineTree(tx, tz, 6.2, false);
+            this.addBlock(tx + 1.8, 0, tz + 1.6, 2.0, 1.35, 2.0, foliageMat, true);
+        }
+    }
+
+    // =========================================================================
+    // NEW MAP 2 (180m): 🏘️ CS_SUBURB_MAZE (New) — Suburban House Maze & Alleys
+    // =========================================================================
+    buildSuburbMaze() {
+        this.buildSky('#1e3a5f', '#64748b', '#fde68a', 760, 155, 'rgba(255, 240, 195, 1.0)');
+        this.updateAtmosphericLighting(0x93c5fd, 0x475569, 0xfef3c7, 0xffe4b5, 1.40);
+        this.setupLargeMapSpawns(90, 56, -12, -56, 12);
+
+        this.waypoints = [
+            { x: 0, z: 74 }, { x: -28, z: 70 }, { x: 28, z: 70 },
+            { x: -42, z: 50 }, { x: 42, z: 50 }, { x: 0, z: 46 },
+            { x: -56, z: 12 }, { x: -26, z: -16 }, { x: 0, z: 10 }, { x: 0, z: -10 }, { x: 26, z: 16 }, { x: 56, z: -12 },
+            { x: -62, z: -36 }, { x: 62, z: 36 },
+            { x: -42, z: -50 }, { x: 42, z: -50 }, { x: 0, z: -46 },
+            { x: 0, z: -74 }, { x: -28, z: -70 }, { x: 28, z: -70 }
+        ];
+
+        this.buildCanvasFloor('#334155', (ctx) => {
+            ctx.fillStyle = '#2d4a26';
+            for (let y = 0; y < 512; y += 128) {
+                for (let x = 0; x < 512; x += 128) {
+                    if ((x + y) % 256 === 0) ctx.fillRect(x + 8, y + 8, 112, 112);
+                }
+            }
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.32)'; ctx.lineWidth = 4;
+            ctx.setLineDash([18, 14]); ctx.strokeRect(4, 250, 504, 12);
+        }, 18, 0.06, 0.90);
+
+        const brickHouseMat = this.makeTexMat('#7c3a2d', (ctx) => {
+            ctx.strokeStyle = '#d6c7b8'; ctx.lineWidth = 3;
+            for (let y = 0; y < 512; y += 24) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+            }
+        }, 1, { roughness: 0.90 });
+        const stuccoMat = this.makeTexMat('#cbbba0', (ctx) => {
+            ctx.fillStyle = 'rgba(0,0,0,0.06)';
+            for (let y = 0; y < 512; y += 32) ctx.fillRect(0, y, 512, 4);
+        }, 1, { roughness: 0.88 });
+        const shingleRoofMat = this.makeTexMat('#27272a', null, 1, { roughness: 0.85 });
+        const woodFenceMat = this.makeTexMat('#6b4226', (ctx) => {
+            ctx.strokeStyle = '#3e2412'; ctx.lineWidth = 4;
+            for (let x = 0; x < 512; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke(); }
+        }, 1, { roughness: 0.86 });
+
+        this.buildPerimeterWalls(12, 3.2, brickHouseMat);
+
+        // 8 Enterable Suburban Houses & Garages with Interior Furniture Cover
+        this.buildHideoutRoom(-42, 50, 16, 15, 5.4, brickHouseMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(42, 50, 16, 15, 5.4, stuccoMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-42, -50, 16, 15, 5.4, stuccoMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(42, -50, 16, 15, 5.4, brickHouseMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-26, -16, 13, 13, 5.0, brickHouseMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(26, 16, 13, 13, 5.0, stuccoMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-62, -36, 13, 12, 5.0, brickHouseMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(62, 36, 13, 12, 5.0, stuccoMat, shingleRoofMat, woodFenceMat, ['N', 'S', 'W']);
+
+        // Central Gazebo Fountain Block + Parked Street Delivery Trucks & Fence Mazes
+        this.addBlock(0, 0, 0, 5.2, 2.2, 5.2, stuccoMat, true);
+        this.addBlock(0, 2.2, 0, 2.4, 3.6, 2.4, brickHouseMat);
+        this.buildTrenchZigZag(0, 32, 4, 7.2, true, woodFenceMat);
+        this.buildTrenchZigZag(0, -32, 4, 7.2, true, woodFenceMat);
+
+        // Box Trucks & Backyard Stealth Hiding Pockets
+        const spots = [
+            [-72, 26, 1], [-40, 26, 0], [-72, -4, 2], [-42, -4, 0],
+            [72, -26, 1], [40, -26, 0], [72, 4, 2], [42, 4, 0],
+            [-14, 14, 2], [14, -14, 2], [-72, -62, 0], [72, 62, 0], [-72, 62, 2], [72, -62, 2]
+        ];
+        spots.forEach(([sx, sz, v], i) => {
+            this.buildHideCluster(sx, sz, woodFenceMat, woodFenceMat, i % 2 === 0 ? 0x1e40af : 0xb45309, `SUB-${i + 1}`, v);
+        });
+    }
+
+    // =========================================================================
+    // NEW MAP 3 (190m): 🛢️ DE_OIL_RIG (New) — Offshore Mega Oil Platform
+    // =========================================================================
+    buildOilRig() {
+        this.buildSky('#0c1e35', '#1d4e89', '#f59e0b', 700, 175, 'rgba(255, 225, 165, 1.0)');
+        this.updateAtmosphericLighting(0x60a5fa, 0x0f172a, 0xffedd5, 0xfde68a, 1.45);
+        this.setupLargeMapSpawns(95, 58, -12, -58, 12);
+
+        this.waypoints = [
+            { x: 0, z: 80 }, { x: -28, z: 74 }, { x: 28, z: 74 },
+            { x: -42, z: 54 }, { x: 42, z: 54 }, { x: 0, z: 50 },
+            { x: -58, z: 12 }, { x: -26, z: -16 }, { x: 0, z: 0 }, { x: 26, z: 16 }, { x: 58, z: -12 },
+            { x: -64, z: -36 }, { x: 64, z: 36 },
+            { x: -42, z: -54 }, { x: 42, z: -54 }, { x: 0, z: -50 },
+            { x: 0, z: -80 }, { x: -28, z: -74 }, { x: 28, z: -74 }
+        ];
+
+        this.buildCanvasFloor('#1e293b', (ctx) => {
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 4;
+            for (let i = 0; i < 512; i += 64) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+            ctx.fillStyle = '#eab308';
+            for (let x = 0; x < 512; x += 64) ctx.fillRect(x, 0, 32, 10);
+        }, 24, 0.06, 0.65);
+
+        const steelDeckWall = this.makeTexMat('#334155', (ctx) => {
+            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 10; ctx.strokeRect(6, 6, 500, 500);
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.28)'; ctx.fillRect(0, 440, 512, 36);
+        }, 1, { roughness: 0.45, metalness: 0.72 });
+        const hazardPipeMat = this.makeTexMat('#991b1b', (ctx) => {
+            ctx.fillStyle = '#f59e0b'; ctx.fillRect(0, 220, 512, 42);
+        }, 1, { roughness: 0.42, metalness: 0.68 });
+        const roofSteelMat = this.makeTexMat('#1e293b', null, 1, { roughness: 0.5, metalness: 0.75 });
+        const crateSteelMat = this.makeTexMat('#475569', (ctx) => {
+            ctx.strokeStyle = '#eab308'; ctx.lineWidth = 14; ctx.strokeRect(10, 10, 492, 492);
+        }, 1, { roughness: 0.52, metalness: 0.62 });
+
+        this.buildPerimeterWalls(14, 3.6, steelDeckWall);
+
+        // Central Walk-Through Derrick Tower Frame (4 corner pillars around x:0, z:0)
+        for (const [px, pz] of [[-5, -5], [5, -5], [-5, 5], [5, 5]]) {
+            this.addBlock(px, 0, pz, 2.2, 18, 2.2, hazardPipeMat);
+        }
+        this.addBlock(0, 14, 0, 13, 1.4, 13, steelDeckWall);
+
+        // 6 Enterable Offshore Control & Pump Rooms
+        this.buildHideoutRoom(-42, 54, 16, 15, 5.2, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(42, 54, 16, 15, 5.2, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'W']);
+        this.buildHideoutRoom(-42, -54, 16, 15, 5.2, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(42, -54, 16, 15, 5.2, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'W']);
+        this.buildHideoutRoom(-26, -16, 13, 13, 5.0, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(26, 16, 13, 13, 5.0, steelDeckWall, roofSteelMat, crateSteelMat, ['N', 'S', 'E', 'W']);
+
+        // Giant Crude Oil Storage Silos & Pipe Ambush Corridors
+        for (const [ox, oz] of [[-64, -36], [64, 36], [-64, 62], [64, -62]]) {
+            this.addBlock(ox - 4.2, 0, oz, 4.4, 8.5, 4.4, hazardPipeMat);
+            this.addBlock(ox + 4.2, 0, oz, 4.4, 8.5, 4.4, crateSteelMat);
+            this.addBarrelProp(ox, oz + 4.2, 0xd97706, true);
+            this.addBarrelProp(ox, oz - 4.2, 0xd97706, true);
+        }
+        this.buildTrenchZigZag(0, 34, 4, 7.4, true, crateSteelMat);
+        this.buildTrenchZigZag(0, -34, 4, 7.4, true, crateSteelMat);
+
+        // Dense Container Maze & Pipe Clusters
+        const rigClusters = [
+            [-42, -2, 0, 0xb91c1c], [-74, 24, 1, 0x0f766e], [-44, 28, 2, 0xd97706],
+            [42, 2, 0, 0x1d4ed8], [74, -24, 1, 0xb91c1c], [44, -28, 2, 0x0f766e],
+            [-16, 22, 0, 0xd97706], [16, -22, 1, 0x1d4ed8],
+            [-76, -64, 1, 0x15803d], [76, 64, 0, 0xb91c1c]
+        ];
+        rigClusters.forEach(([cx, cz, v, col], idx) => {
+            this.buildHideCluster(cx, cz, steelDeckWall, crateSteelMat, col, `RIG-${idx + 1}`, v);
+        });
+    }
+
+    // =========================================================================
+    // NEW MAP 4 (175m): 🧪 DE_UNDERGROUND_LAB (New) — Underground Bio-Lab Maze
+    // =========================================================================
+    buildUndergroundLab() {
+        this.buildSky('#020617', '#0f172a', '#1e293b', 640, 120, 'rgba(147, 197, 253, 0.7)');
+        this.updateAtmosphericLighting(0x93c5fd, 0x0f172a, 0xdbeafe, 0xe0f2fe, 1.35);
+        this.setupLargeMapSpawns(87.5, 55, -12, -55, 12);
+
+        this.waypoints = [
+            { x: 0, z: 72 }, { x: -26, z: 68 }, { x: 26, z: 68 },
+            { x: -40, z: 48 }, { x: 40, z: 48 }, { x: 0, z: 44 },
+            { x: -55, z: 12 }, { x: -25, z: -15 }, { x: 0, z: 8 }, { x: 0, z: -8 }, { x: 25, z: 15 }, { x: 55, z: -12 },
+            { x: -62, z: -34 }, { x: 62, z: 34 },
+            { x: -40, z: -48 }, { x: 40, z: -48 }, { x: 0, z: -44 },
+            { x: 0, z: -72 }, { x: -26, z: -68 }, { x: 26, z: -68 }
+        ];
+
+        this.buildCanvasFloor('#1e293b', (ctx) => {
+            ctx.fillStyle = '#0f172a';
+            for (let y = 0; y < 512; y += 64) {
+                for (let x = 0; x < 512; x += 64) {
+                    ctx.strokeStyle = '#334155'; ctx.lineWidth = 3; ctx.strokeRect(x, y, 64, 64);
+                    if ((x + y) % 128 === 0) ctx.fillRect(x + 4, y + 4, 56, 56);
+                }
+            }
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.22)'; ctx.fillRect(0, 246, 512, 10);
+        }, 22, 0.04, 0.55);
+
+        const labWallMat = this.makeTexMat('#cbd5e1', (ctx) => {
+            ctx.fillStyle = '#0ea5e9'; ctx.fillRect(0, 380, 512, 28);
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 8; ctx.strokeRect(8, 8, 496, 496);
+        }, 1, { roughness: 0.45, metalness: 0.25 });
+        const serverRackMat = this.makeTexMat('#0f172a', (ctx) => {
+            for (let y = 24; y < 480; y += 36) {
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(28, y, 456, 22);
+                ctx.fillStyle = (y % 72 === 0) ? '#22c55e' : '#38bdf8';
+                ctx.fillRect(46, y + 6, 14, 8); ctx.fillRect(72, y + 6, 14, 8);
+            }
+        }, 1, { roughness: 0.35, metalness: 0.75 });
+        const ceilingMat = this.makeTexMat('#1e293b', null, 1, { roughness: 0.6, metalness: 0.5 });
+        const bioTankMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x0891b2, emissiveIntensity: 0.45, roughness: 0.2, metalness: 0.3 });
+
+        this.buildPerimeterWalls(14, 3.5, labWallMat);
+
+        // 8 Walk-in Research Chambers, Airlocks & Server Vaults
+        this.buildHideoutRoom(-40, 48, 15, 14, 5.2, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(40, 48, 15, 14, 5.2, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-40, -48, 15, 14, 5.2, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(40, -48, 15, 14, 5.2, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-25, -15, 13, 13, 5.0, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(25, 15, 13, 13, 5.0, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-62, -34, 13, 12, 5.0, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'E']);
+        this.buildHideoutRoom(62, 34, 13, 12, 5.0, labWallMat, ceilingMat, serverRackMat, ['N', 'S', 'W']);
+
+        // Central Reactor Cryo-Core & Glowing Bio-Containment Pillars (Hiding Angles Everywhere!)
+        this.addBlock(0, 0, 0, 3.8, 7.0, 3.8, bioTankMat);
+        for (const [bx, bz] of [[-12, 0], [12, 0], [0, -14], [0, 14], [-40, 14], [40, -14]]) {
+            this.addBlock(bx, 0, bz, 2.2, 4.2, 2.2, bioTankMat, true);
+        }
+
+        this.buildTrenchZigZag(0, 32, 4, 7.0, true, serverRackMat);
+        this.buildTrenchZigZag(0, -32, 4, 7.0, true, serverRackMat);
+
+        // Tight Server Rack Hide Corridors & Steel Locker Nooks
+        const labClusters = [
+            [-70, 24, 2], [-42, 26, 2], [-70, -4, 0],
+            [70, -24, 2], [42, -26, 2], [70, 4, 0],
+            [-16, 22, 1], [16, -22, 1], [-70, -60, 2], [70, 60, 2]
+        ];
+        labClusters.forEach(([cx, cz, v], idx) => {
+            this.buildHideCluster(cx, cz, labWallMat, serverRackMat, 0x0284c7, `LAB-${idx + 1}`, v);
+        });
+    }
+
+    // =========================================================================
+    // NEW MAP 5 (200m): 🏔️ DE_RUIN_CANYON (New) — Giant Red Rock Canyon & Ruins
+    // =========================================================================
+    buildRuinCanyon() {
+        this.buildSky('#431407', '#c2410c', '#fed7aa', 740, 160, 'rgba(255, 220, 175, 1.0)');
+        this.updateAtmosphericLighting(0xfdba74, 0x431407, 0xffedd5, 0xfed7aa, 1.45);
+        this.setupLargeMapSpawns(100, 62, -12, -62, 12);
+
+        this.waypoints = [
+            { x: 0, z: 84 }, { x: -30, z: 78 }, { x: 30, z: 78 },
+            { x: -44, z: 56 }, { x: 44, z: 56 }, { x: 0, z: 50 },
+            { x: -62, z: 12 }, { x: -28, z: -18 }, { x: 0, z: 0 }, { x: 28, z: 18 }, { x: 62, z: -12 },
+            { x: -68, z: -38 }, { x: 68, z: 38 },
+            { x: -44, z: -56 }, { x: 44, z: -56 }, { x: 0, z: -50 },
+            { x: 0, z: -84 }, { x: -30, z: -78 }, { x: 30, z: -78 }
+        ];
+
+        this.buildCanvasFloor('#7c3f26', (ctx) => {
+            for (let i = 0; i < 850; i++) {
+                ctx.fillStyle = (i % 3 === 0) ? '#5e2c18' : (i % 2 === 0 ? '#934e32' : '#a86744');
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 12 + Math.random() * 20, 6 + Math.random() * 14);
+            }
+        }, 24, 0.14, 0.94);
+
+        const cliffMat = this.makeTexMat('#6c311b', (ctx) => {
+            for (let y = 0; y < 512; y += 28) {
+                ctx.fillStyle = y % 56 === 0 ? '#542412' : '#854026';
+                ctx.fillRect(0, y, 512, 24);
+            }
+        }, 1, { roughness: 0.95 });
+        const ruinStoneMat = this.makeTexMat('#9c8669', (ctx) => {
+            ctx.strokeStyle = '#5c4b37'; ctx.lineWidth = 4;
+            for (let y = 0; y < 512; y += 64) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+            }
+        }, 1, { roughness: 0.92 });
+        const supplyMat = this.makeTexMat('#784c24', (ctx) => {
+            ctx.strokeStyle = '#3e240e'; ctx.lineWidth = 18; ctx.strokeRect(10, 10, 492, 492);
+            ctx.beginPath(); ctx.moveTo(14, 14); ctx.lineTo(498, 498); ctx.stroke();
+        }, 1, { roughness: 0.85 });
+
+        this.buildPerimeterWalls(18, 4.5, cliffMat);
+
+        // Towering Canyon Rock Cliff Ridges Forming Blind Canyon Passes & Hiding Corners
+        for (const [rx, rz, rw, rd, rh] of [
+            [-14, 34, 6, 16, 12], [14, -34, 6, 16, 12],
+            [-78, 0, 12, 14, 14], [78, 0, 12, 14, 14],
+            [-36, 10, 8, 12, 10], [36, -10, 8, 12, 10]
+        ]) {
+            this.addBlock(rx, 0, rz, rw, rh, rd, cliffMat, false, true);
+        }
+
+        // 7 Ancient Stone Ruin Chambers for Deep Indoor Ambush
+        this.buildHideoutRoom(-44, 56, 16, 15, 5.4, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(44, 56, 16, 15, 5.4, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-44, -56, 16, 15, 5.4, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(44, -56, 16, 15, 5.4, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(-28, -18, 14, 13, 5.2, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(28, 18, 14, 13, 5.2, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+        this.buildHideoutRoom(0, 0, 14, 14, 5.6, ruinStoneMat, cliffMat, supplyMat, ['N', 'S', 'E', 'W']);
+
+        // Long Sunken Canyon Defensive Trenches & Stealth Boulder Pockets
+        this.buildTrenchZigZag(0, 32, 4, 7.8, true, ruinStoneMat);
+        this.buildTrenchZigZag(0, -32, 4, 7.8, true, ruinStoneMat);
+        this.buildTrenchZigZag(-62, -22, 3, 7.5, true, ruinStoneMat);
+        this.buildTrenchZigZag(62, 22, 3, 7.5, true, ruinStoneMat);
+
+        const canyonClusters = [
+            [-48, 28, 2], [-78, 28, 1], [-46, -2, 0],
+            [48, -28, 2], [78, -28, 1], [46, 2, 0],
+            [-78, -22, 1], [78, 22, 1], [-80, -68, 0], [80, 68, 0],
+            [-80, 68, 2], [80, -68, 2]
+        ];
+        canyonClusters.forEach(([cx, cz, v], idx) => {
+            this.buildHideCluster(cx, cz, cliffMat, supplyMat, idx % 2 === 0 ? 0x92400e : 0x4d7c0f, `CYN-${idx + 1}`, v);
+        });
     }
 
     getInBombsite(x, z) {

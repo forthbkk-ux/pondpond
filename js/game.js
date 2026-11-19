@@ -343,6 +343,16 @@ class CSGame {
             this.map.load(mapId);
         }
 
+        if (this.sunLight && this.sunLight.shadow && this.sunLight.shadow.camera && this.map) {
+            const sd = Math.max(52, this.map.mapSize * 0.55);
+            this.sunLight.shadow.camera.left = -sd;
+            this.sunLight.shadow.camera.right = sd;
+            this.sunLight.shadow.camera.top = sd;
+            this.sunLight.shadow.camera.bottom = -sd;
+            this.sunLight.shadow.camera.far = Math.max(170, this.map.mapSize * 1.4);
+            this.sunLight.shadow.camera.updateProjectionMatrix();
+        }
+
         this.updateMapHUD();
 
         // Sync dropdowns
@@ -384,7 +394,8 @@ class CSGame {
         const tag = document.getElementById('map-name-tag');
         if (tag) {
             const meta = window.MAP_METADATA ? window.MAP_METADATA[this.mapId] : null;
-            tag.textContent = meta ? meta.id.toUpperCase() : (this.mapId ? this.mapId.toUpperCase() : 'DE_DUST2');
+            const suffix = (meta && meta.name && meta.name.includes('(New)')) ? ' (New)' : '';
+            tag.textContent = (meta ? meta.id.toUpperCase() : (this.mapId ? this.mapId.toUpperCase() : 'DE_DUST2')) + suffix;
         }
     }
 
