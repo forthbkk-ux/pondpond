@@ -374,8 +374,8 @@ class CSGame {
         }
 
         window.soundFX.init();
-        const modeLabel = this.isAwpOnly() ? '🔭 AWP Only Mode (เฉพาะ AWP เท่านั้น)' : '💰 Rich Elimination Mode';
-        this.addChatMessage(`🎮 ยินดีต้อนรับสู่ Counter-Strike Online! (${modeLabel}) — สมรภูมิ: ${this.getMapName(this.mapId)}`, '#fbbf24');
+        const chatBox = document.getElementById('chat-messages');
+        if (chatBox) chatBox.innerHTML = '';
     }
 
     loadMap(mapId) {
