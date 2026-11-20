@@ -350,11 +350,10 @@ class CSGame {
             this.updateMapHUD();
         }
 
+        this.running = true;
         document.getElementById('lobby-overlay').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
         this.applyMobileModeUI();
-
-        this.running = true;
         this.scores = { T: 0, CT: 0 };
         this.player.kills = 0;
         this.player.deaths = 0;
@@ -423,7 +422,7 @@ class CSGame {
                 }
             }
             const meta = window.MAP_METADATA ? window.MAP_METADATA[mapId] : null;
-            this.addChatMessage(`🗺️ เข้าสู่สมรภูมิใหม่: ${meta ? meta.name : mapId} (${meta ? meta.subtitle : ''})`, '#38bdf8');
+            this.showAnnouncement(`🗺️ เข้าสู่สมรภูมิใหม่: ${meta ? meta.name : mapId}`, 2.2);
         }
     }
 
@@ -4297,6 +4296,7 @@ class CSGame {
         } else {
             mobCtrl.classList.remove('hud-editing');
             panel.classList.add('hidden');
+            if (bombBtn && this.gameMode !== 'classic') bombBtn.classList.add('hidden');
             this.selectHudElement(null);
             this.applyMobileModeUI();
             if (this.hudEditorReturnToLobby) {
