@@ -40,8 +40,9 @@ class CSGame {
         this.running = false;
         this.gameMode = 'tdm'; // Rich Elimination Mode ($50,000 always)
         this.botCount = 8;
-        this.mobileMode = this.detectMobileDevice();
-        this.autoFireMobile = false;
+        this.mobileMode = this.loadMobileModePref();
+        this.autoFireMobile = this.loadMobileAutoFire();
+        this.hudEditorReturnToLobby = false;
         this.lookSensitivity = 1.0;
 
         this.scores = { T: 0, CT: 0 };
@@ -1925,24 +1926,58 @@ class CSGame {
 
     checkMobileAutoFire() {
         const p = this.player;
-        const eyeH = p.crouching ? 1.05 : 1.62;
-        const origin = new THREE.Vector3(p.x, p.y + eyeH, p.z);
-        const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(p.pitch, p.yaw, 0, 'YXZ'));
+        if (!this.running || this.hudEditMode || p.hp <= 0 || p.reloading || p.fireCooldown > 0) return;
 
-        const ray = new THREE.Raycaster(origin, dir, 0.2, 120);
-        const wallHits = ray.intersectObjects(this.map.shootableMeshes, false);
-        const wallDist = wallHits.length > 0 ? wallHits[0].distance : 120;
+        // Avoid auto-firing while lobby, buy, or settings modals are open
+        for (const modalId of ['lobby-overlay', 'buy-modal', 'settings-modal', 'mobile-settings-modal']) {
+            const el = document.getElementById(modalId);
+            if (el && !el.classList.contains('hidden')) return;
+        }
+
+        const wep = WEAPONS[p.weaponId];
+        if (!wep || wep.id === 'hegrenade') return;
+
+        const maxRange = wep.id === 'knife' ? Math.min((wep.range || 2.5) + 0.5, 4.0) : Math.min(wep.range || 140, 180);
+        const eyeH = p.crouching ? 1.05 : 1.62;
+        if (!this._autoFireOrigin) {
+            this._autoFireOrigin = new THREE.Vector3();
+            this._autoFireDir = new THREE.Vector3();
+            this._autoFireEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+            this._autoFireRay = new THREE.Raycaster();
+        }
+        this._autoFireOrigin.set(p.x, p.y + eyeH, p.z);
+        this._autoFireEuler.set(p.pitch + p.recoilPitch, p.yaw, 0, 'YXZ');
+        this._autoFireDir.set(0, 0, -1).applyEuler(this._autoFireEuler).normalize();
+
+        this._autoFireRay.set(this._autoFireOrigin, this._autoFireDir);
+        this._autoFireRay.near = 0.1;
+        this._autoFireRay.far = maxRange;
 
         const enemyMeshes = [];
+        const allyMeshes = [];
         for (const ent of this.entities) {
-            if (ent.hp > 0 && ent.mesh && ent.team !== p.team) {
-                ent.mesh.traverse(c => { if (c.isMesh) enemyMeshes.push(c); });
+            if (ent.hp > 0 && ent.mesh && ent.mesh.visible) {
+                const targetArr = ent.team !== p.team ? enemyMeshes : allyMeshes;
+                ent.mesh.traverse(c => {
+                    if (c.isMesh && c.visible) targetArr.push(c);
+                });
             }
         }
-        const hits = ray.intersectObjects(enemyMeshes, false);
-        if (hits.length > 0 && hits[0].distance < wallDist) {
-            this.shoot();
+        if (enemyMeshes.length === 0) return;
+
+        const hits = this._autoFireRay.intersectObjects(enemyMeshes, false);
+        if (hits.length === 0) return;
+
+        const enemyDist = hits[0].distance;
+        const wallHits = this._autoFireRay.intersectObjects(this.map.shootableMeshes, false);
+        if (wallHits.length > 0 && wallHits[0].distance <= enemyDist) return;
+
+        if (allyMeshes.length > 0) {
+            const allyHits = this._autoFireRay.intersectObjects(allyMeshes, false);
+            if (allyHits.length > 0 && allyHits[0].distance <= enemyDist) return;
         }
+
+        this.shoot();
     }
 
     updatePlayerBombInteraction(dt) {
@@ -3002,14 +3037,100 @@ class CSGame {
         return isMobileUA || isIPadOS;
     }
 
+    loadMobileModePref() {
+        try {
+            const saved = localStorage.getItem('cs_mobile_mode_v1');
+            if (saved === '1') return true;
+            if (saved === '0') return false;
+        } catch (e) {}
+        return this.detectMobileDevice();
+    }
+
+    saveMobileModePref() {
+        try {
+            localStorage.setItem('cs_mobile_mode_v1', this.mobileMode ? '1' : '0');
+        } catch (e) {}
+    }
+
+    loadMobileAutoFire() {
+        try {
+            const saved = localStorage.getItem('cs_mobile_autofire_v1');
+            if (saved === '0') return false;
+        } catch (e) {}
+        return true;
+    }
+
+    setMobileMode(enabled) {
+        this.mobileMode = !!enabled;
+        this.saveMobileModePref();
+        this.applyMobileModeUI();
+    }
+
+    setMobileAutoFire(enabled) {
+        this.autoFireMobile = !!enabled;
+        try {
+            localStorage.setItem('cs_mobile_autofire_v1', this.autoFireMobile ? '1' : '0');
+        } catch (e) {}
+        this.syncMobileSettingsUI();
+    }
+
+    syncMobileSettingsUI() {
+        const autoFireText = this.autoFireMobile
+            ? '🎯 ยิงออโต้เวลาเล็งเจอคน (Auto-Fire): เปิด'
+            : '🎯 ยิงออโต้เวลาเล็งเจอคน (Auto-Fire): ปิด';
+
+        const styleAutoBtn = (btn) => {
+            if (!btn) return;
+            btn.textContent = autoFireText;
+            btn.style.borderColor = this.autoFireMobile ? '#10b981' : 'rgba(255,255,255,0.22)';
+            btn.style.color = this.autoFireMobile ? '#34d399' : '#cbd5e1';
+        };
+
+        const autoFireBtn = document.getElementById('btn-toggle-autofire');
+        if (autoFireBtn) {
+            autoFireBtn.classList.toggle('hidden', !this.mobileMode);
+            styleAutoBtn(autoFireBtn);
+        }
+
+        styleAutoBtn(document.getElementById('btn-mobset-autofire'));
+
+        const mobsetModeBtn = document.getElementById('btn-mobset-mode');
+        if (mobsetModeBtn) {
+            mobsetModeBtn.textContent = this.mobileMode
+                ? '📱 โหมดควบคุมปัจจุบัน: มือถือ (Touch) — แตะเพื่อสลับ'
+                : '💻 โหมดควบคุมปัจจุบัน: คอมพิวเตอร์ (PC) — แตะเพื่อสลับเป็นมือถือ';
+            mobsetModeBtn.style.borderColor = this.mobileMode ? '#10b981' : '#38bdf8';
+            mobsetModeBtn.style.color = this.mobileMode ? '#34d399' : '#7dd3fc';
+        }
+
+        const lobbyBtn = document.getElementById('btn-lobby-mobile-settings');
+        if (lobbyBtn) {
+            lobbyBtn.classList.toggle('active', this.mobileMode);
+        }
+        const lobbyStatus = document.getElementById('lobby-mobile-status-text');
+        if (lobbyStatus) {
+            lobbyStatus.textContent = `${this.mobileMode ? '📱 มือถือ: เปิด' : '💻 โหมด: PC'} • 🎯 ยิงออโต้: ${this.autoFireMobile ? 'เปิด' : 'ปิด'}`;
+        }
+
+        const sensPct = Math.round((this.lookSensitivity || 1) * 100);
+        const mobSensSlider = document.getElementById('mobset-sens-slider');
+        const mobSensVal = document.getElementById('mobset-sens-val');
+        const hudSensSlider = document.getElementById('hud-sens-slider');
+        const hudSensVal = document.getElementById('hud-sens-val');
+        if (mobSensSlider) mobSensSlider.value = sensPct;
+        if (mobSensVal) mobSensVal.textContent = `${sensPct}%`;
+        if (hudSensSlider) hudSensSlider.value = sensPct;
+        if (hudSensVal) hudSensVal.textContent = `${sensPct}%`;
+    }
+
     checkOrientationWarning() {
         const warnEl = document.getElementById('portrait-warning-overlay');
         if (!warnEl) return;
         const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
         const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         const isPortrait = h > w;
-        // Show rotate-to-landscape warning ONLY when on a mobile device held in portrait orientation
-        warnEl.classList.toggle('hidden', !(this.mobileMode && isPortrait));
+        // Show rotate-to-landscape warning when actively playing in portrait mobile mode (not during lobby setup or HUD editing)
+        warnEl.classList.toggle('hidden', !(this.mobileMode && isPortrait && this.running && !this.hudEditMode));
     }
 
     applyMobileModeUI() {
@@ -3017,7 +3138,7 @@ class CSGame {
 
         const mobCtrl = document.getElementById('mobile-controls');
         if (mobCtrl) {
-            mobCtrl.classList.toggle('hidden', !this.mobileMode || !this.running);
+            mobCtrl.classList.toggle('hidden', !this.mobileMode || (!this.running && !this.hudEditMode));
         }
 
         const toggleBtn = document.getElementById('btn-toggle-mobile');
@@ -3034,6 +3155,7 @@ class CSGame {
             document.exitPointerLock();
         }
 
+        this.syncMobileSettingsUI();
         this.checkOrientationWarning();
     }
 
@@ -3088,7 +3210,10 @@ class CSGame {
         const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
         const hudFsBtn = document.getElementById('btn-fullscreen');
         const lobbyFsBtn = document.getElementById('btn-lobby-fullscreen');
-        if (hudFsBtn) hudFsBtn.textContent = isFs ? '📺 ออกจากโหมดเต็มจอ (Exit Fullscreen)' : '📺 เปิดโหมดเต็มจอ (Fullscreen)';
+        const mobsetFsBtn = document.getElementById('btn-mobset-fullscreen');
+        const fullText = isFs ? '📺 ออกจากโหมดเต็มจอ (Exit Fullscreen)' : '📺 เปิดโหมดเต็มจอ (Fullscreen)';
+        if (hudFsBtn) hudFsBtn.textContent = fullText;
+        if (mobsetFsBtn) mobsetFsBtn.textContent = fullText;
         if (lobbyFsBtn) lobbyFsBtn.textContent = isFs ? '📺 ออกจากเต็มจอ' : '📺 เปิดเต็มจอ (Fullscreen)';
     }
 
@@ -3469,8 +3594,7 @@ class CSGame {
         const mobToggleBtn = document.getElementById('btn-toggle-mobile');
         if (mobToggleBtn) {
             mobToggleBtn.addEventListener('click', () => {
-                this.mobileMode = !this.mobileMode;
-                this.applyMobileModeUI();
+                this.setMobileMode(!this.mobileMode);
             });
         }
 
@@ -3485,9 +3609,54 @@ class CSGame {
         const autoFireBtn = document.getElementById('btn-toggle-autofire');
         if (autoFireBtn) {
             autoFireBtn.addEventListener('click', () => {
-                this.autoFireMobile = !this.autoFireMobile;
-                autoFireBtn.textContent = this.autoFireMobile ? '🎯 ยิงออโต้: เปิด' : '🎯 ยิงออโต้: ปิด';
+                this.setMobileAutoFire(!this.autoFireMobile);
             });
+        }
+
+        // Lobby Mobile Settings Modal Controls
+        const openMobSetBtn = document.getElementById('btn-lobby-mobile-settings');
+        const closeMobSetBtn = document.getElementById('btn-close-mobile-settings');
+        if (openMobSetBtn) openMobSetBtn.addEventListener('click', () => this.toggleMobileSettingsModal(true));
+        if (closeMobSetBtn) closeMobSetBtn.addEventListener('click', () => this.toggleMobileSettingsModal(false));
+
+        const mobsetModeBtn = document.getElementById('btn-mobset-mode');
+        if (mobsetModeBtn) {
+            mobsetModeBtn.addEventListener('click', () => {
+                this.setMobileMode(!this.mobileMode);
+            });
+        }
+
+        const mobsetAutoFireBtn = document.getElementById('btn-mobset-autofire');
+        if (mobsetAutoFireBtn) {
+            mobsetAutoFireBtn.addEventListener('click', () => {
+                this.setMobileAutoFire(!this.autoFireMobile);
+            });
+        }
+
+        const mobsetSensSlider = document.getElementById('mobset-sens-slider');
+        if (mobsetSensSlider) {
+            mobsetSensSlider.addEventListener('input', () => {
+                const val = parseInt(mobsetSensSlider.value, 10) || 100;
+                this.lookSensitivity = val / 100;
+                this.syncMobileSettingsUI();
+                this.saveHudLayout();
+            });
+        }
+
+        const mobsetEditHudBtn = document.getElementById('btn-mobset-edit-hud');
+        if (mobsetEditHudBtn) {
+            mobsetEditHudBtn.addEventListener('click', () => {
+                this.hudEditorReturnToLobby = !this.running;
+                this.toggleMobileSettingsModal(false);
+                const lobby = document.getElementById('lobby-overlay');
+                if (lobby && this.hudEditorReturnToLobby) lobby.classList.add('hidden');
+                this.toggleHudEditor(true);
+            });
+        }
+
+        const mobsetFsBtn = document.getElementById('btn-mobset-fullscreen');
+        if (mobsetFsBtn) {
+            mobsetFsBtn.addEventListener('click', () => this.toggleFullscreen());
         }
 
         document.getElementById('btn-open-lobby').addEventListener('click', () => {
@@ -3525,6 +3694,17 @@ class CSGame {
         this.showAnnouncement(`🤖 ปรับความเก่งของบอทเป็น: ${cfg.label}`, 2.0);
     }
 
+    toggleMobileSettingsModal(forceState) {
+        const modal = document.getElementById('mobile-settings-modal');
+        if (!modal) return;
+        const show = forceState !== undefined ? forceState : modal.classList.contains('hidden');
+        modal.classList.toggle('hidden', !show);
+        if (show) {
+            this.syncMobileSettingsUI();
+            this.updateFullscreenButtons();
+        }
+    }
+
     toggleSettingsModal(forceState) {
         const modal = document.getElementById('settings-modal');
         if (!modal) return;
@@ -3533,6 +3713,7 @@ class CSGame {
         if (show) {
             this.updateBotDiffHUD();
             this.updateFullscreenButtons();
+            this.syncMobileSettingsUI();
             if (document.pointerLockElement) document.exitPointerLock();
         } else if (!this.mobileMode && this.running && !this.hudEditMode) {
             this.canvas.requestPointerLock();
@@ -4028,8 +4209,8 @@ class CSGame {
         if (sensSlider) {
             sensSlider.addEventListener('input', () => {
                 const val = parseInt(sensSlider.value, 10) || 100;
-                document.getElementById('hud-sens-val').textContent = `${val}%`;
                 this.lookSensitivity = val / 100;
+                this.syncMobileSettingsUI();
             });
         }
 
@@ -4107,8 +4288,7 @@ class CSGame {
         const bombBtn = document.getElementById('btn-bomb-action');
 
         if (enable) {
-            this.mobileMode = true;
-            this.applyMobileModeUI();
+            this.setMobileMode(true);
             if (document.pointerLockElement) document.exitPointerLock();
             mobCtrl.classList.add('hud-editing');
             panel.classList.remove('hidden');
@@ -4118,6 +4298,12 @@ class CSGame {
             mobCtrl.classList.remove('hud-editing');
             panel.classList.add('hidden');
             this.selectHudElement(null);
+            this.applyMobileModeUI();
+            if (this.hudEditorReturnToLobby) {
+                this.hudEditorReturnToLobby = false;
+                const lobby = document.getElementById('lobby-overlay');
+                if (lobby) lobby.classList.remove('hidden');
+            }
         }
     }
 
@@ -4140,11 +4326,7 @@ class CSGame {
             const data = JSON.parse(raw);
             if (data.lookSensitivity) {
                 this.lookSensitivity = data.lookSensitivity;
-                const sensPct = Math.round(this.lookSensitivity * 100);
-                const sensSlider = document.getElementById('hud-sens-slider');
-                const sensVal = document.getElementById('hud-sens-val');
-                if (sensSlider) sensSlider.value = sensPct;
-                if (sensVal) sensVal.textContent = `${sensPct}%`;
+                this.syncMobileSettingsUI();
             }
             if (data.elements) {
                 this.hudLayout = data.elements;
@@ -4181,8 +4363,7 @@ class CSGame {
         document.getElementById('hud-scale-val').textContent = '100%';
         document.getElementById('hud-opacity-slider').value = 100;
         document.getElementById('hud-opacity-val').textContent = '100%';
-        document.getElementById('hud-sens-slider').value = 100;
-        document.getElementById('hud-sens-val').textContent = '100%';
+        this.syncMobileSettingsUI();
 
         this.showAnnouncement('🔄 รีเซ็ตตำแหน่งปุ่มเป็นค่าเริ่มต้นแล้ว', 2.0);
     }

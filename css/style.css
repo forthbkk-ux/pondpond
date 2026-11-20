@@ -66,13 +66,75 @@ html, body {
 
 .lobby-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 14px;
     margin-bottom: 18px;
     flex-wrap: wrap;
+    gap: 12px;
+}
+
+.lobby-header-main {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
+    flex: 1 1 420px;
+    min-width: 0;
+}
+
+.lobby-status-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lobby-mobile-box {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.lobby-mobile-settings-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(245, 158, 11, 0.14));
+    border: 1.5px solid rgba(56, 189, 248, 0.55);
+    color: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.18);
+}
+
+.lobby-mobile-settings-btn:hover {
+    border-color: #fbbf24;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.28);
+}
+
+.lobby-mobile-settings-btn.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(14, 165, 233, 0.2));
+    border-color: #10b981;
+}
+
+.lms-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #fde68a;
+    white-space: nowrap;
+}
+
+.lms-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #93c5fd;
+    white-space: nowrap;
 }
 
 .game-title {

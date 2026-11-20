@@ -41,19 +41,29 @@
     <div id="lobby-overlay" class="overlay">
         <div class="lobby-card">
             <div class="lobby-header">
-                <div class="game-title">
-                    <div class="title-badge">CS:WEB</div>
-                    <div>
-                        <h1>COUNTER-STRIKE ONLINE 3D</h1>
-                        <p>เกมยิงปืน Tactical FPS บนเบราว์เซอร์ รองรับทั้งมือถือ (Touch) และคอมพิวเตอร์ (PC)</p>
+                <div class="lobby-header-main">
+                    <div class="game-title">
+                        <div class="title-badge">CS:WEB</div>
+                        <div>
+                            <h1>COUNTER-STRIKE ONLINE 3D</h1>
+                            <p>เกมยิงปืน Tactical FPS บนเบราว์เซอร์ รองรับทั้งมือถือ (Touch) และคอมพิวเตอร์ (PC)</p>
+                        </div>
+                    </div>
+                    <div class="lobby-status-pills">
+                        <button id="btn-lobby-fullscreen" class="hud-mini-btn" style="background:rgba(16,185,129,0.22);border-color:#10b981;color:#34d399;padding:6px 12px;font-size:0.82rem;">📺 เปิดเต็มจอ (Fullscreen)</button>
+                        <div class="online-badge">
+                            <span class="online-dot"></span>
+                            <span>WebRTC Multiplayer + AI Bots</span>
+                        </div>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <button id="btn-lobby-fullscreen" class="hud-mini-btn" style="background:rgba(16,185,129,0.22);border-color:#10b981;color:#34d399;padding:6px 12px;font-size:0.82rem;">📺 เปิดเต็มจอ (Fullscreen)</button>
-                    <div class="online-badge">
-                        <span class="online-dot"></span>
-                        <span>WebRTC Multiplayer + AI Bots</span>
-                    </div>
+
+                <!-- Mobile Mode Settings Box (Top-Right Lobby Header) -->
+                <div class="lobby-mobile-box">
+                    <button id="btn-lobby-mobile-settings" class="lobby-mobile-settings-btn" type="button">
+                        <span class="lms-title">📱 ตั้งค่าโหมดมือถือ</span>
+                        <span id="lobby-mobile-status-text" class="lms-sub">โหมด: PC • 🎯 ยิงออโต้: เปิด</span>
+                    </button>
                 </div>
             </div>
 
@@ -494,6 +504,10 @@
                     🛠️ ปรับแต่งตำแหน่งและขนาดปุ่มควบคุม (Customize Buttons)
                 </button>
 
+                <button id="btn-toggle-autofire" class="btn btn-outline" style="justify-content: flex-start; padding: 12px 16px; border-color: #10b981; color: #34d399; font-weight: 700;">
+                    🎯 ยิงออโต้เวลาเล็งเจอคน (Auto-Fire): เปิด
+                </button>
+
                 <button id="btn-fullscreen" class="btn btn-secondary" style="justify-content: flex-start; padding: 12px 16px;">
                     📺 เปิด / ปิด โหมดเต็มจอ (Fullscreen)
                 </button>
@@ -553,9 +567,42 @@
                 <button id="btn-open-lobby" class="btn btn-outline" style="justify-content: flex-start; padding: 12px 16px; border-color: #f87171; color: #fca5a5;">
                     🏠 กลับสู่หน้าล็อบบี้หลัก (เปลี่ยนทีม / สร้างห้องออนไลน์)
                 </button>
+            </div>
+        </div>
+    </div>
 
-                <!-- Hidden legacy toggles -->
-                <button id="btn-toggle-autofire" class="hidden"></button>
+    <!-- ==================== LOBBY MOBILE MODE SETTINGS MODAL ==================== -->
+    <div id="mobile-settings-modal" class="overlay hidden" style="z-index: 22;">
+        <div class="modal-box" style="max-width: 460px;">
+            <div class="modal-header">
+                <h2 style="font-size: 1.15rem; color: #38bdf8;">📱 ตั้งค่าสำหรับโหมดมือถือ (Mobile Settings)</h2>
+                <button id="btn-close-mobile-settings" class="btn btn-outline" style="width: auto; padding: 6px 14px;">✖ ปิด</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="btn-mobset-mode" class="btn btn-outline" style="justify-content: flex-start; padding: 12px 16px; border-color: #38bdf8; color: #7dd3fc; font-weight: 700;">
+                    💻 โหมดควบคุมปัจจุบัน: คอมพิวเตอร์ (PC) — แตะเพื่อสลับเป็นมือถือ
+                </button>
+
+                <button id="btn-mobset-autofire" class="btn btn-outline" style="justify-content: flex-start; padding: 12px 16px; border-color: #10b981; color: #34d399; font-weight: 700;">
+                    🎯 ยิงออโต้เวลาหันเป้าเจอคน (Auto-Fire): เปิด
+                </button>
+
+                <div style="background: rgba(15, 23, 42, 0.72); padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">
+                        <span>🎚️ ความไวในการหันกล้อง (Touch Sensitivity)</span>
+                        <span id="mobset-sens-val" style="color: #fbbf24; font-weight: 800;">100%</span>
+                    </div>
+                    <input type="range" id="mobset-sens-slider" min="30" max="250" value="100" style="width: 100%; accent-color: #f59e0b; cursor: pointer;">
+                </div>
+
+                <button id="btn-mobset-edit-hud" class="btn btn-primary" style="justify-content: flex-start; padding: 12px 16px;">
+                    🛠️ ปรับแต่งตำแหน่งและขนาดปุ่มมือถือ (Customize Buttons)
+                </button>
+
+                <button id="btn-mobset-fullscreen" class="btn btn-secondary" style="justify-content: flex-start; padding: 12px 16px;">
+                    📺 เปิด / ปิด โหมดเต็มจอ (Fullscreen)
+                </button>
             </div>
         </div>
     </div>
