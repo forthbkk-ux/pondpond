@@ -437,8 +437,12 @@ class CSGame {
         const tag = document.getElementById('map-name-tag');
         if (tag) {
             const meta = window.MAP_METADATA ? window.MAP_METADATA[this.mapId] : null;
-            const suffix = (meta && meta.name && meta.name.includes('(New)')) ? ' (New)' : '';
-            tag.textContent = (meta ? meta.id.toUpperCase() : (this.mapId ? this.mapId.toUpperCase() : 'DE_DUST2')) + suffix;
+            if (meta && meta.hudTag) {
+                tag.textContent = meta.hudTag;
+            } else {
+                const suffix = (meta && meta.name && meta.name.includes('(New)')) ? ' (New)' : '';
+                tag.textContent = (meta ? meta.id.toUpperCase() : (this.mapId ? this.mapId.toUpperCase() : 'DE_DUST2')) + suffix;
+            }
         }
     }
 

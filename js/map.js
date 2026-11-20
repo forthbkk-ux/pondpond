@@ -9,6 +9,14 @@ const MAP_METADATA = {
         description: 'สมรภูมิทะเลทรายยอดนิยมตลอดกาล ทางแยก Long A, อุโมงค์ B Tunnels และประตูกลาง Mid Double Doors',
         mapSize: 90
     },
+    de_bangkok_thailand: {
+        id: 'de_bangkok_thailand',
+        name: '🇹🇭 ประเทศไทย — กรุงเทพมหานคร (Bangkok, Thailand) (New)',
+        hudTag: '🇹🇭 กรุงเทพฯ ประเทศไทย (THAILAND)',
+        subtitle: 'กรุงเทพมหานคร, ประเทศไทย 220m',
+        description: 'แผนที่ใหม่ขนาดใหญ่ที่สุด 220m กรุงเทพมหานคร ประเทศไทย! สมรภูมิบนถนนใหญ่สุขุมวิท-อโศก มีรถติดเต็มถนน (แท็กซี่ ตุ๊กตุ๊ก รถเมล์ ขสมก. รถกระบะ รถตู้ รถบรรทุก) รางรถไฟฟ้า BTS & สะพานลอยคนข้าม 2 จุด ตึกแถว-ร้าน 24 ชม.-สน.ตำรวจ-ธนาคารสยาม-ตลาดโต้รุ่ง ที่เข้าแอบได้ทุกตึก พร้อมซอกซอยและมุมซุ่มยิงนับไม่ถ้วน!',
+        mapSize: 220
+    },
     de_jungle_bunker: {
         id: 'de_jungle_bunker',
         name: '🌴 DE_JUNGLE_BUNKER (New)',
@@ -186,6 +194,15 @@ class GameMap {
         this.spawns = { T: [], CT: [] };
         this.bombsites = {};
         this.waypoints = [];
+
+        // Restore default fog & sun position if a map customized atmospheric lighting
+        if (this.game && this.game.scene && this.game.scene.fog) {
+            this.game.scene.fog.color.setHex(0xb5aa96);
+            this.game.scene.fog.density = 0.0082;
+        }
+        if (this.game && this.game.sunLight) {
+            this.game.sunLight.position.set(38, 68, 28);
+        }
     }
 
     load(mapId = 'de_dust2') {
@@ -197,6 +214,9 @@ class GameMap {
         this.mapSize = meta.mapSize;
 
         switch (mapId) {
+            case 'de_bangkok_thailand':
+                this.buildBangkokThailand();
+                break;
             case 'de_jungle_bunker':
                 this.buildJungleBunker();
                 break;
@@ -259,9 +279,16 @@ class GameMap {
     }
 
     // ==================== SHARED GEOMETRY HELPERS ====================
-    addBlock(x, y, z, w, h, d, material, isCrate = false, addTrim = false) {
+    setFog(colorHex, density) {
+        if (this.game && this.game.scene && this.game.scene.fog) {
+            this.game.scene.fog.color.setHex(colorHex);
+            this.game.scene.fog.density = density;
+        }
+    }
+
+    addBlock(x, y, z, w, h, d, material, isCrate = false, addTrim = false, colliderOpts = null) {
         let mat = material;
-        if (material && material.map && (w > 4 || d > 4)) {
+        if (material && material.map && (w > 4 || d > 4) && !(material.userData && material.userData.noTileRepeat)) {
             const clonedTex = material.map.clone();
             clonedTex.needsUpdate = true;
             clonedTex.repeat.set(Math.max(w, d) / 6, h / 6);
@@ -300,7 +327,8 @@ class GameMap {
             maxY: y + h,
             minZ: z - d / 2,
             maxZ: z + d / 2,
-            isCrate
+            isCrate,
+            noRadar: !!(colliderOpts && colliderOpts.noRadar)
         });
         return mesh;
     }
@@ -3440,6 +3468,1318 @@ class GameMap {
         });
     }
 
+    // =========================================================================
+    // BANGKOK, THAILAND (220m): 🇹🇭 DE_BANGKOK_THAILAND — Realistic Urban Street
+    // =========================================================================
+    addGroundStrip(x, y, z, w, d, mat, rotY = 0) {
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+        mesh.rotation.order = 'YXZ';
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.y = rotY;
+        mesh.position.set(x, y, z);
+        mesh.receiveShadow = true;
+        this.scene.add(mesh);
+        this.mapObjects.push(mesh);
+        return mesh;
+    }
+
+    addOrientedPart(cx, y, cz, rotY, lx, ly, lz, w, h, d, mat, opts = {}) {
+        const cos = Math.cos(rotY);
+        const sin = Math.sin(rotY);
+        const wx = cx + lx * cos + lz * sin;
+        const wz = cz - lx * sin + lz * cos;
+
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        mesh.rotation.order = 'YXZ';
+        mesh.position.set(wx, y + ly + h / 2, wz);
+        mesh.rotation.y = rotY;
+        if (opts.rotX) mesh.rotation.x = opts.rotX;
+        if (opts.rotZ) mesh.rotation.z = opts.rotZ;
+        mesh.castShadow = opts.castShadow !== false;
+        mesh.receiveShadow = opts.receiveShadow !== false;
+        this.scene.add(mesh);
+        this.mapObjects.push(mesh);
+
+        if (opts.shootable !== false) {
+            this.shootableMeshes.push(mesh);
+        }
+        if (opts.collider !== false) {
+            const effW = Math.abs(w * cos) + Math.abs(d * sin);
+            const effD = Math.abs(w * sin) + Math.abs(d * cos);
+            this.colliders.push({
+                minX: wx - effW / 2,
+                maxX: wx + effW / 2,
+                minY: y + ly,
+                maxY: y + ly + h,
+                minZ: wz - effD / 2,
+                maxZ: wz + effD / 2,
+                isCrate: opts.isCrate !== false,
+                noRadar: !!opts.noRadar
+            });
+        }
+        return mesh;
+    }
+
+    addWheel(cx, y, cz, rotY, lx, lz, radius, width, tireMat, rimMat) {
+        const cos = Math.cos(rotY);
+        const sin = Math.sin(rotY);
+        const wx = cx + lx * cos + lz * sin;
+        const wz = cz - lx * sin + lz * cos;
+
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 14), tireMat);
+        tire.rotation.order = 'YXZ';
+        tire.rotation.z = Math.PI / 2;
+        tire.rotation.y = rotY;
+        tire.position.set(wx, y + radius, wz);
+        tire.castShadow = true;
+        this.scene.add(tire);
+        this.mapObjects.push(tire);
+
+        if (rimMat) {
+            const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.56, radius * 0.56, width + 0.03, 10), rimMat);
+            rim.rotation.order = 'YXZ';
+            rim.rotation.z = Math.PI / 2;
+            rim.rotation.y = rotY;
+            rim.position.set(wx, y + radius, wz);
+            this.scene.add(rim);
+            this.mapObjects.push(rim);
+        }
+        return tire;
+    }
+
+    makeCarSideMat(bodyHex, accentHex = null, label = '') {
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 128;
+        const ctx = c.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 0, 128);
+        grad.addColorStop(0, bodyHex);
+        grad.addColorStop(0.75, bodyHex);
+        grad.addColorStop(1, '#111827');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 128);
+
+        if (accentHex) {
+            ctx.fillStyle = accentHex;
+            ctx.fillRect(0, 56, 512, 18);
+        }
+        // Subtle lower rocker trim + vertical door panel seams + chrome handles
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 110, 512, 18);
+        ctx.strokeStyle = 'rgba(0,0,0,0.48)';
+        ctx.lineWidth = 3;
+        for (const dx of [135, 265, 385]) {
+            ctx.beginPath(); ctx.moveTo(dx, 10); ctx.lineTo(dx, 110); ctx.stroke();
+        }
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(218, 36, 26, 7);
+        ctx.fillRect(342, 36, 26, 7);
+        if (label) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, 256, 92);
+        }
+        const tex = new THREE.CanvasTexture(c);
+        return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.24, metalness: 0.52 });
+    }
+
+    makeBusSideMat(lowerHex, upperHex, windowBorderHex, routeLabel) {
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = lowerHex;
+        ctx.fillRect(0, 128, 512, 128);
+        ctx.fillStyle = upperHex;
+        ctx.fillRect(0, 0, 512, 128);
+        // Window frame band + realistic multi-pane sliding glass windows
+        ctx.fillStyle = windowBorderHex;
+        ctx.fillRect(0, 38, 512, 92);
+        for (let wx = 18; wx < 488; wx += 58) {
+            ctx.fillStyle = '#0c1524';
+            ctx.fillRect(wx, 46, 48, 76);
+            ctx.fillStyle = 'rgba(148, 197, 255, 0.18)';
+            ctx.fillRect(wx + 4, 50, 18, 68);
+        }
+        // Folding passenger doors & wheel cutouts
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(18, 44, 46, 206);
+        ctx.strokeRect(272, 44, 46, 206);
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(78, 206, 68, 50);
+        ctx.fillRect(346, 206, 96, 50);
+
+        ctx.fillStyle = '#fef08a';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(routeLabel, 210, 168);
+        const tex = new THREE.CanvasTexture(c);
+        return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0.35 });
+    }
+
+    createBangkokVehiclePalette() {
+        const paint = (color, roughness = 0.22, metalness = 0.56) =>
+            new THREE.MeshStandardMaterial({ color, roughness, metalness });
+        const trim = (color, roughness = 0.78, metalness = 0.15) =>
+            new THREE.MeshStandardMaterial({ color, roughness, metalness });
+
+        const cargoTex = this.makeTexMat('#e2e8f0', (ctx) => {
+            for (let x = 0; x < 512; x += 20) {
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.16)';
+                ctx.fillRect(x, 0, 7, 512);
+            }
+            ctx.fillStyle = '#1e3a8a';
+            ctx.fillRect(0, 180, 512, 114);
+            ctx.fillStyle = '#facc15';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('THAILAND LOGISTICS', 256, 234);
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('กรุงเทพมหานคร • EXPRESS', 256, 272);
+        }, 1, { roughness: 0.52, metalness: 0.3 });
+
+        const grilleTex = this.makeTexMat('#111827', (ctx) => {
+            ctx.fillStyle = '#94a3b8';
+            for (let y = 64; y < 448; y += 64) ctx.fillRect(24, y, 464, 18);
+            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 14; ctx.strokeRect(12, 12, 488, 488);
+        }, 1, { roughness: 0.35, metalness: 0.8 });
+
+        const mkAwning = (c1, c2) => this.makeTexMat(c1, (ctx) => {
+            ctx.fillStyle = c2;
+            for (let x = 0; x < 512; x += 64) ctx.fillRect(x, 0, 32, 512);
+        }, 1, { roughness: 0.88 });
+
+        const plateMat = this.makeSignMaterial('กท 8492', '#f8fafc', '#0f172a', '#64748b');
+
+        return {
+            tire: trim(0x11141a, 0.92, 0.04),
+            rim: paint(0xd1d5db, 0.25, 0.88),
+            bumper: trim(0x181b22, 0.72, 0.18),
+            glass: paint(0x0b1322, 0.08, 0.88),
+            steel: paint(0xcbd5e1, 0.30, 0.82),
+            bedliner: trim(0x14161c, 0.88, 0.12),
+            grille: grilleTex,
+            plate: plateMat,
+            headlight: new THREE.MeshBasicMaterial({ color: 0xfffbeb }),
+            taillight: new THREE.MeshBasicMaterial({ color: 0xdc2626 }),
+            taxiSign: new THREE.MeshBasicMaterial({ color: 0xfef08a }),
+            vacantLed: new THREE.MeshBasicMaterial({ color: 0xef4444 }),
+            busSign: new THREE.MeshBasicMaterial({ color: 0xfb923c }),
+            green: paint(0x15803d),
+            yellow: paint(0xeab308),
+            pink: paint(0xdb2777),
+            blue: paint(0x1d4ed8),
+            navy: paint(0x1e293b),
+            cream: paint(0xf5e9c9, 0.45, 0.25),
+            busRed: paint(0x991b1b, 0.38, 0.35),
+            busOrange: paint(0xd9480f, 0.35, 0.38),
+            white: paint(0xf1f5f9),
+            silver: paint(0x94a3b8, 0.20, 0.72),
+            charcoal: paint(0x27303f),
+            taxiGreenSide: this.makeCarSideMat('#15803d', '#eab308', 'TAXI-METER • กทม'),
+            taxiPinkSide: this.makeCarSideMat('#db2777', '#fdf2f8', 'TAXI-METER • กทม'),
+            sedanSide: this.makeCarSideMat('#64748b', null, ''),
+            vanSide: this.makeBusSideMat('#f8fafc', '#f8fafc', '#1e3a8a', 'รถตู้ กทม • สุขุมวิท'),
+            busRedSide: this.makeBusSideMat('#f5e9c9', '#991b1b', '#1e293b', 'ขสมก. สาย 2 • สนามหลวง'),
+            busOrangeSide: this.makeBusSideMat('#d9480f', '#f5e9c9', '#1e293b', 'ปอ. 511 • สายใต้ใหม่'),
+            truckCargo: cargoTex,
+            awningRed: mkAwning('#b91c1c', '#f8fafc'),
+            awningBlue: mkAwning('#0369a1', '#f8fafc'),
+            awningGreen: mkAwning('#15803d', '#fef08a')
+        };
+    }
+
+    addThaiVehicle(type, x, z, rotY, pal, customBodyMat = null) {
+        const part = (lx, ly, lz, w, h, d, mat, opts) =>
+            this.addOrientedPart(x, 0, z, rotY, lx, ly, lz, w, h, d, mat, opts);
+        const wheel = (lx, lz, r = 0.33, w = 0.22) =>
+            this.addWheel(x, 0, z, rotY, lx, lz, r, w, pal.tire, pal.rim);
+
+        if (type === 'taxi_green' || type === 'taxi_pink' || type === 'sedan') {
+            const isGreenTaxi = type === 'taxi_green';
+            const bodyMat = customBodyMat || (isGreenTaxi ? pal.green : (type === 'taxi_pink' ? pal.pink : pal.silver));
+            const roofMat = isGreenTaxi ? pal.yellow : bodyMat;
+            const sideMat = isGreenTaxi ? pal.taxiGreenSide : (type === 'taxi_pink' ? pal.taxiPinkSide : pal.sedanSide);
+            const hullMats = [sideMat, sideMat, bodyMat, bodyMat, bodyMat, bodyMat];
+
+            // Lower sculpted chassis + black/chrome bumpers + grille + Thai license plate
+            part(0, 0.24, 0, 1.92, 0.48, 4.55, hullMats);
+            part(0, 0.18, -2.28, 1.90, 0.18, 0.16, pal.bumper, { collider: false, shootable: false });
+            part(0, 0.18, 2.28, 1.90, 0.18, 0.16, pal.bumper, { collider: false, shootable: false });
+            part(0, 0.44, -2.28, 0.84, 0.24, 0.06, pal.grille, { collider: false, shootable: false });
+            part(0, 0.30, 2.29, 0.44, 0.16, 0.04, pal.plate, { collider: false, shootable: false });
+
+            // Sloped hood & rear trunk deck
+            part(0, 0.70, -1.62, 1.84, 0.10, 1.24, isGreenTaxi ? pal.yellow : bodyMat, { rotX: 0.07, collider: false, shootable: false });
+            part(0, 0.72, 1.72, 1.82, 0.10, 0.96, bodyMat, { collider: false, shootable: false });
+
+            // Cabin core + sloped front & rear glass windshields + side mirrors
+            part(0, 0.72, 0.08, 1.68, 0.58, 1.95, pal.glass);
+            part(0, 0.76, -0.96, 1.62, 0.64, 0.12, pal.glass, { rotX: -0.58, collider: false, shootable: false });
+            part(0, 0.76, 1.12, 1.62, 0.64, 0.12, pal.glass, { rotX: 0.56, collider: false, shootable: false });
+            part(0, 1.30, 0.08, 1.66, 0.12, 1.92, roofMat, { collider: false });
+            part(-0.98, 0.84, -0.78, 0.18, 0.12, 0.16, bodyMat, { collider: false, shootable: false });
+            part(0.98, 0.84, -0.78, 0.18, 0.12, 0.16, bodyMat, { collider: false, shootable: false });
+
+            if (type !== 'sedan') {
+                part(0, 1.42, -0.15, 0.62, 0.18, 0.24, pal.taxiSign, { collider: false, shootable: false });
+                part(-0.42, 0.88, -0.95, 0.24, 0.10, 0.06, pal.vacantLed, { collider: false, shootable: false });
+            }
+            part(-0.70, 0.50, -2.29, 0.34, 0.16, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0.70, 0.50, -2.29, 0.34, 0.16, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(-0.70, 0.52, 2.29, 0.38, 0.15, 0.06, pal.taillight, { collider: false, shootable: false });
+            part(0.70, 0.52, 2.29, 0.38, 0.15, 0.06, pal.taillight, { collider: false, shootable: false });
+            wheel(-0.88, -1.40); wheel(0.88, -1.40); wheel(-0.88, 1.40); wheel(0.88, 1.40);
+            return;
+        }
+
+        if (type === 'tuktuk') {
+            const bodyMat = customBodyMat || pal.blue;
+            part(0, 0.22, -0.82, 1.12, 0.84, 0.94, bodyMat);
+            part(0, 0.88, -0.86, 1.06, 0.42, 0.10, pal.glass, { rotX: -0.28, collider: false, shootable: false });
+            part(0, 0.56, -1.28, 0.46, 0.14, 0.40, pal.yellow, { collider: false, shootable: false });
+            part(0, 0.22, 0.48, 1.52, 0.72, 1.55, bodyMat);
+            part(0, 0.92, 0.62, 1.34, 0.34, 0.92, pal.busRed, { collider: false });
+            // Two-tone Thai Tuk-Tuk roof canopy
+            part(0, 1.68, 0.05, 1.56, 0.16, 2.35, pal.navy, { noRadar: true });
+            part(0, 1.84, 0.05, 1.48, 0.08, 2.22, pal.yellow, { collider: false, shootable: false });
+            for (const [px, pz] of [[-0.68, -0.92], [0.68, -0.92], [-0.68, 1.12], [0.68, 1.12]]) {
+                part(px, 0.92, pz, 0.07, 0.78, 0.07, pal.steel, { collider: false, shootable: false });
+            }
+            part(0, 0.78, -1.32, 0.24, 0.24, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0, 0.38, 1.28, 0.42, 0.16, 0.04, pal.plate, { collider: false, shootable: false });
+            wheel(0, -1.14, 0.26, 0.20);
+            wheel(-0.72, 0.88, 0.28, 0.20);
+            wheel(0.72, 0.88, 0.28, 0.20);
+            return;
+        }
+
+        if (type === 'pickup') {
+            const bodyMat = customBodyMat || pal.silver;
+            const hullMats = [pal.sedanSide, pal.sedanSide, bodyMat, bodyMat, bodyMat, bodyMat];
+            part(0, 0.26, 0, 1.98, 0.60, 4.95, hullMats);
+            part(0, 0.20, -2.46, 1.96, 0.22, 0.18, pal.bumper, { collider: false, shootable: false });
+            part(0, 0.56, -2.47, 0.96, 0.28, 0.06, pal.grille, { collider: false, shootable: false });
+            part(0, 0.86, -0.45, 1.84, 0.72, 1.85, pal.glass);
+            part(0, 0.92, -1.42, 1.76, 0.74, 0.12, pal.glass, { rotX: -0.45, collider: false, shootable: false });
+            part(0, 1.58, -0.45, 1.80, 0.12, 1.78, bodyMat, { collider: false });
+            // Black roll-bar + rear cargo bed & wooden supply box inside bed
+            part(-0.84, 0.88, 0.56, 0.10, 0.72, 0.10, pal.bumper, { collider: false });
+            part(0.84, 0.88, 0.56, 0.10, 0.72, 0.10, pal.bumper, { collider: false });
+            part(0, 1.54, 0.56, 1.78, 0.10, 0.10, pal.bumper, { collider: false });
+            part(0, 0.86, 1.44, 1.72, 0.12, 2.05, pal.bedliner, { collider: false });
+            part(-0.90, 0.86, 1.44, 0.14, 0.36, 2.08, bodyMat, { collider: false });
+            part(0.90, 0.86, 1.44, 0.14, 0.36, 2.08, bodyMat, { collider: false });
+            part(-0.70, 0.58, -2.48, 0.34, 0.18, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0.70, 0.58, -2.48, 0.34, 0.18, 0.06, pal.headlight, { collider: false, shootable: false });
+            wheel(-0.94, -1.55, 0.36, 0.24); wheel(0.94, -1.55, 0.36, 0.24);
+            wheel(-0.94, 1.55, 0.36, 0.24); wheel(0.94, 1.55, 0.36, 0.24);
+            return;
+        }
+
+        if (type === 'van') {
+            const vanMats = [pal.vanSide, pal.vanSide, pal.white, pal.white, pal.white, pal.white];
+            part(0, 0.24, 0, 1.94, 1.84, 4.86, vanMats);
+            part(0, 0.20, -2.42, 1.92, 0.22, 0.18, pal.bumper, { collider: false, shootable: false });
+            part(0, 1.12, -2.38, 1.78, 0.72, 0.14, pal.glass, { rotX: -0.26, collider: false, shootable: false });
+            part(0, 2.08, 0.4, 1.25, 0.20, 1.4, pal.white, { collider: false, shootable: false });
+            part(-0.68, 0.62, -2.44, 0.34, 0.18, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0.68, 0.62, -2.44, 0.34, 0.18, 0.06, pal.headlight, { collider: false, shootable: false });
+            wheel(-0.92, -1.52, 0.34, 0.22); wheel(0.92, -1.52, 0.34, 0.22);
+            wheel(-0.92, 1.52, 0.34, 0.22); wheel(0.92, 1.52, 0.34, 0.22);
+            return;
+        }
+
+        if (type === 'bus_red' || type === 'bus_orange') {
+            const isRed = type === 'bus_red';
+            const sideMat = isRed ? pal.busRedSide : pal.busOrangeSide;
+            const endMat = isRed ? pal.cream : pal.busOrange;
+            const roofMat = isRed ? pal.busRed : pal.cream;
+            const busMats = [sideMat, sideMat, roofMat, pal.bumper, endMat, endMat];
+
+            part(0, 0.32, 0, 2.60, 2.82, 10.2, busMats);
+            part(0, 0.24, -5.08, 2.58, 0.26, 0.18, pal.bumper, { collider: false, shootable: false });
+            part(0, 1.38, -5.08, 2.38, 1.06, 0.12, pal.glass, { collider: false, shootable: false });
+            part(0, 2.58, -5.08, 1.70, 0.34, 0.10, pal.busSign, { collider: false, shootable: false });
+            // Roof AC units & truck-style side mirrors
+            part(0, 3.14, -2.1, 1.85, 0.34, 2.2, pal.white, { collider: false, shootable: false });
+            part(0, 3.14, 2.1, 1.85, 0.34, 2.2, pal.white, { collider: false, shootable: false });
+            part(-1.42, 1.85, -4.85, 0.24, 0.32, 0.14, pal.bumper, { collider: false, shootable: false });
+            part(1.42, 1.85, -4.85, 0.24, 0.32, 0.14, pal.bumper, { collider: false, shootable: false });
+            part(-0.92, 0.68, -5.12, 0.42, 0.22, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0.92, 0.68, -5.12, 0.42, 0.22, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(-0.92, 0.72, 5.12, 0.42, 0.22, 0.06, pal.taillight, { collider: false, shootable: false });
+            part(0.92, 0.72, 5.12, 0.42, 0.22, 0.06, pal.taillight, { collider: false, shootable: false });
+            for (const lz of [-3.3, 1.8, 3.4]) {
+                wheel(-1.24, lz, 0.46, 0.28);
+                wheel(1.24, lz, 0.46, 0.28);
+            }
+            return;
+        }
+
+        if (type === 'truck') {
+            const cabMat = customBodyMat || pal.white;
+            part(0, 0.35, -2.65, 2.36, 1.98, 2.10, cabMat);
+            part(0, 0.28, -3.68, 2.34, 0.26, 0.20, pal.bumper, { collider: false, shootable: false });
+            part(0, 0.74, -3.70, 1.45, 0.36, 0.08, pal.grille, { collider: false, shootable: false });
+            part(0, 1.35, -3.68, 2.14, 0.78, 0.14, pal.glass, { rotX: -0.14, collider: false, shootable: false });
+            part(0, 0.52, 1.15, 2.48, 2.58, 5.20, pal.truckCargo);
+            part(-0.82, 0.62, -3.72, 0.38, 0.20, 0.06, pal.headlight, { collider: false, shootable: false });
+            part(0.82, 0.62, -3.72, 0.38, 0.20, 0.06, pal.headlight, { collider: false, shootable: false });
+            for (const lz of [-2.6, 0.9, 2.6]) {
+                wheel(-1.16, lz, 0.44, 0.26);
+                wheel(1.16, lz, 0.44, 0.26);
+            }
+            return;
+        }
+
+        if (type === 'foodcart') {
+            const awningMat = customBodyMat || pal.awningRed;
+            part(0, 0.12, 0, 1.45, 1.02, 2.15, pal.steel);
+            part(-0.35, 1.14, 0, 0.65, 0.56, 1.35, pal.glass);
+            part(0, 2.18, 0, 1.92, 0.18, 2.50, awningMat, { collider: false, noRadar: true });
+            for (const [px, pz] of [[-0.66, -0.96], [0.66, -0.96], [-0.66, 0.96], [0.66, 0.96]]) {
+                part(px, 1.12, pz, 0.07, 1.08, 0.07, pal.steel, { collider: false, shootable: false });
+            }
+            wheel(-0.74, 0, 0.28, 0.12);
+            wheel(0.74, 0, 0.28, 0.12);
+        }
+    }
+
+    makeSignMaterial(text, bgColor = '#0f172a', fgColor = '#facc15', accentColor = '#ef4444', drawThaiFlag = false) {
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 128;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, 512, 128);
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(6, 6, 500, 116);
+
+        let textCenterX = 256;
+        let maxTextW = 468;
+        if (drawThaiFlag) {
+            const fx = 22, fy = 36, fw = 76, fh = 56;
+            const bands = [
+                [0, 9, '#a51931'], [9, 9, '#f4f5f8'],
+                [18, 20, '#2d2a4a'], [38, 9, '#f4f5f8'], [47, 9, '#a51931']
+            ];
+            for (const [dy, dh, col] of bands) {
+                ctx.fillStyle = col;
+                ctx.fillRect(fx, fy + dy, fw, dh);
+            }
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(fx, fy, fw, fh);
+            textCenterX = 304;
+            maxTextW = 372;
+        }
+
+        ctx.fillStyle = fgColor;
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, textCenterX, 66, maxTextW);
+        const tex = new THREE.CanvasTexture(c);
+        const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, emissive: fgColor, emissiveIntensity: 0.08 });
+        mat.userData = { noTileRepeat: true };
+        return mat;
+    }
+
+    buildBangkokBuilding(cfg) {
+        const {
+            x, z, w, d, h = 4.6, upperH = 6.5,
+            wallMat, upperMat, roofMat, crateMat, counterMat,
+            openSides = ['N', 'S', 'E', 'W'], doorW = 4.2,
+            colonnadeSide = null, interiorMode = 'shophouse',
+            signText = '', signBg = '#0f172a', signFg = '#facc15', signAccent = '#ef4444',
+            signSide = null, isSkyscraper = false, crownMat = null, awningMat = null
+        } = cfg;
+
+        const t = 0.75;
+        const has = (side) => openSides.includes(side);
+
+        // Ground-floor perimeter walls with wide enterable doorways
+        for (const [side, wz] of [['N', z - d / 2], ['S', z + d / 2]]) {
+            if (has(side)) {
+                const segW = Math.max(1.4, (w - doorW) / 2);
+                this.addBlock(x - w / 2 + segW / 2, 0, wz, segW, h, t, wallMat);
+                this.addBlock(x + w / 2 - segW / 2, 0, wz, segW, h, t, wallMat);
+            } else {
+                this.addBlock(x, 0, wz, w, h, t, wallMat);
+            }
+        }
+        for (const [side, wx] of [['W', x - w / 2], ['E', x + w / 2]]) {
+            if (has(side)) {
+                const segD = Math.max(1.4, (d - t - doorW) / 2);
+                this.addBlock(wx, 0, z - d / 2 + t / 2 + segD / 2, t, h, segD, wallMat);
+                this.addBlock(wx, 0, z + d / 2 - t / 2 - segD / 2, t, h, segD, wallMat);
+            } else {
+                this.addBlock(wx, 0, z, t, h, d - t, wallMat);
+            }
+        }
+
+        // Ceiling slab + upper stories (noRadar so minimap clearly displays interior rooms!)
+        this.addBlock(x, h, z, w + 0.5, 0.55, d + 0.5, roofMat, false, false, { noRadar: true });
+        if (upperH > 0) {
+            this.addBlock(x, h + 0.55, z, w - 0.2, upperH, d - 0.2, upperMat || wallMat, false, true, { noRadar: true });
+            if (isSkyscraper) {
+                const topY = h + 0.55 + upperH + 0.38;
+                this.addBlock(x, topY, z, w * 0.72, 6.0, d * 0.72, crownMat || upperMat, false, false, { noRadar: true });
+                this.addBlock(x, topY + 6.0, z, w * 0.40, 4.5, d * 0.40, roofMat, false, false, { noRadar: true });
+                // Rooftop red aviation obstruction warning beacon
+                const beacon = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.55, 0.45), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                beacon.position.set(x, topY + 10.75, z);
+                this.scene.add(beacon);
+                this.mapObjects.push(beacon);
+            }
+        }
+
+        // Sidewalk Colonnade Overhang, Plinth Pillars & Angled Shopfront Awnings
+        if (colonnadeSide) {
+            const overhang = 2.6;
+            const cY = h - 0.25;
+            if (colonnadeSide === 'E' || colonnadeSide === 'W') {
+                const dir = colonnadeSide === 'E' ? 1 : -1;
+                const cx = x + dir * (w / 2 + overhang / 2);
+                const px = x + dir * (w / 2 + overhang - 0.45);
+                this.addBlock(cx, cY, z, overhang, 0.35, d + 0.4, roofMat, false, false, { noRadar: true });
+                if (awningMat) {
+                    this.addOrientedPart(x + dir * (w / 2 + 1.35), 0, z, 0, 0, cY - 0.45, 0, 2.3, 0.14, d * 0.85, awningMat, {
+                        rotZ: -dir * 0.28, collider: false, shootable: false
+                    });
+                }
+                for (const pz of [z - d * 0.38, z, z + d * 0.38]) {
+                    this.addBlock(px, 0, pz, 0.88, 0.45, 0.88, roofMat);
+                    this.addBlock(px, 0.45, pz, 0.74, cY - 0.45, 0.74, wallMat);
+                }
+            } else {
+                const dir = colonnadeSide === 'S' ? 1 : -1;
+                const cz = z + dir * (d / 2 + overhang / 2);
+                const pz = z + dir * (d / 2 + overhang - 0.45);
+                this.addBlock(x, cY, cz, w + 0.4, 0.35, overhang, roofMat, false, false, { noRadar: true });
+                for (const px of [x - w * 0.38, x, x + w * 0.38]) {
+                    this.addBlock(px, 0, pz, 0.88, 0.45, 0.88, roofMat);
+                    this.addBlock(px, 0.45, pz, 0.74, cY - 0.45, 0.74, wallMat);
+                }
+            }
+        }
+
+        // Street-facing Thai/Bangkok Signboard
+        if (signText) {
+            const sSide = signSide || colonnadeSide || 'E';
+            const signMat = this.makeSignMaterial(signText, signBg, signFg, signAccent);
+            const sY = h + 0.75;
+            if (sSide === 'E' || sSide === 'W') {
+                const dir = sSide === 'E' ? 1 : -1;
+                this.addBlock(x + dir * (w / 2 + 0.25), sY, z, 0.28, 1.65, Math.min(d * 0.75, 11), signMat, false, false, { noRadar: true });
+            } else {
+                const dir = sSide === 'S' ? 1 : -1;
+                this.addBlock(x, sY, z + dir * (d / 2 + 0.25), Math.min(w * 0.75, 11), 1.65, 0.28, signMat, false, false, { noRadar: true });
+            }
+        }
+
+        // Interior Rooms, Shelves, Counters & Blind Ambush Corners
+        const cMat = counterMat || crateMat;
+        if (interiorMode === 'aisles') {
+            this.addBlock(x - 2.6, 0, z - 3.0, 5.2, 1.65, 1.1, cMat, true);
+            this.addBlock(x - 2.6, 0, z + 3.0, 5.2, 1.65, 1.1, cMat, true);
+            this.addBlock(x + 4.2, 0, z - 3.6, 3.6, 1.15, 1.1, cMat, true);
+            this.addBlock(x + 2.6, 0, z - 5.0, 1.1, 1.15, 2.8, cMat, true);
+            this.addBlock(x + 4.4, 0, z + 4.4, 1.8, 2.2, 1.8, crateMat, true);
+        } else if (interiorMode === 'shophouse') {
+            this.addBlock(x, 0, z, Math.max(4.0, w - 7.4), h, 0.65, wallMat);
+            this.addBlock(x - w * 0.28, 0, z - d * 0.24, 1.8, 1.55, 1.8, crateMat, true);
+            this.addBlock(x + w * 0.28, 0, z + d * 0.24, 2.0, 2.15, 2.0, crateMat, true);
+            this.addBlock(x + w * 0.25, 0, z - d * 0.26, 2.8, 1.05, 1.2, cMat, true);
+        } else if (interiorMode === 'police') {
+            this.addBlock(x - 1.5, 0, z - 3.0, 4.4, 1.22, 1.0, cMat, true);
+            this.addBlock(x + 2.5, 0, z, 0.65, h, d * 0.45, wallMat);
+            this.addBlock(x + 5.2, 0, z + 4.5, 1.6, 2.3, 1.6, crateMat, true);
+            this.addBlock(x - 5.2, 0, z + 4.5, 1.6, 2.3, 1.6, crateMat, true);
+        } else if (interiorMode === 'garage') {
+            this.addBlock(x - 5.0, 0, z - 6.2, 2.8, 1.2, 1.4, cMat, true);
+            this.addBlock(x + 5.0, 0, z + 6.2, 1.9, 2.2, 1.9, crateMat, true);
+            this.addBarrelProp(x + 5.6, z - 6.4, 0xb91c1c, true);
+            this.addBarrelProp(x + 5.6, z - 5.1, 0x1d4ed8, false);
+        } else if (interiorMode === 'bank') {
+            for (const [px, pz] of [[-4.2, -5.0], [4.2, -5.0], [-4.2, 5.0], [4.2, 5.0]]) {
+                this.addBlock(x + px, 0, z + pz, 1.4, h, 1.4, wallMat);
+            }
+            this.addBlock(x + 4.8, 0, z, 1.2, 1.25, 8.0, cMat, true);
+            this.addBlock(x - 5.2, 0, z - 6.2, 2.2, 2.4, 2.2, crateMat, true);
+        } else if (interiorMode === 'terminal') {
+            this.addBlock(x - 3.0, 0, z - 4.2, 3.6, 2.7, 3.6, cMat, true);
+            this.addBlock(x - 3.0, 0, z + 4.2, 3.6, 2.7, 3.6, cMat, true);
+            this.addBlock(x + 3.2, 0, z, 1.4, 0.95, 5.6, crateMat, true);
+        } else if (interiorMode === 'lobby') {
+            for (const [px, pz] of [[-4.2, -4.2], [4.2, -4.2], [-4.2, 4.2], [4.2, 4.2]]) {
+                this.addBlock(x + px, 0, z + pz, 1.5, h, 1.5, wallMat);
+            }
+            this.addBlock(x, 0, z, 3.6, 1.18, 2.2, cMat, true);
+        }
+    }
+
+    addNightMarketStall(x, z, rotY, canopyMat, tableMat, crateMat, poleMat) {
+        this.addOrientedPart(x, 0, z, rotY, 0, 0, 0, 3.8, 1.05, 1.4, tableMat);
+        this.addOrientedPart(x, 0, z, rotY, 1.35, 0, 1.15, 1.25, 1.45, 1.25, crateMat);
+        this.addOrientedPart(x, 0, z, rotY, 0, 2.35, 0, 4.4, 0.22, 3.6, canopyMat, { collider: false, noRadar: true });
+        for (const [px, pz] of [[-1.95, -1.55], [1.95, -1.55], [-1.95, 1.55], [1.95, 1.55]]) {
+            this.addOrientedPart(x, 0, z, rotY, px, 0, pz, 0.12, 2.38, 0.12, poleMat, { collider: false, shootable: false });
+        }
+    }
+
+    addBangkokTree(x, z, planterMat, trunkMat, leafMat, leafDarkMat) {
+        this.addBlock(x, 0, z, 1.85, 0.58, 1.85, planterMat, true);
+        const soil = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 1.55), trunkMat);
+        soil.position.set(x, 0.56, z);
+        this.scene.add(soil);
+        this.mapObjects.push(soil);
+
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 2.75, 10), trunkMat);
+        trunk.position.set(x, 1.95, z);
+        trunk.castShadow = true;
+        this.scene.add(trunk);
+        this.mapObjects.push(trunk);
+        this.colliders.push({
+            minX: x - 0.3, maxX: x + 0.3, minY: 0.58, maxY: 3.3,
+            minZ: z - 0.3, maxZ: z + 0.3, isCrate: true
+        });
+
+        // Multi-cluster organic tropical canopy (high enough to walk & hide around the trunk)
+        const clusters = [
+            [0, 4.35, 0, 1.55, leafMat],
+            [-0.95, 3.85, 0.55, 1.15, leafDarkMat],
+            [0.95, 3.95, -0.55, 1.20, leafDarkMat],
+            [0.35, 4.10, 0.95, 1.05, leafMat]
+        ];
+        for (const [ox, oy, oz, r, mat] of clusters) {
+            const cMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), mat);
+            cMesh.position.set(x + ox, oy, z + oz);
+            cMesh.scale.set(1.15, 0.78, 1.15);
+            cMesh.castShadow = true;
+            this.scene.add(cMesh);
+            this.mapObjects.push(cMesh);
+        }
+    }
+
+    addBangkokStreetLamp(x, z, poleMat) {
+        const dir = x < 0 ? 1 : -1;
+        const h = 6.2;
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, h, 10), poleMat);
+        pole.position.set(x, h / 2, z);
+        pole.castShadow = true;
+        this.scene.add(pole);
+        this.mapObjects.push(pole);
+        this.shootableMeshes.push(pole);
+
+        // Overhanging gooseneck arm reaching over road lanes
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.10, 0.10), poleMat);
+        arm.position.set(x + dir * 0.95, h - 0.05, z);
+        arm.rotation.z = dir * 0.14;
+        this.scene.add(arm);
+        this.mapObjects.push(arm);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.14, 0.34), poleMat);
+        head.position.set(x + dir * 1.8, h + 0.06, z);
+        this.scene.add(head);
+        this.mapObjects.push(head);
+
+        const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.05, 0.24), new THREE.MeshBasicMaterial({ color: 0xffedd5 }));
+        bulb.position.set(x + dir * 1.8, h - 0.02, z);
+        this.scene.add(bulb);
+        this.mapObjects.push(bulb);
+
+        const pLight = new THREE.PointLight(0xffdfb0, 0.7, 26);
+        pLight.position.set(x + dir * 1.8, h - 0.3, z);
+        this.scene.add(pLight);
+        this.mapLights.push(pLight);
+
+        this.colliders.push({
+            minX: x - 0.26, maxX: x + 0.26, minY: 0, maxY: h,
+            minZ: z - 0.26, maxZ: z + 0.26, isCrate: true
+        });
+    }
+
+    addThaiFlagPole(x, z, poleMat) {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 8.5, 10), poleMat);
+        pole.position.set(x, 4.25, z);
+        pole.castShadow = true;
+        this.scene.add(pole);
+        this.mapObjects.push(pole);
+
+        const fc = document.createElement('canvas');
+        fc.width = 256; fc.height = 160;
+        const fctx = fc.getContext('2d');
+        const bands = [
+            [0, 26, '#a51931'], [26, 26, '#f4f5f8'],
+            [52, 56, '#2d2a4a'], [108, 26, '#f4f5f8'], [134, 26, '#a51931']
+        ];
+        for (const [by, bh, col] of bands) {
+            fctx.fillStyle = col;
+            fctx.fillRect(0, by, 256, bh);
+        }
+        const fTex = new THREE.CanvasTexture(fc);
+        const flagMat = new THREE.MeshStandardMaterial({ map: fTex, side: THREE.DoubleSide, roughness: 0.72 });
+        const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.75), flagMat);
+        flag.position.set(x + 1.4, 7.55, z);
+        this.scene.add(flag);
+        this.mapObjects.push(flag);
+
+        this.colliders.push({
+            minX: x - 0.3, maxX: x + 0.3, minY: 0, maxY: 8.5,
+            minZ: z - 0.3, maxZ: z + 0.3, isCrate: true
+        });
+    }
+
+    addBusShelter(x, z, wallMat, roofMat, adText) {
+        const signMat = this.makeSignMaterial(adText, '#0f172a', '#38bdf8', '#facc15');
+        this.addBlock(x, 0, z, 0.32, 2.4, 5.2, signMat);
+        this.addBlock(x, 2.4, z, 2.2, 0.22, 5.6, roofMat, false, false, { noRadar: true });
+        this.addBlock(x + (x < 0 ? 0.55 : -0.55), 0, z, 0.65, 0.55, 3.2, wallMat, true);
+    }
+
+    addRoadGantrySign(z, steelMat, text) {
+        this.addBlock(-23.2, 0, z, 0.68, 6.4, 0.68, steelMat);
+        this.addBlock(23.2, 0, z, 0.68, 6.4, 0.68, steelMat);
+        this.addBlock(0, 6.0, z, 47.0, 0.45, 0.55, steelMat, false, false, { noRadar: true });
+        const gantryMat = this.makeSignMaterial(text, '#065f46', '#ffffff', '#facc15', true);
+        this.addBlock(0, 6.38, z, 19.0, 2.2, 0.42, gantryMat, false, false, { noRadar: true });
+    }
+
+    addBangkokSkywalk(zPos, stairDirZ, deckMat, railMat, adMat) {
+        this.addBlock(0, 3.9, zPos, 52.4, 0.5, 4.4, deckMat);
+        const dir = stairDirZ;
+        const outerZ = zPos - dir * 2.05;
+        const innerZ = zPos + dir * 2.05;
+        this.addBlock(0, 4.4, outerZ, 51.6, 1.05, 0.32, railMat);
+        this.addBlock(0, 4.4, innerZ, 43.2, 1.05, 0.32, railMat);
+        this.addBlock(-10, 4.4, outerZ, 5.4, 2.05, 0.36, adMat);
+        this.addBlock(10, 4.4, innerZ, 5.4, 2.05, 0.36, adMat);
+
+        for (const sx of [-24.2, 24.2]) {
+            this.addBlock(sx, 0, zPos + dir * 13.4, 3.6, 1.1, 3.2, deckMat);
+            this.addBlock(sx, 1.1, zPos + dir * 10.2, 3.6, 1.1, 3.2, deckMat);
+            this.addBlock(sx, 2.2, zPos + dir * 7.0, 3.6, 1.1, 3.2, deckMat);
+            this.addBlock(sx, 3.3, zPos + dir * 3.8, 3.6, 1.1, 3.2, deckMat);
+            this.addBlock(sx + (sx < 0 ? 1.95 : -1.95), 0, zPos + dir * 5.2, 0.35, 3.3, 4.2, railMat);
+        }
+    }
+
+    addBangkokUtilityPoles(xSide, zList, poleMat, wireMat) {
+        for (let i = 0; i < zList.length; i++) {
+            const pz = zList[i];
+            this.addBlock(xSide, 0, pz, 0.34, 7.2, 0.34, poleMat, true);
+            this.addBlock(xSide, 6.5, pz, 1.35, 0.15, 0.15, poleMat, false, false, { noRadar: true });
+            if (i > 0) {
+                const prevZ = zList[i - 1];
+                const midZ = (pz + prevZ) / 2;
+                const span = Math.abs(pz - prevZ);
+                for (const wy of [5.85, 6.15, 6.45]) {
+                    const wire = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, span), wireMat);
+                    wire.position.set(xSide + (xSide < 0 ? 0.35 : -0.35), wy, midZ);
+                    this.scene.add(wire);
+                    this.mapObjects.push(wire);
+                }
+            }
+        }
+    }
+
+    buildBangkokRoadGround() {
+        // 1. Bangkok Sidewalk Paving Tiles (Warm Sandstone-Grey GTM Interlocking Blocks)
+        this.buildCanvasFloor('#5c5752', (ctx) => {
+            for (let y = 0; y < 512; y += 32) {
+                for (let x = 0; x < 512; x += 32) {
+                    const odd = ((x + y) / 32) % 2 === 0;
+                    const shade = odd ? 94 : 80;
+                    ctx.fillStyle = `rgb(${shade + 6}, ${shade}, ${shade - 5})`;
+                    ctx.fillRect(x + 1, y + 1, 30, 30);
+                    ctx.strokeStyle = 'rgba(20, 18, 16, 0.45)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, 32, 32);
+                }
+            }
+            for (let i = 0; i < 12000; i++) {
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.18)' : 'rgba(255,245,230,0.08)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+            }
+        }, 44, 0.07, 0.94);
+
+        // 2. High-Resolution Seamless Fine-Grain Bitumen Asphalt (tiled cleanly without stretching!)
+        const makeFineAsphalt = (rx, ry, factor) => {
+            const m = this.makeTexMat('#161920', (ctx) => {
+                for (let i = 0; i < 24000; i++) {
+                    const r = Math.random();
+                    ctx.fillStyle = r < 0.45 ? 'rgba(5, 7, 10, 0.55)' : (r < 0.85 ? 'rgba(55, 62, 74, 0.35)' : 'rgba(130, 138, 150, 0.16)');
+                    ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+                }
+                // Subtle micro tar crack & surface wear patches
+                ctx.strokeStyle = 'rgba(8, 10, 14, 0.55)';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(40, 110); ctx.lineTo(140, 175); ctx.lineTo(195, 290); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(360, 40); ctx.lineTo(310, 190); ctx.lineTo(410, 340); ctx.stroke();
+            }, 1, { bumpScale: 0.08, roughness: 0.94, metalness: 0.02 });
+            if (m.map) m.map.repeat.set(rx, ry);
+            m.polygonOffset = true;
+            m.polygonOffsetFactor = factor;
+            return m;
+        };
+
+        const mainAsphalt = makeFineAsphalt(10, 48, -1);
+        const crossAsphalt = makeFineAsphalt(7, 48, -2);
+        const soiAsphalt = makeFineAsphalt(3, 44, -1);
+
+        const dashedLineMat = this.makeTexMat('#e2e8f0', (ctx) => {
+            ctx.clearRect(0, 0, 512, 512);
+            ctx.fillStyle = 'rgba(241, 245, 249, 0.88)';
+            for (let y = 16; y < 512; y += 128) ctx.fillRect(96, y, 320, 68);
+        }, 1, { roughness: 0.8 });
+        dashedLineMat.transparent = true;
+        dashedLineMat.alphaTest = 0.2;
+        if (dashedLineMat.map) dashedLineMat.map.repeat.set(1, 24);
+        dashedLineMat.polygonOffset = true;
+        dashedLineMat.polygonOffsetFactor = -3;
+
+        const redWhiteCurbMat = this.makeTexMat('#e2e8f0', (ctx) => {
+            ctx.fillStyle = '#b91c1c';
+            for (let y = 0; y < 512; y += 128) ctx.fillRect(0, y, 512, 64);
+            for (let i = 0; i < 4000; i++) {
+                ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+            }
+        }, 1, { roughness: 0.88 });
+        if (redWhiteCurbMat.map) redWhiteCurbMat.map.repeat.set(1, 34);
+
+        const zebraMat = this.makeTexMat('#161920', (ctx) => {
+            ctx.clearRect(0, 0, 512, 512);
+            ctx.fillStyle = 'rgba(241, 245, 249, 0.88)';
+            for (let x = 16; x < 512; x += 48) ctx.fillRect(x, 20, 24, 472);
+        }, 1, { roughness: 0.85 });
+        zebraMat.transparent = true;
+        zebraMat.alphaTest = 0.2;
+        zebraMat.polygonOffset = true;
+        zebraMat.polygonOffsetFactor = -4;
+
+        const yellowLineMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.80 });
+        const tactileMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+        const medianIslandMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.92 });
+        const manholeMat = new THREE.MeshStandardMaterial({ color: 0x262930, roughness: 0.55, metalness: 0.72 });
+
+        // Secondary Soi roads & Bombsite Plazas
+        this.addGroundStrip(-54, 0.015, 0, 10, 206, soiAsphalt);
+        this.addGroundStrip(54, 0.015, 0, 10, 206, soiAsphalt);
+        this.addGroundStrip(0, 0.016, 56, 14, 206, soiAsphalt, Math.PI / 2);
+        this.addGroundStrip(0, 0.016, -56, 14, 206, soiAsphalt, Math.PI / 2);
+        this.addGroundStrip(68, 0.017, -12, 22, 22, soiAsphalt);
+        this.addGroundStrip(-68, 0.017, 12, 22, 22, soiAsphalt);
+
+        // Main Sukhumvit Avenue (44m wide) & Asoke Cross-Avenue (32m wide)
+        this.addGroundStrip(0, 0.020, 0, 44, 214, mainAsphalt);
+        this.addGroundStrip(0, 0.023, 0, 32, 214, crossAsphalt, Math.PI / 2);
+
+        // Crisp White Dashed Road Lane Dividers (4 lanes each direction on Sukhumvit + 2 lanes each on Asoke)
+        for (const lx of [-15.5, -9.0, 9.0, 15.5]) {
+            this.addGroundStrip(lx, 0.026, -61, 0.24, 86, dashedLineMat);
+            this.addGroundStrip(lx, 0.026, 61, 0.24, 86, dashedLineMat);
+        }
+        for (const lz of [-8.0, 8.0]) {
+            this.addGroundStrip(-64, 0.028, lz, 0.24, 82, dashedLineMat, Math.PI / 2);
+            this.addGroundStrip(64, 0.028, lz, 0.24, 82, dashedLineMat, Math.PI / 2);
+        }
+
+        // Yellow Centerlines on Asoke Cross-Avenue + Stop Bars
+        this.addGroundStrip(0, 0.029, -0.28, 212, 0.22, yellowLineMat);
+        this.addGroundStrip(0, 0.029, 0.28, 212, 0.22, yellowLineMat);
+        this.addGroundStrip(-12, 0.030, 21.2, 19, 0.45, new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.82 }));
+        this.addGroundStrip(12, 0.030, -21.2, 19, 0.45, new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.82 }));
+
+        // Physical 3D Raised Painted Curb Strips (non-colliding so players walk seamlessly!) + Sidewalk Yellow Tactile Strip
+        this.addOrientedPart(-22.25, 0, 0, 0, 0, 0, 0, 0.46, 0.09, 214, redWhiteCurbMat, { collider: false, shootable: false });
+        this.addOrientedPart(22.25, 0, 0, 0, 0, 0, 0, 0.46, 0.09, 214, redWhiteCurbMat, { collider: false, shootable: false });
+        this.addGroundStrip(-23.4, 0.025, 0, 0.36, 210, tactileMat);
+        this.addGroundStrip(23.4, 0.025, 0, 0.36, 210, tactileMat);
+
+        // Center Median Curb Islands (North & South of central intersection)
+        this.addGroundStrip(0, 0.032, 54, 3.4, 72, medianIslandMat);
+        this.addGroundStrip(0, 0.032, -54, 3.4, 72, medianIslandMat);
+        this.addGroundStrip(-1.75, 0.034, 54, 0.22, 72, yellowLineMat);
+        this.addGroundStrip(1.75, 0.034, 54, 0.22, 72, yellowLineMat);
+        this.addGroundStrip(-1.75, 0.034, -54, 0.22, 72, yellowLineMat);
+        this.addGroundStrip(1.75, 0.034, -54, 0.22, 72, yellowLineMat);
+
+        // Zebra Crosswalks around Central Intersection
+        this.addGroundStrip(0, 0.030, -18, 43, 4.0, zebraMat);
+        this.addGroundStrip(0, 0.030, 18, 43, 4.0, zebraMat);
+        this.addGroundStrip(-24, 0.030, 0, 4.0, 31, zebraMat, Math.PI / 2);
+        this.addGroundStrip(24, 0.030, 0, 4.0, 31, zebraMat, Math.PI / 2);
+
+        // Cast-iron Road Manhole Covers along Sukhumvit Gutter
+        for (const [mx, mz] of [[-19.5, 62], [19.5, 42], [-19.5, -28], [19.5, -62], [-19.5, 10], [19.5, -10]]) {
+            const mh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.02, 12), manholeMat);
+            mh.position.set(mx, 0.026, mz);
+            this.scene.add(mh);
+            this.mapObjects.push(mh);
+        }
+    }
+
+    buildBangkokThailand() {
+        this.buildSky('#0e2a4d', '#3b72a8', '#e8a86b', 730, 162, 'rgba(255, 224, 175, 1.0)');
+        this.updateAtmosphericLighting(0x7ab8f5, 0x262930, 0xffe4c4, 0xffdfba, 1.62);
+        if (this.game && this.game.sunLight) {
+            this.game.sunLight.position.set(55, 78, 36);
+        }
+        this.setFog(0xb6c4d4, 0.0026);
+
+        this.spawns = {
+            T: [
+                { x: 0, z: 95, yaw: 0 },
+                { x: -11, z: 96, yaw: 0 },
+                { x: 11, z: 96, yaw: 0 },
+                { x: -20, z: 94, yaw: 0 },
+                { x: 20, z: 94, yaw: 0 }
+            ],
+            CT: [
+                { x: 0, z: -95, yaw: Math.PI },
+                { x: -11, z: -96, yaw: Math.PI },
+                { x: 11, z: -96, yaw: Math.PI },
+                { x: -20, z: -94, yaw: Math.PI },
+                { x: 20, z: -94, yaw: Math.PI }
+            ]
+        };
+
+        this.bombsites = {
+            A: { x: 68, z: -12, radius: 8.5, label: 'A' },
+            B: { x: -68, z: 12, radius: 8.5, label: 'B' }
+        };
+
+        this.waypoints = [
+            // South Sukhumvit (T side)
+            { x: -12, z: 92 }, { x: 12, z: 92 }, { x: -26, z: 86 }, { x: 26, z: 86 },
+            { x: -8, z: 64 }, { x: 8, z: 64 }, { x: -26, z: 62 }, { x: 26, z: 62 },
+            { x: -9, z: 40 }, { x: 9, z: 40 }, { x: -26, z: 24 }, { x: 26, z: 24 },
+            // Central Intersection & Asoke Cross-Avenue
+            { x: 0, z: 10 }, { x: 0, z: -10 }, { x: -24, z: 0 }, { x: 24, z: 0 },
+            { x: -54, z: 0 }, { x: 54, z: 0 }, { x: -78, z: 0 }, { x: 78, z: 0 },
+            // Bombsite B & Night Market (West)
+            { x: -68, z: 12 }, { x: -82, z: 24 }, { x: -68, z: 24 }, { x: -76, z: 36.5 }, { x: -54, z: 36 },
+            // Bombsite A & Siam Plaza (East)
+            { x: 68, z: -12 }, { x: 71, z: 28 }, { x: 82, z: 24 }, { x: 54, z: -36 },
+            // West & East Parallel Soi Alleys + Inside Building Corridors
+            { x: -54, z: 72 }, { x: -54, z: 56 }, { x: -54, z: -24 }, { x: -54, z: -56 }, { x: -54, z: -76 },
+            { x: 54, z: 72 }, { x: 54, z: 56 }, { x: 54, z: 24 }, { x: 54, z: -56 }, { x: 54, z: -76 },
+            { x: -40, z: 38 }, { x: 40, z: 38 }, { x: -40, z: -34 }, { x: 40, z: -38 },
+            // North Sukhumvit (CT side)
+            { x: -9, z: -40 }, { x: 9, z: -40 }, { x: -8, z: -64 }, { x: 8, z: -64 },
+            { x: -12, z: -92 }, { x: 12, z: -92 }
+        ];
+
+        this.buildBangkokRoadGround();
+
+        // Weathered Architectural Materials
+        const concreteWallMat = this.makeTexMat('#878d96', (ctx) => {
+            const g = ctx.createLinearGradient(0, 0, 0, 512);
+            g.addColorStop(0, '#727882'); g.addColorStop(0.2, '#9298a1');
+            g.addColorStop(0.85, '#858b94'); g.addColorStop(1, '#474c54');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+            ctx.strokeStyle = 'rgba(20, 25, 32, 0.38)'; ctx.lineWidth = 3;
+            for (let y = 0; y < 512; y += 64) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+            }
+            for (let i = 0; i < 6000; i++) {
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.06)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+            }
+        }, 1, { bumpScale: 0.07, roughness: 0.90 });
+
+        const shophouseCream = this.makeTexMat('#dbd0b8', (ctx) => {
+            const g = ctx.createLinearGradient(0, 0, 0, 512);
+            g.addColorStop(0, '#cfc3aa'); g.addColorStop(0.82, '#dbd0b8'); g.addColorStop(1, '#7c7465');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+            for (let i = 0; i < 6000; i++) {
+                ctx.fillStyle = 'rgba(0,0,0,0.08)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+            }
+            // Metal roller-shutter texture accent on lower portion
+            ctx.fillStyle = 'rgba(71, 85, 105, 0.35)';
+            ctx.fillRect(48, 220, 416, 260);
+            for (let y = 228; y < 480; y += 14) {
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.25)'; ctx.fillRect(48, y, 416, 3);
+            }
+        }, 1, { bumpScale: 0.06, roughness: 0.88 });
+
+        const shophouseTerra = this.makeTexMat('#a45a44', (ctx) => {
+            const g = ctx.createLinearGradient(0, 0, 0, 512);
+            g.addColorStop(0, '#8f4b37'); g.addColorStop(0.82, '#a45a44'); g.addColorStop(1, '#572f24');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+            for (let y = 0; y < 512; y += 32) {
+                ctx.fillStyle = 'rgba(20, 10, 6, 0.16)'; ctx.fillRect(0, y, 512, 3);
+            }
+        }, 1, { bumpScale: 0.06, roughness: 0.90 });
+
+        const btsConcreteMat = this.makeTexMat('#b8c0cc', (ctx) => {
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 6; ctx.strokeRect(4, 4, 504, 504);
+            for (let i = 0; i < 5000; i++) {
+                ctx.fillStyle = 'rgba(0,0,0,0.09)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+            }
+        }, 1, { bumpScale: 0.06, roughness: 0.88 });
+
+        const glassTowerMat = this.makeTexMat('#0c1524', (ctx) => {
+            for (let y = 0; y < 512; y += 32) {
+                // Concrete/aluminum floor spandrel band
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(0, y, 512, 7);
+                for (let x = 0; x < 512; x += 24) {
+                    const lit = ((x * 7 + y * 13) % 11) > 5;
+                    ctx.fillStyle = lit ? (((x + y) % 3 === 0) ? '#fde68a' : '#7dd3fc') : '#152238';
+                    ctx.fillRect(x + 2, y + 7, 20, 24);
+                    // Reflection diagonal highlight
+                    ctx.fillStyle = 'rgba(186, 230, 253, 0.14)';
+                    ctx.fillRect(x + 3, y + 8, 7, 22);
+                    ctx.strokeStyle = '#090d16'; ctx.lineWidth = 2; ctx.strokeRect(x, y + 6, 24, 26);
+                }
+            }
+        }, 1, { roughness: 0.14, metalness: 0.82 });
+
+        const warmTowerMat = this.makeTexMat('#232b38', (ctx) => {
+            for (let y = 0; y < 512; y += 36) {
+                ctx.fillStyle = '#475569'; ctx.fillRect(0, y, 512, 8);
+                for (let x = 0; x < 512; x += 28) {
+                    const lit = ((x * 5 + y * 9) % 10) > 4;
+                    ctx.fillStyle = lit ? '#fcd34d' : '#1e293b';
+                    ctx.fillRect(x + 3, y + 8, 22, 26);
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.strokeRect(x, y + 6, 28, 30);
+                }
+            }
+        }, 1, { roughness: 0.24, metalness: 0.68 });
+
+        // Detailed Bangkok Upper Shophouse Windows, AC Units & Balconies
+        const upperShophouseMat = this.makeTexMat('#cfc7b8', (ctx) => {
+            for (let y = 24; y < 480; y += 112) {
+                ctx.fillStyle = 'rgba(0,0,0,0.09)'; ctx.fillRect(0, y + 92, 512, 8);
+                for (let x = 24; x < 480; x += 96) {
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(x, y, 56, 72);
+                    ctx.fillStyle = '#0f172a'; ctx.fillRect(x + 4, y + 4, 48, 64);
+                    ctx.fillStyle = '#38bdf8'; ctx.fillRect(x + 6, y + 6, 20, 58);
+                    ctx.fillStyle = '#1e3a5f'; ctx.fillRect(x + 30, y + 6, 20, 58);
+                    // Exterior AC compressor box beside window
+                    ctx.fillStyle = '#e2e8f0'; ctx.fillRect(x + 62, y + 42, 24, 22);
+                    ctx.fillStyle = '#334155'; ctx.fillRect(x + 66, y + 46, 12, 12);
+                }
+            }
+        }, 1, { bumpScale: 0.06, roughness: 0.84 });
+
+        const bankMarbleMat = this.makeTexMat('#dbe2ea', (ctx) => {
+            ctx.fillStyle = '#1e3a8a'; ctx.fillRect(0, 0, 512, 48);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
+            for (let y = 64; y < 512; y += 64) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+            }
+        }, 1, { roughness: 0.48 });
+
+        const shelfCrateMat = this.makeTexMat('#78350f', (ctx) => {
+            ctx.strokeStyle = '#451a03'; ctx.lineWidth = 14; ctx.strokeRect(8, 8, 496, 496);
+            ctx.fillStyle = '#f59e0b'; ctx.fillRect(42, 42, 428, 36);
+        }, 1, { roughness: 0.85 });
+
+        const counterMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.55 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.90 });
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.82, roughness: 0.32 });
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4b3019, roughness: 0.96 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x226835, roughness: 0.86 });
+        const leafDarkMat = new THREE.MeshStandardMaterial({ color: 0x164a24, roughness: 0.90 });
+        const wireMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
+        const shopAwningRed = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.85 });
+        const shopAwningBlue = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.85 });
+
+        this.buildPerimeterWalls(14, 3.0, concreteWallMat);
+
+        // =====================================================================
+        // 1. ELEVATED BTS SKYTRAIN VIADUCT, AERODYNAMIC TRAIN & 2 SKYWALKS
+        // =====================================================================
+        this.addBlock(0, 10.2, 0, 8.6, 1.35, 212, btsConcreteMat, false, false, { noRadar: true });
+        this.addBlock(-4.1, 11.55, 0, 0.4, 1.0, 212, btsConcreteMat, false, false, { noRadar: true });
+        this.addBlock(4.1, 11.55, 0, 0.4, 1.0, 212, btsConcreteMat, false, false, { noRadar: true });
+        this.addBlock(-4.35, 10.55, 0, 0.14, 0.45, 212, steelMat, false, false, { noRadar: true });
+        this.addBlock(4.35, 10.55, 0, 0.14, 0.45, 212, steelMat, false, false, { noRadar: true });
+
+        for (const pz of [-84, -60, -32, -19, 19, 32, 60, 84]) {
+            this.addBlock(0, 0, pz, 2.7, 0.65, 2.7, roofMat);
+            this.addBlock(0, 0.65, pz, 2.35, 9.55, 2.35, btsConcreteMat);
+            this.addBlock(0, 8.8, pz, 7.6, 1.4, 2.2, btsConcreteMat, false, false, { noRadar: true });
+        }
+        for (const bz of [-72, -48, -25, 25, 48, 72]) {
+            this.addConcreteBarrier(0, bz, Math.PI / 2);
+        }
+
+        // Static 2-Car BTS Skytrain Overhead with Aerodynamic Cabs & Headlights
+        const btsTrainMat = this.makeTexMat('#f8fafc', (ctx) => {
+            ctx.fillStyle = '#dc2626'; ctx.fillRect(0, 320, 512, 48);
+            ctx.fillStyle = '#1e3a8a'; ctx.fillRect(0, 368, 512, 64);
+            for (let x = 24; x < 490; x += 64) {
+                ctx.fillStyle = '#0f172a'; ctx.fillRect(x, 120, 44, 140);
+                ctx.fillStyle = '#bae6fd'; ctx.fillRect(x + 4, 126, 36, 128);
+            }
+        }, 1, { roughness: 0.28, metalness: 0.45 });
+        btsTrainMat.userData = { noTileRepeat: true };
+        this.addBlock(0, 11.65, -12, 3.6, 3.2, 20, btsTrainMat, false, false, { noRadar: true });
+        this.addBlock(0, 11.65, 12, 3.6, 3.2, 20, btsTrainMat, false, false, { noRadar: true });
+        // Sloped front & rear BTS driver noses with LED headlights
+        this.addOrientedPart(0, 11.65, 22.4, 0, 0, 0, 0, 3.4, 2.9, 1.6, new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 }), { rotX: -0.22, collider: false, shootable: false });
+        this.addOrientedPart(0, 11.65, -22.4, 0, 0, 0, 0, 3.4, 2.9, 1.6, new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 }), { rotX: 0.22, collider: false, shootable: false });
+        this.addOrientedPart(-1.0, 12.1, 23.25, 0, 0, 0, 0, 0.5, 0.25, 0.1, new THREE.MeshBasicMaterial({ color: 0xfffbeb }), { collider: false, shootable: false });
+        this.addOrientedPart(1.0, 12.1, 23.25, 0, 0, 0, 0, 0.5, 0.25, 0.1, new THREE.MeshBasicMaterial({ color: 0xfffbeb }), { collider: false, shootable: false });
+
+        const skywalkAdMat = this.makeSignMaterial('BANGKOK, THAILAND • กรุงเทพฯ', '#1e3a8a', '#facc15', '#dc2626', true);
+        this.addBangkokSkywalk(44, 1, btsConcreteMat, steelMat, skywalkAdMat);
+        this.addBangkokSkywalk(-44, -1, btsConcreteMat, steelMat, skywalkAdMat);
+
+        this.addRoadGantrySign(68, steelMat, 'THAILAND | สุขุมวิท - อโศก - สยาม');
+        this.addRoadGantrySign(-68, steelMat, 'BANGKOK | สีลม - อนุสาวรีย์ฯ - BKK');
+
+        // =====================================================================
+        // 2. ENTERABLE BANGKOK SHOPHOUSES, 24H MART, POLICE, BANK & SKYSCRAPERS
+        // =====================================================================
+        this.buildBangkokBuilding({
+            x: -40, z: 38, w: 18, d: 20, h: 4.6, upperH: 6.2,
+            wallMat: shophouseCream, upperMat: upperShophouseMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'E', interiorMode: 'aisles', awningMat: shopAwningRed,
+            signText: '24H MART • สุขุมวิท 24', signBg: '#064e3b', signFg: '#fde047', signAccent: '#f97316'
+        });
+        this.buildBangkokBuilding({
+            x: -40, z: 76, w: 18, d: 22, h: 4.6, upperH: 7.4,
+            wallMat: shophouseTerra, upperMat: upperShophouseMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'E', interiorMode: 'shophouse', awningMat: shopAwningBlue,
+            signText: 'ก๋วยเตี๋ยวเรือ • ตึกแถว', signBg: '#7f1d1d', signFg: '#fef08a', signAccent: '#facc15'
+        });
+        this.buildBangkokBuilding({
+            x: -40, z: -38, w: 18, d: 20, h: 4.6, upperH: 6.8,
+            wallMat: shophouseTerra, upperMat: upperShophouseMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'E', interiorMode: 'shophouse', awningMat: shopAwningRed,
+            signText: 'กาแฟโบราณ • SIAM CAFE', signBg: '#451a03', signFg: '#fde68a', signAccent: '#d97706'
+        });
+        this.buildBangkokBuilding({
+            x: -40, z: -76, w: 18, d: 22, h: 4.8, upperH: 5.0,
+            wallMat: concreteWallMat, upperMat: concreteWallMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], doorW: 5.4, colonnadeSide: 'E', interiorMode: 'garage',
+            signText: 'อู่ซ่อมรถ • BKK AUTO', signBg: '#1e293b', signFg: '#fb923c', signAccent: '#38bdf8'
+        });
+
+        this.buildBangkokBuilding({
+            x: 40, z: -38, w: 18, d: 20, h: 4.6, upperH: 6.2,
+            wallMat: shophouseCream, upperMat: upperShophouseMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'W', interiorMode: 'aisles', awningMat: shopAwningBlue,
+            signText: '24H PHARMACY • BKK', signBg: '#1e3a8a', signFg: '#ffffff', signAccent: '#22c55e'
+        });
+        this.buildBangkokBuilding({
+            x: 40, z: -76, w: 18, d: 22, h: 4.8, upperH: 20.0, isSkyscraper: true,
+            wallMat: concreteWallMat, upperMat: warmTowerMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'W', interiorMode: 'lobby',
+            signText: 'SILOM CONDO • สีลม', signBg: '#0f172a', signFg: '#38bdf8', signAccent: '#fbbf24'
+        });
+        this.buildBangkokBuilding({
+            x: 40, z: 38, w: 18, d: 20, h: 4.6, upperH: 6.0,
+            wallMat: concreteWallMat, upperMat: concreteWallMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'W', interiorMode: 'police',
+            signText: 'สน. อโศก • POLICE 191', signBg: '#7f1d1d', signFg: '#ffffff', signAccent: '#2563eb'
+        });
+        this.buildBangkokBuilding({
+            x: 40, z: 76, w: 18, d: 22, h: 4.6, upperH: 7.4,
+            wallMat: shophouseCream, upperMat: upperShophouseMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'W', interiorMode: 'shophouse', awningMat: shopAwningRed,
+            signText: 'ฮาร์ดแวร์ • สุขุมวิท', signBg: '#1e293b', signFg: '#facc15', signAccent: '#ef4444'
+        });
+
+        this.buildBangkokBuilding({
+            x: 90, z: -35, w: 20, d: 22, h: 5.0, upperH: 12.0,
+            wallMat: bankMarbleMat, upperMat: bankMarbleMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'W'], doorW: 5.0, colonnadeSide: 'S', interiorMode: 'bank',
+            signText: 'ธนาคารสยาม • SIAM BANK', signBg: '#1e3a8a', signFg: '#fde047', signAccent: '#f8fafc', signSide: 'S'
+        });
+        this.buildBangkokBuilding({
+            x: 95, z: 2, w: 16, d: 22, h: 5.0, upperH: 16.0, isSkyscraper: true,
+            wallMat: bankMarbleMat, upperMat: glassTowerMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'W'], doorW: 5.2, colonnadeSide: 'W', interiorMode: 'lobby',
+            signText: 'SIAM PLAZA MALL', signBg: '#0f172a', signFg: '#f472b6', signAccent: '#38bdf8'
+        });
+
+        this.buildBangkokBuilding({
+            x: -92, z: -2, w: 16, d: 22, h: 4.8, upperH: 4.2,
+            wallMat: concreteWallMat, upperMat: btsConcreteMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E'], doorW: 5.0, colonnadeSide: 'E', interiorMode: 'terminal',
+            signText: 'ท่ารถ ขสมก. • TERMINAL', signBg: '#9a3412', signFg: '#fef08a', signAccent: '#ffffff'
+        });
+        this.buildBangkokBuilding({
+            x: -82, z: -38, w: 22, d: 20, h: 4.8, upperH: 26.0, isSkyscraper: true,
+            wallMat: shophouseCream, upperMat: warmTowerMat, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], colonnadeSide: 'E', interiorMode: 'lobby',
+            signText: 'ASOKE RESIDENCE • อโศก', signBg: '#1e293b', signFg: '#fde047', signAccent: '#10b981'
+        });
+
+        const cornerTowers = [
+            { x: -86, z: -78, upperH: 30, uMat: glassTowerMat, sign: 'BANGKOK TOWER W', side: 'E' },
+            { x: -86, z: 78, upperH: 26, uMat: warmTowerMat, sign: 'THAILAND PLAZA S', side: 'E' },
+            { x: 86, z: -78, upperH: 36, uMat: glassTowerMat, sign: 'MAHANAKHON SKY', side: 'W' },
+            { x: 86, z: 78, upperH: 28, uMat: warmTowerMat, sign: 'HOTEL BANGKOK', side: 'W' }
+        ];
+        for (const ct of cornerTowers) {
+            this.buildBangkokBuilding({
+                x: ct.x, z: ct.z, w: 24, d: 24, h: 4.8, upperH: ct.upperH, isSkyscraper: true,
+                wallMat: concreteWallMat, upperMat: ct.uMat, roofMat, crateMat: shelfCrateMat, counterMat,
+                openSides: ['N', 'S', 'E', 'W'], doorW: 4.8, interiorMode: 'lobby',
+                signText: ct.sign, signBg: '#020617', signFg: '#38bdf8', signAccent: '#facc15', signSide: ct.side
+            });
+        }
+
+        // =====================================================================
+        // 3. DETAILED 3D VEHICLES ON THE ROADS (TAXIS, TUK-TUKS, BUSES, VANS, TRUCKS)
+        // =====================================================================
+        const pal = this.createBangkokVehiclePalette();
+        this.addThaiVehicle('sedan', -42.5, -76, 0, pal, pal.blue);
+
+        const southTraffic = [
+            ['taxi_green', -8, 76, 0],
+            ['tuktuk', -16, 72, 0],
+            ['pickup', 9, 77, Math.PI],
+            ['taxi_pink', 16, 68, Math.PI],
+            ['bus_red', -17, 56, 0],
+            ['van', -7, 52, 0],
+            ['truck', 15, 55, Math.PI],
+            ['tuktuk', 7, 48, Math.PI],
+            ['taxi_pink', -13, 32, 0],
+            ['sedan', -6, 25, 0, pal.charcoal],
+            ['bus_orange', 15, 30, Math.PI],
+            ['tuktuk', 7, 23, Math.PI]
+        ];
+        const northTraffic = [
+            ['taxi_green', 8, -76, Math.PI],
+            ['tuktuk', 16, -72, Math.PI],
+            ['pickup', -9, -77, 0, pal.charcoal],
+            ['taxi_pink', -16, -68, 0],
+            ['bus_red', 17, -56, Math.PI],
+            ['van', 7, -52, Math.PI],
+            ['truck', -15, -55, 0],
+            ['tuktuk', -7, -48, 0],
+            ['taxi_green', 13, -32, Math.PI],
+            ['sedan', 6, -25, Math.PI, pal.silver],
+            ['bus_orange', -15, -30, 0],
+            ['tuktuk', -7, -23, 0]
+        ];
+        const crossTraffic = [
+            ['tuktuk', -11, -7, Math.PI / 2],
+            ['taxi_pink', 11, 7, -Math.PI / 2],
+            ['pickup', -14, 9, Math.PI / 2],
+            ['taxi_green', 14, -9, -Math.PI / 2],
+            ['bus_red', -38, -7, Math.PI / 2],
+            ['truck', -52, 8, Math.PI / 2],
+            ['tuktuk', -40, 8, -Math.PI / 2],
+            ['taxi_pink', -74, -8, Math.PI / 2],
+            ['van', -81, 7, -Math.PI / 2],
+            ['bus_orange', 38, 7, -Math.PI / 2],
+            ['truck', 52, -8, -Math.PI / 2],
+            ['tuktuk', 40, -8, Math.PI / 2],
+            ['taxi_green', 74, 8, -Math.PI / 2],
+            ['sedan', 81, -7, Math.PI / 2, pal.navy],
+            ['tuktuk', -54, 64, 0],
+            ['foodcart', -57, 25, Math.PI / 2, pal.awningRed],
+            ['foodcart', 57, -25, -Math.PI / 2, pal.awningBlue],
+            ['van', 76, -22, Math.PI / 2]
+        ];
+
+        for (const [vType, vx, vz, vRot, vCol] of [...southTraffic, ...northTraffic, ...crossTraffic]) {
+            this.addThaiVehicle(vType, vx, vz, vRot, pal, vCol || null);
+        }
+
+        // =====================================================================
+        // 4. NIGHT MARKET STALLS, SIAM PLAZA & TACTICAL HIDING CORNERS
+        // =====================================================================
+        const marketStalls = [
+            [-88, 30, 0, pal.awningRed], [-76, 30, Math.PI, pal.awningBlue], [-64, 30, 0, pal.awningGreen],
+            [-88, 43, Math.PI, pal.awningGreen], [-76, 43, 0, pal.awningRed], [-64, 43, Math.PI, pal.awningBlue]
+        ];
+        for (const [mx, mz, mRot, mMat] of marketStalls) {
+            this.addNightMarketStall(mx, mz, mRot, mMat, counterMat, shelfCrateMat, steelMat);
+        }
+        this.addThaiVehicle('foodcart', -70, 36.5, 0, pal, pal.awningRed);
+        this.addThaiVehicle('tuktuk', -82, 36.5, Math.PI / 2, pal);
+
+        this.buildBangkokBuilding({
+            x: 82, z: 37, w: 12, d: 11, h: 3.8, upperH: 0,
+            wallMat: shophouseCream, roofMat, crateMat: shelfCrateMat, counterMat,
+            openSides: ['N', 'S', 'E', 'W'], doorW: 3.4, interiorMode: 'shophouse',
+            signText: 'SIAM COFFEE • กาแฟ', signBg: '#1e293b', signFg: '#fde68a', signSide: 'W'
+        });
+        this.addBlock(66, 0, 32, 5.2, 1.45, 1.1, btsConcreteMat, true);
+        this.addBlock(64, 0, 35, 1.1, 1.45, 5.0, btsConcreteMat, true);
+        this.addBlock(69, 0, 44, 5.2, 1.45, 1.1, btsConcreteMat, true);
+        this.addContainerProp(94, 46, 6.2, 2.6, 2.6, Math.PI / 2, 0x0f766e, 'BKK-PLZ');
+
+        this.addConcreteBarrier(62, -16, 0);
+        this.addConcreteBarrier(73, -6, Math.PI / 2);
+        this.addBlock(74, 0, -17, 2.0, 2.2, 2.0, shelfCrateMat, true);
+        this.addBarrelProp(63, -7, 0xd97706, true);
+
+        this.addConcreteBarrier(-62, 16, 0);
+        this.addConcreteBarrier(-73, 6, Math.PI / 2);
+        this.addBlock(-74, 0, 17, 2.0, 2.2, 2.0, shelfCrateMat, true);
+        this.addBarrelProp(-63, 7, 0x1d4ed8, false);
+
+        this.addConcreteBarrier(-7, 86, 0);
+        this.addConcreteBarrier(7, 86, 0);
+        this.addConcreteBarrier(-7, -86, 0);
+        this.addConcreteBarrier(7, -86, 0);
+
+        // =====================================================================
+        // 5. BUS SHELTERS, ORGANIC TREES, TRASH BINS, POLES & STREETLAMPS
+        // =====================================================================
+        this.addBusShelter(-23.5, 68, concreteWallMat, roofMat, 'ป้ายรถเมล์ • BUS STOP');
+        this.addBusShelter(23.5, -68, concreteWallMat, roofMat, 'ป้ายรถเมล์ • BUS STOP');
+        this.addBusShelter(-23.5, -24, concreteWallMat, roofMat, 'สยาม • SIAM STATION');
+        this.addBusShelter(23.5, 24, concreteWallMat, roofMat, 'อโศก • ASOKE STATION');
+
+        this.addThaiFlagPole(30, -21, steelMat);
+        this.addThaiFlagPole(-30, 21, steelMat);
+
+        const treeCoords = [
+            [-28.5, 22], [28.5, -22], [-28.5, -22], [28.5, 22],
+            [-62, -22], [62, 22], [-62, 56], [62, -56],
+            [-29.5, 90], [29.5, -90], [-29.5, -90], [29.5, 90]
+        ];
+        for (const [tx, tz] of treeCoords) {
+            this.addBangkokTree(tx, tz, btsConcreteMat, trunkMat, leafMat, leafDarkMat);
+        }
+
+        // Green GTM Municipal Sidewalk Trash Bins & Traffic Cones
+        const binMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.65 });
+        const coneMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.65 });
+        for (const [bx, bz] of [[-23.5, 34], [23.5, 34], [-23.5, -34], [23.5, -34], [-23.5, 76], [23.5, -76]]) {
+            this.addBlock(bx, 0, bz, 0.58, 0.95, 0.58, binMat, true);
+        }
+        for (const [cx, cz] of [[-20.5, 84], [20.5, 84], [-20.5, -84], [20.5, -84], [-21.2, 20], [21.2, -20]]) {
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.72, 10), coneMat);
+            cone.position.set(cx, 0.36, cz);
+            cone.castShadow = true;
+            this.scene.add(cone);
+            this.mapObjects.push(cone);
+        }
+
+        this.addBangkokUtilityPoles(-23.2, [-88, -62, -34, -18, 18, 34, 62, 88], btsConcreteMat, wireMat);
+        this.addBangkokUtilityPoles(23.2, [-88, -62, -34, -18, 18, 34, 62, 88], btsConcreteMat, wireMat);
+
+        const soiClusters = [
+            [-54, -40, 2], [54, 40, 2], [-54, 92, 0], [54, -92, 0],
+            [-36, 56, 2], [36, -56, 2], [-72, -56, 1], [72, 56, 1]
+        ];
+        soiClusters.forEach(([cx, cz, v], idx) => {
+            this.buildHideCluster(cx, cz, concreteWallMat, shelfCrateMat, idx % 2 === 0 ? 0x0f766e : 0xb45309, `SOI-${idx + 1}`, v);
+        });
+
+        for (const [lx, lz] of [[-22.8, 76], [22.8, 76], [-22.8, 28], [22.8, 28], [-22.8, -28], [22.8, -28], [-22.8, -76], [22.8, -76]]) {
+            this.addBangkokStreetLamp(lx, lz, steelMat);
+        }
+    }
+
     getInBombsite(x, z) {
         if (!this.bombsites) return null;
         for (const key of ['A', 'B']) {
@@ -3468,8 +4808,18 @@ class GameMap {
             const toX = (wx) => (wx + this.mapSize / 2) * scale;
             const toY = (wz) => (wz + this.mapSize / 2) * scale;
 
+            if (this.currentMapId === 'de_bangkok_thailand') {
+                bctx.fillStyle = 'rgba(30, 41, 59, 0.72)';
+                bctx.fillRect(toX(-22), 0, 44 * scale, height);
+                bctx.fillRect(0, toY(-16), width, 32 * scale);
+                bctx.fillStyle = 'rgba(250, 204, 21, 0.35)';
+                bctx.fillRect(toX(-0.6), 0, 1.2 * scale, height);
+                bctx.fillRect(0, toY(-0.5), width, 1.0 * scale);
+            }
+
             bctx.fillStyle = 'rgba(148, 163, 184, 0.38)';
             for (const c of this.colliders) {
+                if (c.noRadar) continue;
                 const rx = toX(c.minX);
                 const ry = toY(c.minZ);
                 const rw = (c.maxX - c.minX) * scale;
